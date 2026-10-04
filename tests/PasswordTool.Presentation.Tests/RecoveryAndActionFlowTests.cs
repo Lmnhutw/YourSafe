@@ -215,6 +215,34 @@ public sealed class RecoveryAndActionFlowTests
         Assert.Contains("Delete permanently", context.Dialogs.ConfirmationTitles);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Overlapping_item_saves_add_one_record_and_release_busy_state_after_completion_or_lock(bool lockBeforeCompletion)
+    {
+        var runner = new HoldFirstResultRunner();
+        using var context = new Context(runner);
+        var input = new VaultItemEditorInput(null, "First item", "", "saved password", "", "", "", "", null, "", false, false, false);
+        var saving = context.Shell.SaveItemAsync(input);
+        await runner.Completed.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.True(context.Shell.IsSavingItem);
+        Assert.False(await context.Shell.SaveItemAsync(input));
+        Assert.Single(context.Vault.GetItems());
+        if (lockBeforeCompletion) await context.Shell.LockCommand.ExecuteAsync(null);
+        runner.Release.SetResult();
+        Assert.Equal(!lockBeforeCompletion, await saving);
+        Assert.False(context.Shell.IsSavingItem);
+
+        if (lockBeforeCompletion) await context.Shell.UnlockAsync(Context.Password, "");
+        Assert.Single(context.Vault.GetItems());
+        Assert.False(await context.Shell.SaveItemAsync(input with { Title = "" }));
+        Assert.False(context.Shell.IsSavingItem);
+        Assert.Single(context.Vault.GetItems());
+        Assert.True(await context.Shell.SaveItemAsync(input with { Title = "Second item" }));
+        Assert.False(context.Shell.IsSavingItem);
+        Assert.Equal(2, context.Vault.GetItems().Count);
+    }
+
     [Fact]
     public async Task Permanent_delete_confirmation_from_a_previous_unlock_is_discarded()
     {
@@ -248,12 +276,12 @@ public sealed class RecoveryAndActionFlowTests
         public AppFlowCoordinator Flow { get; }
         public ShellViewModel Shell { get; }
 
-        public Context()
+        public Context(IVaultOperationRunner? operationRunner = null)
         {
             Secret = Totp.GenerateSecret();
             Vault = new(new VaultStorageService(Directory), new EncryptionService(), Totp, utcNow: () => Now);
             Vault.InitializeNewVault(Password, Secret, Totp.GetCurrentCode(Secret).Code, RecoveryKey, true);
-            Flow = new(Vault, Runner, Totp);
+            Flow = new(Vault, operationRunner ?? Runner, Totp);
             var workspace = new VaultWorkspaceViewModel(Flow);
             var picker = new Picker();
             var mapper = new UserErrorMapper();

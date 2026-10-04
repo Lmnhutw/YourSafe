@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace PasswordTool_WinUI;
 
@@ -24,6 +25,7 @@ internal sealed class DialogLifetime
             if (requestedGeneration != generation) return ContentDialogResult.None;
             active = dialog;
             dialog.XamlRoot = ((FrameworkElement)App.Window.Content).XamlRoot;
+            App.Services.GetRequiredService<AppearanceService>().ApplyTo(dialog);
             using var registration = cancellationToken.Register(() =>
                 App.DispatcherQueue.TryEnqueue(() => { if (active == dialog) dialog.Hide(); }));
             var result = await dialog.ShowAsync();
@@ -33,6 +35,7 @@ internal sealed class DialogLifetime
         finally
         {
             active = null;
+            App.Services.GetRequiredService<AppearanceService>().Release(dialog);
             dialog.Content = null;
             gate.Release();
         }

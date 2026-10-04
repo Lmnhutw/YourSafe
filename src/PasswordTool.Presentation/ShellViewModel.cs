@@ -55,6 +55,7 @@ public sealed partial class ShellViewModel : ObservableObject
     [ObservableProperty] public partial AppRoute CurrentRoute { get; set; } = AppRoute.Vault;
     [ObservableProperty] public partial string StatusMessage { get; set; } = string.Empty;
     [ObservableProperty] public partial bool IsStatusOpen { get; set; }
+    [ObservableProperty] public partial bool IsSavingItem { get; set; }
     [ObservableProperty] public partial bool IsRecovering { get; set; }
     [ObservableProperty] public partial bool IsBackupReminderOpen { get; set; }
     [ObservableProperty] public partial string RecoveryPath { get; set; } = string.Empty;
@@ -338,6 +339,8 @@ public sealed partial class ShellViewModel : ObservableObject
 
     public async Task<bool> SaveItemAsync(VaultItemEditorInput input)
     {
+        if (IsSavingItem) return false;
+        IsSavingItem = true;
         var version = LifecycleVersion;
         try
         {
@@ -370,6 +373,7 @@ public sealed partial class ShellViewModel : ObservableObject
             ShowMappedError(exception);
             return false;
         }
+        finally { IsSavingItem = false; }
     }
 
     public async Task<VaultGroup?> CreateGroupAsync(string name, string? accentColor = null)

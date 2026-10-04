@@ -22,6 +22,7 @@ internal static class ServiceRegistration
         services.AddSingleton<TotpService>();
         services.AddSingleton<PasswordGeneratorService>();
         services.AddSingleton<DialogLifetime>();
+        services.AddSingleton<AppearanceService>();
         services.AddSingleton<IPasswordHasherRegistry, PasswordHasherRegistry>();
         services.AddSingleton<PasswordHasherFactory>();
         services.AddSingleton<PasswordHashInspector>();

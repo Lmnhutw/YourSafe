@@ -906,8 +906,9 @@ public sealed class VaultService : IDisposable
         if (vaultData!.Groups.Any(group => group.Id != id && string.Equals(group.Name, name, StringComparison.CurrentCultureIgnoreCase)))
             throw new ArgumentException("A group with this name already exists.", nameof(name));
         var group = vaultData.Groups.FirstOrDefault(group => group.Id == id) ?? throw new KeyNotFoundException("Group not found.");
+        accentColor = NormalizeAccentColor(accentColor);
         group.Name = name;
-        group.AccentColor = NormalizeAccentColor(accentColor);
+        group.AccentColor = accentColor;
         group.UpdatedAt = utcNow();
         SaveVault();
     }
@@ -1672,7 +1673,9 @@ public sealed class VaultService : IDisposable
         foreach (var group in data.Groups)
         {
             group.Name = ValidateGroupName(group.Name);
-            group.AccentColor = NormalizeAccentColor(group.AccentColor);
+            // Invalid cosmetic metadata from older builds must not prevent opening the vault.
+            try { group.AccentColor = NormalizeAccentColor(group.AccentColor); }
+            catch (ArgumentException) { group.AccentColor = null; }
         }
         foreach (var item in data.Items)
         {
@@ -1730,7 +1733,7 @@ public sealed class VaultService : IDisposable
     {
         value = value?.Trim();
         if (string.IsNullOrEmpty(value)) return null;
-        if (value.Length != 7 || value[0] != '#' || !int.TryParse(value.AsSpan(1), System.Globalization.NumberStyles.HexNumber, null, out _))
+        if (value.Length != 7 || value[0] != '#' || !int.TryParse(value.AsSpan(1), System.Globalization.NumberStyles.AllowHexSpecifier, null, out _))
             throw new ArgumentException("Accent color must use #RRGGBB format.", nameof(value));
         return value.ToUpperInvariant();
     }

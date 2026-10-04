@@ -19,6 +19,7 @@ public sealed partial class MainPage : Page
     private readonly ISystemLockMonitor systemLockMonitor = App.Services.GetRequiredService<ISystemLockMonitor>();
     private readonly ISensitiveClipboardService sensitiveClipboard = App.Services.GetRequiredService<ISensitiveClipboardService>();
     private readonly IUserDialogService dialogs = App.Services.GetRequiredService<IUserDialogService>();
+    private readonly AppearanceService appearance = App.Services.GetRequiredService<AppearanceService>();
     private readonly PasswordGeneratorDialogService passwordGeneratorDialog = App.Services.GetRequiredService<PasswordGeneratorDialogService>();
     private int lifecycleLockInProgress;
     private Guid? editingItemId;
@@ -27,6 +28,10 @@ public sealed partial class MainPage : Page
     private bool recoveryWizardInProgress;
     private bool setupCompletionInProgress;
     private bool rotatingRecoveryKey;
+    private bool updatingAppearanceInputs = true;
+    private bool updatingNavigation;
+    private bool confirmingEditorDiscard;
+    private VaultItemEditorInput? editorBaseline;
     private readonly DispatcherTimer signInTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private bool hadSignIn;
     private readonly Windows.UI.ViewManagement.AccessibilitySettings accessibility = new();
@@ -55,6 +60,8 @@ public sealed partial class MainPage : Page
             DispatcherQueue.TryEnqueue(systemLockMonitor.Start);
             signInTimer.Start();
             uiSettings.ColorValuesChanged += UiSettings_ColorValuesChanged;
+            appearance.Changed += Appearance_Changed;
+            SyncAppearanceInputs();
             ApplyGroupTabPlacement();
             ApplyShellState();
             FocusCurrentAuthenticationStep();
@@ -63,6 +70,7 @@ public sealed partial class MainPage : Page
         {
             systemLockMonitor.LockRequired -= SystemLockMonitor_LockRequired;
             uiSettings.ColorValuesChanged -= UiSettings_ColorValuesChanged;
+            appearance.Changed -= Appearance_Changed;
             systemLockMonitor.Stop();
             signInTimer.Stop();
         };
@@ -79,15 +87,7 @@ public sealed partial class MainPage : Page
             Convert.ToByte(value.Substring(1, 2), 16),
             Convert.ToByte(value.Substring(3, 2), 16),
             Convert.ToByte(value.Substring(5, 2), 16)));
-    private static Brush GroupTextBrush(string value)
-    {
-        var r = Convert.ToByte(value.Substring(1, 2), 16);
-        var g = Convert.ToByte(value.Substring(3, 2), 16);
-        var b = Convert.ToByte(value.Substring(5, 2), 16);
-        return new SolidColorBrush((r * 299 + g * 587 + b * 114) / 1000 >= 140
-            ? Windows.UI.Color.FromArgb(255, 0, 0, 0)
-            : Windows.UI.Color.FromArgb(255, 255, 255, 255));
-    }
+    private static Brush GroupTextBrush(string value) => GroupBrush(AppearanceSettings.TextColorFor(value));
 
     private void VaultRow_Loaded(object sender, RoutedEventArgs e)
     {
@@ -113,45 +113,19 @@ public sealed partial class MainPage : Page
             grid.ColumnDefinitions[index].Width = new GridLength(widths[index]);
     }
 
-    private static void ApplyVaultIconHover(DependencyObject parent)
+    private void ApplyVaultIconHover(DependencyObject parent)
     {
         for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
         {
             var child = VisualTreeHelper.GetChild(parent, i);
             if (child is Button button)
             {
-                button.Padding = new Thickness(0);
-                button.PointerEntered -= VaultIconButton_PointerEntered;
-                button.PointerExited -= VaultIconButton_PointerExited;
-                button.PointerEntered += VaultIconButton_PointerEntered;
-                button.PointerExited += VaultIconButton_PointerExited;
+                button.Style = (Style)Resources["VaultRowIconButtonStyle"];
                 continue;
             }
 
             ApplyVaultIconHover(child);
         }
-    }
-
-    private static void VaultIconButton_PointerEntered(object sender, PointerRoutedEventArgs e)
-    {
-        if (sender is not Button button) return;
-        button.BorderBrush = (Brush)Application.Current.Resources["AccentFillColorDefaultBrush"];
-    }
-
-    private static void VaultIconButton_PointerExited(object sender, PointerRoutedEventArgs e) =>
-        ((Button)sender).BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
-
-    private void GroupTab_PointerEntered(object sender, PointerRoutedEventArgs e)
-    {
-        if (sender is Button { Tag: VaultItemGroup group } button && group != ViewModel.Vault.SelectedGroup)
-        {
-            button.Style = (Style)Resources["VaultHoverTabButtonStyle"];
-        }
-    }
-
-    private void GroupTab_PointerExited(object sender, PointerRoutedEventArgs e)
-    {
-        if (sender is Button button) UpdateGroupTab(button);
     }
 
     private void Vault_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -167,8 +141,11 @@ public sealed partial class MainPage : Page
     private void UiSettings_ColorValuesChanged(Windows.UI.ViewManagement.UISettings sender, object args) =>
         DispatcherQueue.TryEnqueue(UpdateGroupTabs);
 
-    private string? DisplayGroupColor(VaultItemGroup group) =>
-        !accessibility.HighContrast && OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000) ? group.AccentColor : null;
+    private string DisplayGroupName(VaultItemGroup group) => group.Id is not null ? group.Name
+        : group.IsAll ? appearance.Settings.AllTabName ?? group.Name : appearance.Settings.UngroupedTabName ?? group.Name;
+    private string? GroupColor(VaultItemGroup group) => group.Id is not null ? group.AccentColor
+        : group.IsAll ? appearance.Settings.AllTabColor : appearance.Settings.UngroupedTabColor;
+    private string? DisplayGroupColor(VaultItemGroup group) => accessibility.HighContrast ? null : GroupColor(group);
 
     private void UpdateGroupTab(Button button)
     {
@@ -178,6 +155,15 @@ public sealed partial class MainPage : Page
         button.ClearValue(Control.ForegroundProperty);
         button.ClearValue(Control.BorderBrushProperty);
         button.Style = (Style)Resources[selected ? "VaultSelectedTabButtonStyle" : "VaultTabButtonStyle"];
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, DisplayGroupName(group));
+        ToolTipService.SetToolTip(button, DisplayGroupName(group));
+        if (button.Content is Grid label && label.Children.OfType<TextBlock>().FirstOrDefault() is { } title)
+            title.Text = DisplayGroupName(group);
+        if (button.Content is Grid content && content.Children.OfType<Border>().FirstOrDefault() is { } marker)
+        {
+            marker.Visibility = DisplayGroupColor(group) is null ? Visibility.Collapsed : Visibility.Visible;
+            if (DisplayGroupColor(group) is { } markerColor) marker.Background = GroupBrush(markerColor);
+        }
         if (selected && DisplayGroupColor(group) is { Length: > 0 } color)
         {
             button.Background = GroupBrush(color);
@@ -196,8 +182,6 @@ public sealed partial class MainPage : Page
         for (var index = 0; index < ViewModel.Vault.GroupTabs.Count; index++)
             if (GroupTabsRepeater.TryGetElement(index) is Button button) UpdateGroupTab(button);
         GroupTableFrame.ClearValue(Border.BackgroundProperty);
-        if (DisplayGroupColor(ViewModel.Vault.SelectedGroup) is { Length: > 0 } color)
-            GroupTableFrame.Background = GroupBrush(color);
     }
 
     private void GroupTab_Loaded(object sender, RoutedEventArgs e)
@@ -214,7 +198,45 @@ public sealed partial class MainPage : Page
 
     private void GroupTabPlacement_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        ViewModel.Vault.IsVerticalTabs = GroupTabPlacement.SelectedIndex == 1;
+        if (!updatingAppearanceInputs && GroupTabPlacement.SelectedIndex >= 0)
+            SaveAppearance(appearance.Settings with { IsVerticalTabs = GroupTabPlacement.SelectedIndex == 1 });
+    }
+
+    private void Appearance_Changed(object? sender, EventArgs e)
+    {
+        SyncAppearanceInputs();
+        UpdateGroupTabs();
+    }
+
+    private void SyncAppearanceInputs()
+    {
+        updatingAppearanceInputs = true;
+        try
+        {
+            AppThemeInput.SelectedIndex = (int)appearance.Settings.Theme;
+            GroupTabPlacement.SelectedIndex = appearance.Settings.IsVerticalTabs ? 1 : 0;
+            ViewModel.Vault.IsVerticalTabs = appearance.Settings.IsVerticalTabs;
+            AppearanceStatus.Text = $"Background: {appearance.Settings.Theme}. Tab names and colors can be changed from their right-click menu.";
+        }
+        finally { updatingAppearanceInputs = false; }
+    }
+
+    private void AppearanceSelection_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (updatingAppearanceInputs || AppThemeInput.SelectedIndex < 0) return;
+        SaveAppearance(appearance.Settings with { Theme = (AppearanceTheme)AppThemeInput.SelectedIndex });
+    }
+
+    private void SaveAppearance(AppearanceSettings settings)
+    {
+        try { appearance.Save(settings); AppearanceStatus.Text += " Appearance saved."; }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            SyncAppearanceInputs();
+            AppearanceStatus.Text = "Appearance could not be saved. Check access to the app's local storage and try again.";
+            ViewModel.StatusMessage = AppearanceStatus.Text;
+            ViewModel.IsStatusOpen = true;
+        }
     }
 
     private void ApplyGroupTabPlacement()
@@ -358,11 +380,19 @@ public sealed partial class MainPage : Page
 
     private async void ShellNavigation_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
+        if (updatingNavigation) return;
         var selectedItem = args.SelectedItemContainer ?? args.SelectedItem as NavigationViewItem;
         if (selectedItem?.Tag is not string tag) return;
         if (Enum.TryParse<AppRoute>(tag, out var route))
         {
             var version = ViewModel.LifecycleVersion;
+            if (route != ViewModel.CurrentRoute && !await CanLeaveEditorAsync())
+            {
+                ApplyRoute(ViewModel.CurrentRoute);
+                return;
+            }
+            if (!ViewModel.IsCurrentUnlock(version)) return;
+            if (route != AppRoute.ItemEditor) ClearEditor();
             ViewModel.Navigate(route);
             if (route == AppRoute.Settings) await ViewModel.Settings.LoadAsync();
             if (route == AppRoute.Backup) await ViewModel.Backup.LoadAsync();
@@ -758,7 +788,7 @@ public sealed partial class MainPage : Page
             }
         }
 
-        AuthenticationCard.Width = UnlockPanel.Visibility == Visibility.Visible ? 460 : 600;
+        AuthenticationCard.MaxWidth = UnlockPanel.Visibility == Visibility.Visible ? 460 : 600;
         ApplyRoute(ViewModel.CurrentRoute);
     }
 
@@ -813,7 +843,13 @@ public sealed partial class MainPage : Page
     private void ApplyRoute(AppRoute route)
     {
         WorkspaceContent.MaxWidth = double.PositiveInfinity;
-        if (route == AppRoute.ItemEditor) ShellNavigation.SelectedItem = null;
+        updatingNavigation = true;
+        try
+        {
+            ShellNavigation.SelectedItem = ShellNavigation.MenuItems.OfType<NavigationViewItem>()
+                .FirstOrDefault(item => item.Tag as string == route.ToString());
+        }
+        finally { updatingNavigation = false; }
         VaultPage.Visibility = route == AppRoute.Vault ? Visibility.Visible : Visibility.Collapsed;
         TrashPage.Visibility = route == AppRoute.Trash ? Visibility.Visible : Visibility.Collapsed;
         EditorPage.Visibility = route == AppRoute.ItemEditor ? Visibility.Visible : Visibility.Collapsed;
@@ -827,8 +863,10 @@ public sealed partial class MainPage : Page
 
     private void AddItemButton_Click(object sender, RoutedEventArgs e)
     {
+        if (!ViewModel.IsUnlocked || ViewModel.CurrentRoute == AppRoute.ItemEditor) return;
         ClearEditor();
         ViewModel.BeginAddItem();
+        editorBaseline = ReadEditorInput();
         ApplyRoute(AppRoute.ItemEditor);
         EditorItemTitle.Focus(FocusState.Programmatic);
     }
@@ -864,16 +902,93 @@ public sealed partial class MainPage : Page
 
     private async void RenameGroupMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        if ((sender as FrameworkElement)?.Tag is not VaultItemGroup { Id: { } id } group) return;
-        var name = await PromptAsync("Rename group", "Group name", group.Name, "Confirm");
-        if (name is not null) await ViewModel.UpdateGroupAsync(id, name, group.AccentColor);
+        if ((sender as FrameworkElement)?.Tag is not VaultItemGroup group) return;
+        var version = ViewModel.LifecycleVersion;
+        var name = await PromptAsync("Rename tab", "Tab name", DisplayGroupName(group), "Confirm", "TxtTabName");
+        if (name is null || !ViewModel.IsCurrentUnlock(version)) return;
+        if (group.Id is { } id) await ViewModel.UpdateGroupAsync(id, name, group.AccentColor);
+        else SaveAppearance(group.IsAll ? appearance.Settings with { AllTabName = name }
+            : appearance.Settings with { UngroupedTabName = name });
     }
 
     private async void ChangeGroupColorMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        if ((sender as FrameworkElement)?.Tag is not VaultItemGroup { Id: { } id } group) return;
-        var color = await PromptAsync("Change group color", "Accent color (#RRGGBB), or leave blank for default", group.AccentColor ?? string.Empty);
-        if (color is not null) await ViewModel.UpdateGroupAsync(id, group.Name, color);
+        if ((sender as FrameworkElement)?.Tag is not VaultItemGroup group) return;
+        var version = ViewModel.LifecycleVersion;
+        var chosen = await PickColorAsync(DisplayGroupName(group), GroupColor(group));
+        if (!chosen.Confirmed || !ViewModel.IsCurrentUnlock(version)) return;
+        if (group.Id is { } id) await ViewModel.UpdateGroupAsync(id, group.Name, chosen.Color);
+        else SaveAppearance(group.IsAll ? appearance.Settings with { AllTabColor = chosen.Color }
+            : appearance.Settings with { UngroupedTabColor = chosen.Color });
+    }
+
+    private async Task<(bool Confirmed, string? Color)> PickColorAsync(string tabName, string? current)
+    {
+        var picker = new ColorPicker
+        {
+            Color = ((SolidColorBrush)GroupBrush(current ?? AppearanceSettings.DefaultAccent)).Color,
+            IsAlphaEnabled = false, IsHexInputVisible = false,
+            IsColorChannelTextInputVisible = false, IsMoreButtonVisible = false,
+            IsAlphaSliderVisible = false, IsAlphaTextInputVisible = false
+        };
+        var input = new TextBox { Header = "RGB color (#RRGGBB)", Text = current ?? AppearanceSettings.DefaultAccent, MaxLength = 7 };
+        var error = new InfoBar { IsClosable = false, Severity = InfoBarSeverity.Error, Title = "Color is not valid" };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(picker, "GroupColorPicker");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(picker, "Choose a color");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(input, "TxtGroupColorHex");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(error, "GroupColorError");
+        var previewText = new TextBlock { Text = tabName, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
+        var preview = new Border { Child = previewText, Padding = new Thickness(16, 8, 16, 8), CornerRadius = new CornerRadius(6), HorizontalAlignment = HorizontalAlignment.Left };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(preview, "TabColorPreview");
+        void UpdatePreview(string color)
+        {
+            preview.Background = GroupBrush(color);
+            previewText.Foreground = GroupTextBrush(color);
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(preview, $"Preview: {tabName}, {color}");
+        }
+        UpdatePreview(current ?? AppearanceSettings.DefaultAccent);
+        var panel = new StackPanel { Spacing = 12 };
+        panel.Children.Add(preview);
+        panel.Children.Add(input);
+        panel.Children.Add(error);
+        panel.Children.Add(picker);
+        var dialog = new ContentDialog
+        {
+            Title = $"Color for {tabName}", Content = panel, PrimaryButtonText = "Save",
+            SecondaryButtonText = "Reset color", CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary
+        };
+        var syncing = false;
+        picker.ColorChanged += (_, args) =>
+        {
+            if (syncing) return;
+            input.Text = $"#{args.NewColor.R:X2}{args.NewColor.G:X2}{args.NewColor.B:X2}";
+        };
+        input.TextChanged += (_, _) =>
+        {
+            try
+            {
+                var normalized = AppearanceSettings.NormalizeRgb(input.Text);
+                syncing = true;
+                try { picker.Color = ((SolidColorBrush)GroupBrush(normalized)).Color; }
+                finally { syncing = false; }
+                UpdatePreview(normalized);
+                error.IsOpen = false;
+            }
+            catch (ArgumentException) { error.Message = "Enter # followed by six hexadecimal digits, such as #204BDB."; error.IsOpen = true; }
+        };
+        dialog.PrimaryButtonClick += (_, args) =>
+        {
+            try { AppearanceSettings.NormalizeRgb(input.Text); }
+            catch (ArgumentException) { args.Cancel = true; error.IsOpen = true; }
+        };
+        var result = await App.Services.GetRequiredService<DialogLifetime>().ShowAsync(dialog, CancellationToken.None);
+        return result switch
+        {
+            ContentDialogResult.Primary => (true, AppearanceSettings.NormalizeRgb(input.Text)),
+            ContentDialogResult.Secondary => (true, null),
+            _ => (false, null)
+        };
     }
 
     private async void DeleteGroupMenuItem_Click(object sender, RoutedEventArgs e)
@@ -881,9 +996,10 @@ public sealed partial class MainPage : Page
         if ((sender as FrameworkElement)?.Tag is VaultItemGroup { Id: { } id } group) await ViewModel.DeleteGroupAsync(id, group.Name);
     }
 
-    private async Task<string?> PromptAsync(string title, string header, string value, string primaryText = "Save")
+    private async Task<string?> PromptAsync(string title, string header, string value, string primaryText = "Save", string? automationId = null)
     {
         var input = new TextBox { Header = header, Text = value, MinWidth = 320 };
+        if (automationId is not null) Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(input, automationId);
         var dialog = new ContentDialog { XamlRoot = XamlRoot, Title = title, Content = input, PrimaryButtonText = primaryText, CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
         if (primaryText == "Confirm")
         {
@@ -897,9 +1013,11 @@ public sealed partial class MainPage : Page
 
     private async Task OpenEditorAsync(Guid itemId, bool duplicate = false)
     {
+        if (ViewModel.CurrentRoute == AppRoute.ItemEditor) return;
         var version = ViewModel.LifecycleVersion;
+        var route = ViewModel.CurrentRoute;
         var item = await ViewModel.GetItemForEditingAsync(itemId);
-        if (item is null || !ViewModel.IsCurrentUnlock(version)) return;
+        if (item is null || !ViewModel.IsCurrentUnlock(version) || ViewModel.CurrentRoute != route) return;
 
         editingItemId = duplicate ? null : item.Id;
         EditorTitle.Text = duplicate ? "Duplicate item" : "Edit item";
@@ -915,6 +1033,7 @@ public sealed partial class MainPage : Page
         EditorFavorite.IsChecked = item.IsFavorite;
         EditorHideUrl.IsChecked = item.HideUrl;
         EditorHideNotes.IsChecked = item.HideNotes;
+        editorBaseline = ReadEditorInput();
         ViewModel.Navigate(AppRoute.ItemEditor);
         ApplyRoute(AppRoute.ItemEditor);
         EditorItemTitle.Focus(FocusState.Programmatic);
@@ -978,41 +1097,56 @@ public sealed partial class MainPage : Page
 
     private async void SaveEditorButton_Click(object sender, RoutedEventArgs e)
     {
-        var version = ViewModel.LifecycleVersion;
-        if (!ViewModel.IsCurrentUnlock(version) || ViewModel.CurrentRoute != AppRoute.ItemEditor) return;
-        var groupOption = EditorGroup.SelectedItem as VaultGroupOption ?? ViewModel.Vault.GroupOptions[0];
-        if (groupOption.CreatesNew)
+        if (sender is not Button saveButton || !saveButton.IsEnabled || ViewModel.IsSavingItem) return;
+        saveButton.IsEnabled = false;
+        try
         {
-            var name = await PromptAsync("Create group", "Group name", string.Empty);
-            if (name is null || !ViewModel.IsCurrentUnlock(version) || ViewModel.CurrentRoute != AppRoute.ItemEditor) return;
-            var group = await ViewModel.CreateGroupAsync(name);
-            if (group is null || !ViewModel.IsCurrentUnlock(version) || ViewModel.CurrentRoute != AppRoute.ItemEditor) return;
-            groupOption = ViewModel.Vault.GroupOptions.First(option => option.GroupId == group.Id);
+            var version = ViewModel.LifecycleVersion;
+            if (!ViewModel.IsCurrentUnlock(version) || ViewModel.CurrentRoute != AppRoute.ItemEditor) return;
+            var groupOption = EditorGroup.SelectedItem as VaultGroupOption ?? ViewModel.Vault.GroupOptions[0];
+            if (groupOption.CreatesNew)
+            {
+                var name = await PromptAsync("Create group", "Group name", string.Empty);
+                if (name is null || !ViewModel.IsCurrentUnlock(version) || ViewModel.CurrentRoute != AppRoute.ItemEditor) return;
+                var group = await ViewModel.CreateGroupAsync(name);
+                if (group is null || !ViewModel.IsCurrentUnlock(version) || ViewModel.CurrentRoute != AppRoute.ItemEditor) return;
+                EditorGroup.SelectedItem = ViewModel.Vault.GroupOptions.First(option => option.GroupId == group.Id);
+            }
+            var saved = await ViewModel.SaveItemAsync(ReadEditorInput());
+            if (!saved || !ViewModel.IsCurrentUnlock(version)) return;
+            ClearEditor();
+            ApplyRoute(AppRoute.Vault);
         }
-        var saved = await ViewModel.SaveItemAsync(new VaultItemEditorInput(
-            editingItemId,
-            EditorItemTitle.Text,
-            EditorUsername.Text,
-            EditorPassword.Password,
-            EditorRecoveryCodes.Text,
-            preservedTotpSecret,
-            EditorUrl.Text,
-            EditorNotes.Text,
-            groupOption.GroupId,
-            EditorTags.Text,
-            EditorFavorite.IsChecked == true,
-            EditorHideUrl.IsChecked == true,
-            EditorHideNotes.IsChecked == true));
-        if (!saved || !ViewModel.IsCurrentUnlock(version)) return;
-        ClearEditor();
-        ApplyRoute(AppRoute.Vault);
+        finally { saveButton.IsEnabled = true; }
     }
 
-    private void CancelEditorButton_Click(object sender, RoutedEventArgs e)
+    private async void CancelEditorButton_Click(object sender, RoutedEventArgs e)
     {
+        if (!await CanLeaveEditorAsync()) return;
         ClearEditor();
         ViewModel.Navigate(AppRoute.Vault);
         ApplyRoute(AppRoute.Vault);
+    }
+
+    private VaultItemEditorInput ReadEditorInput() => new(
+        editingItemId, EditorItemTitle.Text, EditorUsername.Text, EditorPassword.Password,
+        EditorRecoveryCodes.Text, preservedTotpSecret, EditorUrl.Text, EditorNotes.Text,
+        (EditorGroup.SelectedItem as VaultGroupOption)?.GroupId, EditorTags.Text,
+        EditorFavorite.IsChecked == true, EditorHideUrl.IsChecked == true, EditorHideNotes.IsChecked == true);
+
+    private async Task<bool> CanLeaveEditorAsync()
+    {
+        if (ViewModel.CurrentRoute != AppRoute.ItemEditor) return true;
+        if (ViewModel.IsSavingItem || confirmingEditorDiscard) return false;
+        if (editorBaseline == ReadEditorInput() && EditorGroup.SelectedItem is not VaultGroupOption { CreatesNew: true }) return true;
+        var version = ViewModel.LifecycleVersion;
+        confirmingEditorDiscard = true;
+        try
+        {
+            return await dialogs.ConfirmAsync("Discard changes?", "Your changes have not been saved. Discard them and leave this item?", "Discard")
+                && ViewModel.IsCurrentUnlock(version);
+        }
+        finally { confirmingEditorDiscard = false; }
     }
 
     private async void GeneratePasswordButton_Click(object sender, RoutedEventArgs e)
@@ -1024,6 +1158,7 @@ public sealed partial class MainPage : Page
 
     private void ClearEditor()
     {
+        editorBaseline = null;
         editingItemId = null;
         preservedTotpSecret = string.Empty;
         EditorTitle.Text = "Add item";
@@ -1123,6 +1258,7 @@ public sealed partial class MainPage : Page
     private void NewItemKeyboardAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
         if (!ViewModel.IsUnlocked) return;
+        if (ViewModel.CurrentRoute == AppRoute.ItemEditor) { args.Handled = true; return; }
         AddItemButton_Click(sender, new RoutedEventArgs());
         args.Handled = true;
     }

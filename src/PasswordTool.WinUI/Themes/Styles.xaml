@@ -9,28 +9,28 @@
             <SolidColorBrush x:Key="PasswordToolCardBackgroundBrush" Color="#FFFFFF" />
             <SolidColorBrush x:Key="PasswordToolDividerBrush" Color="#CBD5E1" />
             <SolidColorBrush x:Key="VaultTableBackgroundBrush" Color="#FFFFFF" />
-            <StaticResource x:Key="VaultTableHeaderBrush" ResourceKey="SubtleFillColorSecondaryBrush" />
+            <SolidColorBrush x:Key="VaultTableHeaderBrush" Color="#F5F5F5" />
             <SolidColorBrush x:Key="VaultGroupBackgroundBrush" Color="#E6E6E6" />
             <SolidColorBrush x:Key="VaultGroupHoverBrush" Color="#D5D5D5" />
-            <StaticResource x:Key="VaultGroupTabBackgroundBrush" ResourceKey="PasswordToolCardBackgroundBrush" />
-            <StaticResource x:Key="VaultGroupTabTextBrush" ResourceKey="TextFillColorPrimaryBrush" />
-            <StaticResource x:Key="VaultGroupHoverTextBrush" ResourceKey="TextFillColorPrimaryBrush" />
-            <StaticResource x:Key="VaultGroupTabBorderBrush" ResourceKey="CardStrokeColorDefaultBrush" />
-            <StaticResource x:Key="VaultGroupSelectedBorderBrush" ResourceKey="AccentFillColorDefaultBrush" />
+            <SolidColorBrush x:Key="VaultGroupTabBackgroundBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="VaultGroupTabTextBrush" Color="#E4000000" />
+            <SolidColorBrush x:Key="VaultGroupHoverTextBrush" Color="#E4000000" />
+            <SolidColorBrush x:Key="VaultGroupTabBorderBrush" Color="#E5E5E5" />
+            <SolidColorBrush x:Key="VaultGroupSelectedBorderBrush" Color="#204BDB" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
-            <StaticResource x:Key="WorkspaceBackgroundBrush" ResourceKey="ApplicationPageBackgroundThemeBrush" />
-            <StaticResource x:Key="PasswordToolCardBackgroundBrush" ResourceKey="CardBackgroundFillColorDefaultBrush" />
-            <StaticResource x:Key="PasswordToolDividerBrush" ResourceKey="DividerStrokeColorDefaultBrush" />
+            <SolidColorBrush x:Key="WorkspaceBackgroundBrush" Color="#202020" />
+            <SolidColorBrush x:Key="PasswordToolCardBackgroundBrush" Color="#2B2B2B" />
+            <SolidColorBrush x:Key="PasswordToolDividerBrush" Color="#414141" />
             <SolidColorBrush x:Key="VaultTableBackgroundBrush" Color="#2D2D2D" />
-            <StaticResource x:Key="VaultTableHeaderBrush" ResourceKey="SubtleFillColorSecondaryBrush" />
+            <SolidColorBrush x:Key="VaultTableHeaderBrush" Color="#333333" />
             <SolidColorBrush x:Key="VaultGroupBackgroundBrush" Color="#333333" />
             <SolidColorBrush x:Key="VaultGroupHoverBrush" Color="#454545" />
-            <StaticResource x:Key="VaultGroupTabBackgroundBrush" ResourceKey="PasswordToolCardBackgroundBrush" />
-            <StaticResource x:Key="VaultGroupTabTextBrush" ResourceKey="TextFillColorPrimaryBrush" />
-            <StaticResource x:Key="VaultGroupHoverTextBrush" ResourceKey="TextFillColorPrimaryBrush" />
-            <StaticResource x:Key="VaultGroupTabBorderBrush" ResourceKey="CardStrokeColorDefaultBrush" />
-            <StaticResource x:Key="VaultGroupSelectedBorderBrush" ResourceKey="AccentFillColorDefaultBrush" />
+            <SolidColorBrush x:Key="VaultGroupTabBackgroundBrush" Color="#2B2B2B" />
+            <SolidColorBrush x:Key="VaultGroupTabTextBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="VaultGroupHoverTextBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="VaultGroupTabBorderBrush" Color="#414141" />
+            <SolidColorBrush x:Key="VaultGroupSelectedBorderBrush" Color="#204BDB" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="HighContrast">
             <SolidColorBrush x:Key="WorkspaceBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />

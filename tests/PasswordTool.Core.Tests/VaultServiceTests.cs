@@ -13,6 +13,72 @@ public sealed class VaultServiceTests : IDisposable
         Guid.NewGuid().ToString("N"));
 
     [Fact]
+    public void Group_colors_validate_before_mutation_and_invalid_legacy_colors_do_not_block_unlock()
+    {
+        const string password = "correct horse battery staple";
+        var storage = new VaultStorageService(tempDirectory);
+        var encryption = new EncryptionService();
+        var totp = new TotpService();
+        var secret = totp.GenerateSecret();
+        using var vault = new VaultService(storage, encryption, totp);
+        vault.InitializeNewVault(password, secret, ComputeTotp(secret), RecoveryKeyService.Generate(), true);
+        var group = vault.AddGroup("Database", " \t#ab12Ef \r\n");
+        Assert.Equal("#AB12EF", group.AccentColor);
+
+        foreach (var reset in new string?[] { null, string.Empty, " \t " })
+        {
+            vault.UpdateGroup(group.Id, group.Name, reset);
+            Assert.Null(Assert.Single(vault.GetGroups()).AccentColor);
+            vault.UpdateGroup(group.Id, group.Name, " #0033ff ");
+            Assert.Equal("#0033FF", Assert.Single(vault.GetGroups()).AccentColor);
+        }
+
+        var original = Assert.Single(vault.GetGroups());
+        var config = File.ReadAllText(storage.ConfigPath);
+        var payload = storage.LoadVaultPayload();
+        foreach (var invalid in new[] { "# FFFFF", "#\tFFFFF", "#FFF FF", "#12345G", "#12345", "#1234567", "123456" })
+        {
+            Assert.Throws<ArgumentException>(() => vault.AddGroup("Invalid", invalid));
+            Assert.Throws<ArgumentException>(() => vault.UpdateGroup(group.Id, "Changed", invalid));
+            var unchanged = Assert.Single(vault.GetGroups());
+            Assert.Equal(original.Name, unchanged.Name);
+            Assert.Equal(original.AccentColor, unchanged.AccentColor);
+            Assert.Equal(original.UpdatedAt, unchanged.UpdatedAt);
+            Assert.Equal(config, File.ReadAllText(storage.ConfigPath));
+            Assert.Equal(payload, storage.LoadVaultPayload());
+        }
+
+        var item = vault.AddItem(new VaultItem { Title = "Preserved", Password = "secret", GroupId = group.Id });
+        vault.ClearSession();
+        Assert.True(vault.TryUnlockMasterPassword(password, out var error), error);
+        Assert.True(vault.VerifyTotpForSession(ComputeTotp(secret)));
+        Assert.Equal(original.Name, Assert.Single(vault.GetGroups()).Name);
+        Assert.Equal(original.AccentColor, Assert.Single(vault.GetGroups()).AccentColor);
+
+        Assert.True(new MasterPasswordService(encryption).TryUnlockConfig(password, storage.LoadConfig(), out var key, out _));
+        try
+        {
+            var legacy = encryption.DecryptObject<VaultData>(storage.LoadVaultPayload(), key, MasterPasswordService.VaultContext);
+            Assert.Single(legacy.Groups).AccentColor = "# FFFFF";
+            legacy.Groups.Add(new VaultGroup { Name = "Invalid old color", AccentColor = "#GGGGGG" });
+            storage.SaveVaultPayload(encryption.EncryptObject(legacy, key, MasterPasswordService.VaultContext));
+        }
+        finally { CryptographicOperations.ZeroMemory(key); }
+
+        vault.ClearSession();
+        Assert.True(vault.TryUnlockWithGoogleAuthenticator(ComputeTotp(secret), out error), error);
+        Assert.Equal(2, vault.GetGroups().Count);
+        Assert.All(vault.GetGroups(), loaded => Assert.Null(loaded.AccentColor));
+        Assert.Equal(item.Id, Assert.Single(vault.GetItems()).Id);
+        vault.ClearSession();
+        Assert.True(vault.TryUnlockMasterPassword(password, out error), error);
+        Assert.True(vault.VerifyTotpForSession(ComputeTotp(secret)));
+        Assert.Equal(2, vault.GetGroups().Count);
+        Assert.All(vault.GetGroups(), loaded => Assert.Null(loaded.AccentColor));
+        Assert.Equal(item.Id, Assert.Single(vault.GetItems()).Id);
+    }
+
+    [Fact]
     public void Group_deletion_requires_exact_confirmation_and_fresh_totp_and_removes_only_group_data()
     {
         var totpService = new TotpService();

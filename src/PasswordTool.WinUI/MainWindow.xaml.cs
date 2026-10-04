@@ -1,4 +1,6 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Windowing;
+using Microsoft.Extensions.DependencyInjection;
 using System.Runtime.InteropServices;
 using Windows.Graphics;
 
@@ -14,52 +16,67 @@ namespace PasswordTool_WinUI;
 /// </summary>
 public sealed partial class MainWindow : Window
 {
-    private const int MinimumLogicalWidth = 1200;
-    private const int MinimumLogicalHeight = 600;
-    private bool enforcingMinimumSize;
+    private const int MinimumLogicalWidth = 480;
+    private const int MinimumLogicalHeight = 400;
     [DllImport("user32.dll")]
     private static extern uint GetDpiForWindow(nint hwnd);
 
     public MainWindow()
     {
         InitializeComponent();
+        App.Services.GetRequiredService<AppearanceService>().Attach((FrameworkElement)Content);
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
 
         AppWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"));
 
-        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-        var scale = GetDpiForWindow(hwnd) / 96d;
-        AppWindow.Resize(new SizeInt32((int)(1280 * scale), (int)(720 * scale)));
+        ResizeToWorkArea(1280, 720);
         AppWindow.Changed += AppWindow_Changed;
 
         // Navigate the root frame to the main page on startup.
         RootFrame.Navigate(typeof(MainPage));
 #if DEBUG
-        if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("PASSWORDTOOL_UI_TEST_DIRECTORY")))
+        if (Environment.GetEnvironmentVariable("PASSWORDTOOL_UI_TEST_DIRECTORY") is { Length: > 0 } testDirectory)
         {
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(AppTitleBar, "YourSafeDisposableUiTest");
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetHelpText(AppTitleBar,
+                System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(testDirectory)));
             if (int.TryParse(Environment.GetEnvironmentVariable("PASSWORDTOOL_UI_TEST_WIDTH"), out var testWidth))
-                AppWindow.Resize(new SizeInt32((int)(Math.Max(MinimumLogicalWidth, testWidth) * scale), (int)(720 * scale)));
+                ResizeToWorkArea(Math.Max(MinimumLogicalWidth, testWidth), 720);
             if (Enum.TryParse<ElementTheme>(Environment.GetEnvironmentVariable("PASSWORDTOOL_UI_TEST_THEME"), out var testTheme))
-                RootFrame.RequestedTheme = testTheme;
+                ((FrameworkElement)Content).RequestedTheme = testTheme;
         }
 #endif
     }
 
-    private void AppWindow_Changed(Microsoft.UI.Windowing.AppWindow sender, Microsoft.UI.Windowing.AppWindowChangedEventArgs args)
+    private void ResizeToWorkArea(int logicalWidth, int logicalHeight)
     {
-        if (!args.DidSizeChange || enforcingMinimumSize) return;
+        var display = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest);
+        var workArea = display.WorkArea;
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         var scale = GetDpiForWindow(hwnd) / 96d;
-        var minimumWidth = (int)(MinimumLogicalWidth * scale);
-        var minimumHeight = (int)(MinimumLogicalHeight * scale);
-        if (sender.Size.Width >= minimumWidth && sender.Size.Height >= minimumHeight) return;
+        var width = Math.Min((int)(logicalWidth * scale), workArea.Width);
+        var height = Math.Min((int)(logicalHeight * scale), workArea.Height);
+        UpdateMinimumSize();
+        AppWindow.MoveAndResize(new RectInt32(workArea.X + (workArea.Width - width) / 2,
+            workArea.Y + (workArea.Height - height) / 2, width, height), display);
+    }
 
-        enforcingMinimumSize = true;
-        sender.Resize(new SizeInt32(
-            Math.Max(sender.Size.Width, minimumWidth),
-            Math.Max(sender.Size.Height, minimumHeight)));
-        enforcingMinimumSize = false;
+    private void UpdateMinimumSize()
+    {
+        if (AppWindow.Presenter is not OverlappedPresenter presenter) return;
+        var workArea = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest).WorkArea;
+        var scale = GetDpiForWindow(WinRT.Interop.WindowNative.GetWindowHandle(this)) / 96d;
+        // Leave half-screen Snap available even on small displays at high scaling.
+        var width = Math.Min((int)(MinimumLogicalWidth * scale), Math.Max(1, workArea.Width / 2));
+        var height = Math.Min((int)(MinimumLogicalHeight * scale), Math.Max(1, workArea.Height / 2));
+        if (presenter.PreferredMinimumWidth != width) presenter.PreferredMinimumWidth = width;
+        if (presenter.PreferredMinimumHeight != height) presenter.PreferredMinimumHeight = height;
+    }
+
+    private void AppWindow_Changed(AppWindow sender, AppWindowChangedEventArgs args)
+    {
+        if (args.DidPositionChange || args.DidSizeChange) UpdateMinimumSize();
     }
 }
