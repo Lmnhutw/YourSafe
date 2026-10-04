@@ -169,6 +169,8 @@ public sealed partial class MainPage : Page
             button.Background = GroupBrush(color);
             button.Foreground = GroupTextBrush(color);
         }
+        button.MinHeight = ViewModel.Vault.IsVerticalTabs ? 40 : 48;
+        button.Padding = ViewModel.Vault.IsVerticalTabs ? new Thickness(12, 8, 12, 8) : new Thickness(12, 8, 12, 16);
         button.BorderThickness = ViewModel.Vault.IsVerticalTabs ? new Thickness(1, 1, selected ? 0 : 1, 1) : new Thickness(1, 1, 1, selected ? 0 : 1);
         button.CornerRadius = ViewModel.Vault.IsVerticalTabs ? new CornerRadius(6, 0, 0, 6) : new CornerRadius(6, 6, 0, 0);
         button.FontWeight = selected ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal;
@@ -243,6 +245,8 @@ public sealed partial class MainPage : Page
     {
         if (GroupTabStrip is null) return;
         var vertical = ViewModel.Vault.IsVerticalTabs;
+        GroupContainer.RowSpacing = vertical ? 8 : 0;
+        GroupTabStrip.VerticalAlignment = vertical ? VerticalAlignment.Stretch : VerticalAlignment.Bottom;
         Grid.SetRow(GroupTableFrame, 1);
         Grid.SetColumn(GroupTableFrame, vertical ? 1 : 0);
         Grid.SetRowSpan(GroupTableFrame, 1);

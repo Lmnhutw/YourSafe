@@ -251,7 +251,7 @@
                             <CheckBox Margin="0,24,12,8" VerticalAlignment="Center" Content="Filter by group" AutomationProperties.AutomationId="ChkFilterByGroup" IsChecked="{x:Bind ViewModel.Vault.FilterByGroup, Mode=TwoWay}" />
                         </VariableSizedWrapGrid>
                     </Grid>
-                    <Grid x:Name="GroupContainer" Grid.Row="2" RowSpacing="8">
+                    <Grid x:Name="GroupContainer" Grid.Row="2" RowSpacing="0">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
@@ -357,7 +357,7 @@
                                 </ScrollViewer>
                             </Border>
                         </Border>
-                        <Grid x:Name="GroupTabStrip" Canvas.ZIndex="1" Margin="12,0,12,-1" SizeChanged="GroupTabStrip_SizeChanged">
+                        <Grid x:Name="GroupTabStrip" Canvas.ZIndex="1" VerticalAlignment="Bottom" Margin="12,0,12,-1" SizeChanged="GroupTabStrip_SizeChanged">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
@@ -373,7 +373,7 @@
                             </Button>
                             <ScrollViewer x:Name="GroupTabsScroller" Grid.Column="2" HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Hidden" VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled" ViewChanged="GroupTabsScroller_ViewChanged" SizeChanged="GroupTabsScroller_SizeChanged" IsTabStop="False">
                                 <StackPanel x:Name="ScrollableGroupTabs" Orientation="Horizontal" Spacing="4">
-                            <Button x:Name="AllGroupTab" Style="{StaticResource VaultTabButtonStyle}" Padding="12,8" MinHeight="40" AutomationProperties.AutomationId="Group_All" AutomationProperties.Name="All credentials" ToolTipService.ToolTip="All credentials; appearance uses the app accent" Click="GroupHeaderButton_Click" Tag="{x:Bind ViewModel.Vault.AllGroup}" KeyDown="GroupTab_KeyDown" Loaded="GroupTab_Loaded" ActualThemeChanged="GroupTab_ActualThemeChanged" BorderThickness="1,1,1,0" CornerRadius="6,6,0,0">
+                            <Button x:Name="AllGroupTab" Style="{StaticResource VaultTabButtonStyle}" Padding="12,8,12,16" MinHeight="48" AutomationProperties.AutomationId="Group_All" AutomationProperties.Name="All credentials" ToolTipService.ToolTip="All credentials; appearance uses the app accent" Click="GroupHeaderButton_Click" Tag="{x:Bind ViewModel.Vault.AllGroup}" KeyDown="GroupTab_KeyDown" Loaded="GroupTab_Loaded" ActualThemeChanged="GroupTab_ActualThemeChanged" BorderThickness="1,1,1,0" CornerRadius="6,6,0,0">
                                 <Grid ColumnSpacing="8">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                                     <Border Width="8" Height="8" CornerRadius="2" VerticalAlignment="Center" Visibility="Collapsed" />
@@ -393,7 +393,7 @@
                                     </ItemsRepeater.Layout>
                                     <ItemsRepeater.ItemTemplate>
                                         <DataTemplate x:DataType="presentation:VaultItemGroup">
-                                            <Button Style="{StaticResource VaultTabButtonStyle}" Padding="12,8" MinHeight="40" MaxWidth="220" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="{x:Bind local:MainPage.GroupAutomationId(Id)}" AutomationProperties.Name="{x:Bind Name}" ToolTipService.ToolTip="{x:Bind Name}" Click="GroupHeaderButton_Click" Tag="{x:Bind}" KeyDown="GroupTab_KeyDown" Loaded="GroupTab_Loaded" ActualThemeChanged="GroupTab_ActualThemeChanged">
+                                            <Button Style="{StaticResource VaultTabButtonStyle}" Padding="12,8,12,16" MinHeight="48" MaxWidth="220" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="{x:Bind local:MainPage.GroupAutomationId(Id)}" AutomationProperties.Name="{x:Bind Name}" ToolTipService.ToolTip="{x:Bind Name}" Click="GroupHeaderButton_Click" Tag="{x:Bind}" KeyDown="GroupTab_KeyDown" Loaded="GroupTab_Loaded" ActualThemeChanged="GroupTab_ActualThemeChanged">
                                                 <Grid ColumnSpacing="8">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="Auto" />
