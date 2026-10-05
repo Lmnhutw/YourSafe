@@ -31,13 +31,15 @@ jobs:
 
       - name: Validate version tag
         run: |
-          if ($env:RELEASE_TAG -notmatch '^v(\d+\.\d+\.\d+)$') {
-            throw 'Use a version tag such as v1.0.0.'
+          if ($env:RELEASE_TAG -notmatch '^v(\d+\.\d+\.\d+)(-test)?$') {
+            throw 'Use a version tag such as v1.0.0 or v1.0.0-test.'
           }
           "RELEASE_VERSION=$($Matches[1])" >> $env:GITHUB_ENV
-          Import-Module ./scripts/BrowserIntegration.psm1
-          Assert-ProductionExtensionId $env:CHROME_EXTENSION_ID
-          Assert-ProductionExtensionId $env:EDGE_EXTENSION_ID
+          if (-not $env:RELEASE_TAG.EndsWith('-test')) {
+            Import-Module ./scripts/BrowserIntegration.psm1
+            Assert-ProductionExtensionId $env:CHROME_EXTENSION_ID
+            Assert-ProductionExtensionId $env:EDGE_EXTENSION_ID
+          }
 
       - name: Install Inno Setup
         run: |
@@ -56,6 +58,7 @@ jobs:
           & ./scripts/Test-BrowserIntegration.ps1
 
       - name: Build and qualify installer
+        if: ${{ !endsWith(github.ref_name, '-test') }}
         run: |
           & ./scripts/Publish-WindowsRelease.ps1 -Version $env:RELEASE_VERSION -ChromeExtensionId $env:CHROME_EXTENSION_ID -EdgeExtensionId $env:EDGE_EXTENSION_ID -SigningMode Disabled
           $releaseDirectory = Join-Path 'artifacts/releases' $env:RELEASE_VERSION
@@ -66,6 +69,7 @@ jobs:
           & ./scripts/Invoke-ReleaseQualification.ps1 -ReleaseDirectory $releaseDirectory
 
       - name: Publish GitHub Release
+        if: ${{ !endsWith(github.ref_name, '-test') }}
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -80,3 +84,17 @@ jobs:
           )
           gh release create $env:RELEASE_TAG @assets --verify-tag --title "YourSafe $env:RELEASE_TAG" --generate-notes --notes 'Windows x64: download the setup.exe installer, or extract the portable ZIP. This build is unsigned. Install/upgrade/uninstall smoke testing is not performed by this workflow.'
           if ($LASTEXITCODE -ne 0) { throw 'GitHub Release publication failed.' }
+
+      - name: Build and publish test prerelease
+        if: ${{ endsWith(github.ref_name, '-test') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          & ./scripts/Publish-WindowsTestRelease.ps1 -Version $env:RELEASE_VERSION
+          $releaseDirectory = Join-Path 'artifacts/test-releases' $env:RELEASE_VERSION
+          $installer = Join-Path $releaseDirectory "installer/YourSafe-$env:RELEASE_VERSION-win-x64-setup.exe"
+          if (-not (Test-Path -LiteralPath $installer)) { throw 'Test installer was not produced.' }
+          $assets = @($installer, (Join-Path $releaseDirectory "YourSafe-$env:RELEASE_VERSION-win-x64.zip"), (Join-Path $releaseDirectory 'checksums.sha256'), (Join-Path $releaseDirectory 'release-status.txt'))
+          gh release create $env:RELEASE_TAG @assets --verify-tag --prerelease --title "YourSafe $env:RELEASE_TAG" --generate-notes --notes 'Unsigned test build for Windows x64. Browser autofill registration is omitted until store extension IDs are available. Production qualification and interactive installer smoke testing have not been performed.'
+          if ($LASTEXITCODE -ne 0) { throw 'Test prerelease publication failed.' }

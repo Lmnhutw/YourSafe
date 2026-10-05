@@ -2,6 +2,8 @@
 
 ## Automatic GitHub Releases from tags
 
+For an unsigned app-only test prerelease without store extension IDs, push a tag such as `v0.1.1-test`. This uses `scripts/Publish-WindowsTestRelease.ps1`, omits browser autofill registration, and uploads an installer, ZIP, checksum, and explicit test status. It does not claim production release qualification.
+
 `.github/workflows/windows-release.yml` builds and publishes a GitHub Release when a tag matching `v<major>.<minor>.<patch>` is pushed, for example `v1.0.0`. Commit and push the workflow before creating a tag, so the tagged commit includes it:
 
 Before the first tag, configure repository Actions variables `CHROME_EXTENSION_ID` and `EDGE_EXTENSION_ID` with the actual browser-store extension IDs (Settings → Secrets and variables → Actions → Variables). The workflow validates both IDs before building; development/test IDs are not release configuration.
