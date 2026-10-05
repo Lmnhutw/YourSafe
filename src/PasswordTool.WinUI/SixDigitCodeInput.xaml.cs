@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.System;
 
 namespace PasswordTool_WinUI;
@@ -56,7 +57,15 @@ public sealed partial class SixDigitCodeInput : UserControl
     {
         if (sender is not TextBox box) return;
         var index = Array.IndexOf(digits, box);
-        if (e.Key == VirtualKey.Back && box.Text.Length == 0 && index > 0)
+        if ((e.Key == VirtualKey.V &&
+             (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down)
+              || Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.LeftControl).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down)
+              || Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.RightControl).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))))
+        {
+            PasteCode(index);
+            e.Handled = true;
+        }
+        else if (e.Key == VirtualKey.Back && box.Text.Length == 0 && index > 0)
         {
             digits[index - 1].Focus(FocusState.Programmatic);
             e.Handled = true;
@@ -71,5 +80,28 @@ public sealed partial class SixDigitCodeInput : UserControl
             digits[index + 1].Focus(FocusState.Programmatic);
             e.Handled = true;
         }
+    }
+
+    private async void PasteCode(int startIndex)
+    {
+        var content = Clipboard.GetContent();
+        if (!content.Contains(StandardDataFormats.Text)) return;
+
+        var pastedText = await content.GetTextAsync();
+        var pastedDigits = pastedText.Where(char.IsAsciiDigit).Take(digits.Length - startIndex).ToArray();
+        if (pastedDigits.Length == 0) return;
+
+        updating = true;
+        try
+        {
+            for (var i = 0; i < digits.Length; i++)
+                digits[i].Text = i >= startIndex && i < startIndex + pastedDigits.Length
+                    ? pastedDigits[i - startIndex].ToString()
+                    : i < startIndex ? digits[i].Text : string.Empty;
+        }
+        finally { updating = false; }
+
+        digits[Math.Min(startIndex + pastedDigits.Length, digits.Length - 1)].Focus(FocusState.Programmatic);
+        CodeChanged?.Invoke(this, EventArgs.Empty);
     }
 }
