@@ -56,6 +56,8 @@ jobs:
           & ./scripts/Test-ReleasePipeline.ps1
           & ./scripts/Test-ReleaseQualification.ps1
           & ./scripts/Test-BrowserIntegration.ps1
+          # Negative tests deliberately invoke failing native tools; assertions throw on failure.
+          $global:LASTEXITCODE = 0
 
       - name: Build and qualify installer
         if: ${{ !endsWith(github.ref_name, '-test') }}
