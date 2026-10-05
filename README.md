@@ -1,21 +1,22 @@
-# PasswordTool
+# YourSafe (PasswordTool)
 
-> A local Windows vault for passwords, website TOTP codes, and recovery codes, plus a password-hash utility. Vault data stays on the device; the application has no database, cloud sync, account system, telemetry, or runtime network dependency.
+> A local Windows vault for passwords and account recovery codes, plus a password-hash utility and optional Chrome/Edge autofill. Vault data stays on the device; the desktop application has no database, cloud sync, online account system, telemetry, or runtime network dependency.
 
-The desktop application is implemented exclusively with WinUI 3. The former WinForms client and its UI-preview project were removed during the migration cutover.
+YourSafe is the desktop product name; repository/project names and the vault directory retain `PasswordTool`. The desktop application uses WinUI 3. The former WinForms client and its UI-preview project were removed during the migration cutover.
 
 ## What is included
 
 | Area | What it does |
 | --- | --- |
-| **Encrypted vault** | Stores password or recovery-code entries in an AES-256-GCM encrypted local vault. |
+| **Encrypted vault** | Stores credentials with a password, account recovery codes, or both in an AES-256-GCM encrypted local vault. |
 | **Sign-in** | Requires a Master Password and a current six-digit Google Authenticator code. |
 | **Session** | Fixed five-hour login; vault locks after a configurable duration from unlock, one minute by default. |
 | **Recovery Key** | Resets the Master Password and Authenticator for the current vault, with a fresh key and verified replacement Authenticator. |
 | **Backup & recovery** | Creates and verifies encrypted external backups and can recover a vault on a new Windows installation. |
-| **Everyday organization** | Searches locally and organizes entries with favorites, folders, and tags. |
+| **Everyday organization** | Searches locally and organizes entries with favorites, groups displayed as tabs, and tags. |
 | **Password generation** | Generates cryptographically random passwords and readable passphrases with strength feedback. |
-| **Website TOTP** | Stores an optional website TOTP secret inside an encrypted password entry and generates its current code. |
+| **Website TOTP compatibility** | Core supports stored website TOTP secrets; the current desktop UI hides website TOTP editing and code display while preserving existing secrets. |
+| **Browser autofill** | Optional Chrome/Edge extension and local NativeHost fill a selected account on a matching HTTPS origin after popup consent. |
 | **Migration** | Reviews and imports common browser or password-manager CSV exports without overwriting matching accounts. |
 | **Safety lifecycle** | Keeps password history, a 30-day Trash, paired encrypted snapshots, timed vault lock, and a local weak/reused/old-password check. |
 | **Hash utility** | Generates, verifies, and inspects password hashes, including clearly marked educational-only algorithms. |
@@ -61,7 +62,7 @@ Sign in with both the Master Password and the current 6-digit Google Authenticat
 ## Everyday use
 
 1. **Sign in / unlock:** initial sign-in requires Master Password and Authenticator code; subsequent unlocks within the same session require Master Password only.
-2. **Add and organize:** create Password or Recovery-code entries and optionally assign favorites, folders, tags, URLs, notes, or a website-specific TOTP secret.
+2. **Add and organize:** create a credential with a password, at least two account recovery codes, or both. Assign favorites, groups, tags, URLs, or notes. Right-click a group tab to rename it or change its color; Settings offers horizontal/vertical tabs and System/Light/Dark themes.
 3. **Reveal or copy a secret:** no second Authenticator prompt is needed while the sign-in session is active.
 4. **Lock:** Lock keeps the login active and clears decrypted vault state. The vault locks after its duration from unlock (1, 2, 5, 10, or 30 minutes; 1, 2, or 5 hours), or when Windows locks/disconnects, suspends, or resumes. Activity does not extend either deadline. Settings changes apply on the next unlock.
 5. **Back up:** regularly export an encrypted backup using a separate strong backup passphrase, store it away from the PC, and verify it in **Backup & Recovery Center**.
@@ -83,8 +84,10 @@ When recovering on another Windows installation, the backup passphrase decrypts 
 
 ### Requirements
 
-- Windows 10 or later
-- .NET SDK 10 or later
+- Windows x64, Windows 10 version 1809 or later
+- .NET 10 SDK
+- PowerShell 7 (`pwsh`) for repository scripts
+- Node.js/npm only when building the optional browser extension
 - Git (only when cloning)
 
 Confirm the installed SDK:
@@ -98,7 +101,7 @@ dotnet --version
 Clone the repository, or extract a ZIP so that `PasswordTool.slnx` is in the current folder. Package references are already committed to the project files; do **not** run `dotnet add` to set up the solution.
 
 ```powershell
-git clone <repository-url>
+git clone https://github.com/Lmnhutw/PasswordTool.Core.git
 cd PasswordTool.Core
 dotnet restore PasswordTool.slnx
 dotnet run --project src\PasswordTool.WinUI\PasswordTool.WinUI.csproj --configuration Debug -p:Platform=x64
@@ -111,6 +114,18 @@ Building from source is intended for developers. It does not establish that a lo
 ```powershell
 dotnet test PasswordTool.slnx
 dotnet build PasswordTool.slnx
+```
+
+These commands do not build the TypeScript extension. See [browser-extension/README.md](browser-extension/README.md) for its build and registration steps. For unit checks without browser registration or live IPC, run:
+
+```powershell
+dotnet test tests\PasswordTool.Core.Tests
+dotnet test tests\PasswordTool.Presentation.Tests --filter "FullyQualifiedName!~Windows_pipe_peers"
+cd browser-extension
+npm.cmd ci --ignore-scripts
+npm.cmd run typecheck
+npm.cmd test
+npm.cmd run build
 ```
 
 Native action checks use [scripts/Test-VaultUi.ps1](scripts/Test-VaultUi.ps1) against an unlocked disposable test vault. Debug builds support `PASSWORDTOOL_UI_TEST_DIRECTORY` for isolated storage and a separate single-instance mutex; `PASSWORDTOOL_UI_TEST_WIDTH` and `PASSWORDTOOL_UI_TEST_THEME` select test geometry and theme. Release builds ignore these overrides. Seed a new test directory with the opt-in `Create_opt_in_disposable_ui_vault` Core test, then run the script with that app's process ID. Never target a user vault. See [the verification record](docs/recovery-session-verification.md) for results and outstanding visual checks.
@@ -128,9 +143,9 @@ Master Password
   └─ Argon2id (3 passes, 64 MiB, parallelism 2 + random 32-byte salt)
        └─ KEK wraps the DEK with AES-256-GCM
 
-Successful Master Password sign-in
-  └─ Windows DPAPI (CurrentUser) separately protects the Authenticator secret and DEK for one day
-       └─ the app verifies TOTP before asking DPAPI to release the DEK
+Current desktop sign-in
+  └─ Master Password unwraps the DEK; a valid Authenticator code authorizes a five-hour login
+       └─ re-unlock within that login uses the Master Password without another code
 ```
 
 The terms in that flow mean:
@@ -141,6 +156,8 @@ The terms in that flow mean:
 - **AES-256-GCM:** authenticated encryption. A wrong key, modified ciphertext, or ciphertext used in the wrong context fails authentication instead of returning unchecked plaintext. PasswordTool binds the wrapped DEK, vault payload, and Authenticator secret to different purposes.
 - **DPAPI CurrentUser:** a Windows protection boundary used by legacy trusted-device token support. Its protected blobs can be opened only in the same Windows user context under normal platform operation.
 
+Core still maintains a one-day DPAPI-protected compatibility token with separate Authenticator and DEK blobs. The current desktop sign-in does not use that token to offer Authenticator-only login.
+
 ### What happens when a password is shown
 
 1. The encrypted vault remains in `.storage`; the UI masking characters are not the security boundary.
@@ -150,7 +167,7 @@ The terms in that flow mean:
 5. Only after that check does the UI display or explicitly copy the requested value. Copying exposes the value to the Windows clipboard temporarily; PasswordTool clears it after 30 seconds if it has not changed.
 6. Locking or ending the session clears application-held key material where the runtime permits. The on-disk vault remains encrypted throughout.
 
-This separation is why possession of a current 6-digit code alone is insufficient to open a copied vault on another computer: the attacker would still need the Master Password, or a usable trusted token protected for the original Windows user. Conversely, TOTP is not protection against malware already controlling that same unlocked Windows account or reading the process while the vault is open.
+Possession of a current 6-digit code alone is insufficient to open a copied vault on another computer: the current desktop requires the Master Password as well. Legacy trusted tokens are tied to the original Windows user. TOTP does not protect against malware already controlling that same unlocked Windows account or reading the process while the vault is open.
 
 ### Vault-format migration
 
@@ -167,12 +184,12 @@ Forgot Master Password verifies the Recovery Key, collects a new Master Password
 
 ### Vault use and backups
 
-- Entries are either **Password** or **Recovery codes**. A recovery-code entry cannot also contain a password.
-- Password entries may also contain a website TOTP secret. This is separate from the PasswordTool Authenticator secret used to protect the vault.
-- Favorites, folders, tags, and local search help organize entries without a server or online account.
+- New credentials can contain a password, account recovery codes, or both. Recovery-code lists require at least two valid unique codes. Legacy `RecoveryCodes`-type entries remain supported and cannot contain password or website TOTP data.
+- Existing website TOTP secrets remain encrypted and are preserved when editing. Core supports code generation, but the current desktop UI hides this feature. The vault sign-in Authenticator remains available.
+- Favorites, groups, tags, and local search help organize entries without a server or online account. Legacy folders migrate to groups.
 - URL and Notes may be hidden in the list; the encrypted stored value is unchanged and can be accessed only through the protected edit workflow.
-- General copy/cut shortcuts remain disabled. Explicit copy actions for usernames, passwords, and website TOTP codes clear an unchanged clipboard value after 30 seconds. Windows and other applications may read it first.
-- Export uses a separate backup passphrase of at least 12 characters. The encrypted envelope contains vault entries only: it excludes the Master Password configuration, TOTP secret, and trusted token.
+- General copy/cut shortcuts remain disabled in sensitive fields. Explicit sensitive copy actions clear an unchanged clipboard value after 30 seconds. Windows and other applications may read it first.
+- Export uses a separate backup passphrase of at least 12 characters. The encrypted envelope contains vault entries, including any stored website TOTP secrets; it excludes the Master Password configuration, vault sign-in Authenticator secret, and trusted token.
 - The **Backup & Recovery Center** records the last successful external backup and authenticated verification time and warns when no external backup is recorded or the latest is older than 30 days.
 - On a new PC, choose **Recover from encrypted backup**, enter the backup passphrase, review safe item counts, then create a new Master Password and Authenticator. Recovery preserves supported item data but deliberately creates a fresh Argon2id salt, trusted token, and application Authenticator secret.
 - Import validates the full backup before changing the vault, shows new/duplicate/conflicting IDs, and saves only new entries. Existing entries are never overwritten.
@@ -180,7 +197,7 @@ Forgot Master Password verifies the Recovery Key, collects a new Master Password
 - Changing a password keeps its latest 10 previous values inside the encrypted vault. Deleted items remain in Trash for 30 days unless restored or permanently deleted.
 - UpdatedAt records any item edit; PasswordChangedAt records only when the current password became active. Older vaults derive the latter from the newest valid password-history change, then UpdatedAt, then CreatedAt; impossible future dates are ignored.
 - Local Security Check is local-only: it scans active password entries for weak, exactly reused, and passwords at least 365 days old without returning a secret. Its dialog names affected items, supports protected **Edit selected item**, then rescans after the edit. It performs no network request and does not expose password values in its result.
-- State changes preserve up to five paired `.config` + `.storage` snapshots. Restore always restores the pair and locks the vault so the restored credentials must unlock it again.
+- State changes preserve up to five paired `.config` + `.storage` snapshots. Restore restores the pair and ends the current sign-in session; sign in again using the restored credentials.
 - Internal snapshots remain on the same disk. They can undo local changes but are not an external backup and do not protect against disk loss.
 
 ## Security model and limits
@@ -191,7 +208,7 @@ PasswordTool protects data at rest and requires a local second factor to open th
 | --- | --- |
 | Vault entries and TOTP secret are encrypted with AES-256-GCM. | Malware, a compromised running Windows session, screen capture, or memory inspection while the vault is open. |
 | Every new vault uses an independent random DEK and KDF salt; cryptographic key buffers are cleared when sessions end where the runtime permits. | Loss of all credentials, Recovery Key, and usable backups; there is no server or cloud copy. |
-| Unlock requires both the Master Password and a valid six-digit Authenticator code. | Malware or another process already acting as the same Windows user; TOTP does not protect an already-unlocked session. |
+| Initial sign-in requires the Master Password and a valid six-digit Authenticator code; re-unlock within that session requires the Master Password. | Malware or another process already acting as the same Windows user; TOTP does not protect an already-unlocked session. |
 | The in-memory sign-in session authorizes vault actions for up to five hours. | A weak Master Password or an unlocked device left accessible to another person. |
 | Sensitive clipboard values are cleared after 30 seconds when unchanged. | Another process reading the clipboard, clipboard history, remote-control software, or malware. |
 
@@ -211,6 +228,7 @@ The desktop app stores its files in:
 | `.storage` | AES-256-GCM encrypted vault payload. |
 | `.trusted-unlock` | Legacy trusted-unlock token file; Authenticator-only sign-in is no longer offered. |
 | `.snapshots` | Up to five previous paired config/vault states, retaining the same encrypted-at-rest representation. |
+| `appearance.json` | Local theme, tab placement, and built-in tab names/colors; separate from the encrypted vault payload. |
 
 Do not manually edit, mix, or partially restore these files. If only `.config` or `.storage` is present, the app stops rather than overwriting partial storage.
 
@@ -229,21 +247,22 @@ It has no authentication, rate limiting, or production hardening today. Do not e
 
 ## Windows releases
 
-PasswordTool supports Windows x64. The release workflow publishes a deterministic .NET 10, unpackaged, self-contained, single-file WinUI 3 payload, so end-user machines do not need a separately installed .NET runtime or Windows App SDK runtime. It has no runtime network, update, telemetry, account, or cloud dependency.
+PasswordTool supports Windows x64. The release workflow publishes deterministic .NET 10, unpackaged, self-contained binaries: `YourSafe.exe` and the adjacent `YourSafe.NativeHost.exe`, plus browser host manifests and required content. End-user machines do not need a separately installed .NET runtime or Windows App SDK runtime. The desktop has no runtime network, update, telemetry, online account, or cloud dependency.
 
-Create an unsigned developer/test release with a new numeric `major.minor.patch` version:
+Create an unsigned developer/test release with a new numeric `major.minor.patch` version. Set both variables to actual production Chrome/Edge store extension IDs; missing IDs, placeholders and the development ID are rejected, including when the installer is skipped:
 
 ```powershell
-pwsh .\scripts\Publish-WindowsRelease.ps1 -Version 1.0.0 -ChromeExtensionId $chromeStoreId -EdgeExtensionId $edgeStoreId
+pwsh .\scripts\Publish-WindowsRelease.ps1 -Version 1.0.0 -ChromeExtensionId $chromeStoreId -EdgeExtensionId $edgeStoreId -SigningMode Disabled
 ```
 
-The script writes a non-overwriting versioned directory under `artifacts\releases\1.0.0`. It validates the published payload, excludes vault and source inputs, produces a portable ZIP, and writes SHA-256 checksums, a public static release manifest, and an explicit `release-status.txt`. Do not distribute a release whose status says `UNSIGNED` as a production-signed release.
+The script writes a non-overwriting versioned directory under `artifacts\releases\1.0.0`. It validates the published payload, excludes vault and source inputs, produces a portable ZIP, and writes SHA-256 checksums, a public static release manifest, and an explicit `release-status.txt`. Use `-SigningMode Required` for a production release with configured signing. The TypeScript extension is built separately and distributed through the browser stores. Do not distribute a release whose status says `UNSIGNED` as a production-signed release.
 
 Qualify the newly generated, finalized directory without modifying it:
 
 ```powershell
 pwsh .\scripts\Test-ReleasePipeline.ps1
 pwsh .\scripts\Test-ReleaseQualification.ps1
+pwsh .\scripts\Test-BrowserIntegration.ps1
 pwsh .\scripts\Invoke-ReleaseQualification.ps1 -ReleaseDirectory .\artifacts\releases\1.0.0
 ```
 
@@ -260,15 +279,19 @@ src/
   PasswordTool.Core/       # cryptography, vault workflows, hash implementations
   PasswordTool.Presentation/ # platform-neutral MVVM state and orchestration
   PasswordTool.WinUI/      # local WinUI 3 Windows interface
+  PasswordTool.NativeHost/ # C# Native Messaging and named-pipe client
   PasswordTool.Api/        # optional Minimal API for hash operations
 tests/
   PasswordTool.Core.Tests/ # core behavior and security-rule tests
   PasswordTool.Presentation.Tests/ # MVVM and orchestration tests
 docs/
   architecture.md          # boundaries, data flows, and developer rules
+browser-extension/         # standalone TypeScript Chrome/Edge extension
+website/                   # static Vietnamese landing page
 ```
 
 For implementation details and rules for future changes, read [docs/architecture.md](docs/architecture.md).
+
 ## Browser autofill
 
-YourSafe includes a local C# NativeHost and a standalone TypeScript extension for Chrome and Edge. See [browser-extension/README.md](browser-extension/README.md) for development builds, registration, security boundaries, tests and the manual browser/installer checklist.
+YourSafe includes a local C# NativeHost and a standalone TypeScript extension for Chrome and Edge. Autofill requires the running, unlocked desktop and explicit account selection in the trusted popup. Only the exact HTTPS origin matches; the extension never submits the form. Discovery stays within a 64 KiB envelope and reports when the list is incomplete. Browser autofill is optional; the desktop vault works without it. See [browser-extension/README.md](browser-extension/README.md) for development builds, registration, security boundaries, tests and the manual browser/installer checklist.

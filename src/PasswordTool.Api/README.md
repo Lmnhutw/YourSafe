@@ -11,13 +11,15 @@ Optional ASP.NET Core Minimal API over the password-hashing capabilities in `Pas
 | `POST` | `/api/password/inspect` | Parses supported metadata from `StoredHash`. |
 | `GET` | `/api/password/algorithms` | Lists supported algorithms and their security category. |
 
-Run locally:
+Run from the repository root with the .NET 10 SDK:
 
 ```powershell
 dotnet run --project src\PasswordTool.Api\PasswordTool.Api.csproj --launch-profile https
 ```
 
-During development, OpenAPI is available at the HTTPS development address. `PasswordTool.Api.http` contains example requests.
+The HTTPS launch profile listens at `https://localhost:7072` and `http://localhost:5030`; HTTP requests are redirected to HTTPS. In Development, the OpenAPI document is at `https://localhost:7072/openapi/v1.json`. No Swagger UI is configured. [PasswordTool.Api.http](PasswordTool.Api.http) contains example requests. JSON request fields use `password`, `algorithmName`, and `storedHash`; `/algorithms` reports the available registry descriptors, including educational-only algorithms.
+
+This process is separate from the desktop and NativeHost. Browser autofill uses local named pipes, not this HTTP API.
 
 ## Security status
 

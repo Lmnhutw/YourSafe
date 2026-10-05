@@ -8,10 +8,12 @@ The reusable domain and security layer for PasswordTool. The WinUI desktop UI an
 
 - Master Password validation, Argon2id KEK derivation, AES-GCM DEK wrapping, and legacy PBKDF2 compatibility
 - AES-256-GCM encryption/decryption and encrypted local-vault persistence
-- TOTP generation/verification and Windows-DPAPI trusted-unlock tokens
+- Vault sign-in TOTP generation/verification and legacy Windows-DPAPI trusted-unlock token compatibility
 - Master-Password-authorized vault durations and fixed five-hour login deadlines
-- Optional website TOTP secrets and current-code generation
+- Stored website TOTP secrets and current-code generation in Core; the current desktop UI hides website TOTP editing/display and preserves existing secrets
 - Vault item validation, CRUD, recovery-code parsing, and sensitive-action verification
+- Credential groups, tags, favorites, and migration of legacy folders to groups
+- Autofill metadata/secret projections with lock/session checks and null username normalization; origin policy and browser consent belong to Presentation and the worker
 - Encrypted, versioned backup creation, safe authenticated inspection, import planning, and atomic new-machine recovery
 - Cryptographically secure password/passphrase generation and strength estimates
 - Bounded common-format CSV parsing and duplicate-aware import planning
@@ -22,6 +24,8 @@ The reusable domain and security layer for PasswordTool. The WinUI desktop UI an
 
 For a new v4 config, `.config` contains Master and Recovery key slots wrapping the same random DEK, a credential revision, and the DEK-encrypted Authenticator secret. Vault ciphertext retains the v3 context. Recovery keys are 32 random bytes encoded as eight hex groups with an RK1 prefix. Only the AES-GCM wrapper is persisted. Trusted tokens bind to the credential revision as part of the configuration fingerprint. TOTP remains an application gate rather than an independent encryption key.
 
+Current desktop sign-in requires both the Master Password and Authenticator code. Re-unlock during the fixed five-hour login requires only the Master Password. Sensitive actions use the active unlocked session without requesting another code. Legacy Authenticator-only token methods remain in Core for compatibility and are not used by the current desktop sign-in.
+
 Backup restoration accepts only uninitialized storage and requires Recovery Key confirmation. RecoveryKeyResetRequest is separate: it validates the current Recovery Key and vault, new password, saved replacement key, and new Authenticator OTP before a verified paired commit. It preserves ciphertext and clears sessions/tokens. SaveRecoveryKey requires Master Password and a verified login; it completes v3 enrollment without rewriting ciphertext and migrates legacy payloads once. Failed or cancelled enrollment leaves storage unchanged and denies workspace access. Snapshots retain their original credentials and revisions.
 
 File names and Hidden/System attributes are obfuscation only. The security boundary is the Master Password-derived KEK, wrapped random DEK, authenticated encryption, DPAPI scope, and the Windows user account.
@@ -29,9 +33,10 @@ File names and Hidden/System attributes are obfuscation only. The security bound
 ## Change rules
 
 - Do not persist or log raw passwords, recovery codes, Master Passwords, TOTP secrets, or unprotected vault keys.
-- Preserve the password-versus-recovery-code invariant on every add, update, import, and export.
+- New `Password`-type credentials may contain a password, recovery codes, or both; without a password they require at least two valid unique recovery codes. Legacy `RecoveryCodes`-type entries cannot contain a password, website TOTP secret, or password-history metadata. Preserve these rules on add, update, import, and export.
 - Treat backups as untrusted input: retain schema, size, depth, field-length, version, KDF, and authentication checks before mutating the vault.
 - Keep inspection results metadata-only; never return decrypted backup payloads to a UI.
+- `GetAutofillCredentials` returns active password-bearing entries with their real URLs, including hidden URLs. `GetAutofillSecret` checks item availability and the matched stored URL. Normalize imported null usernames to `""` in both projections. Only ID/title/username metadata and the selected username/password DTO cross the autofill transport; URL-bearing Core models stay inside the application.
 - Keep UI and API layers thin. They may choose dialogs, HTTP status codes, and DTOs, but Core owns cryptography and domain validation.
 - Maintain backward compatibility for vault items that predate recovery codes: their missing `Type` defaults to `Password`.
 - New optional item metadata must keep safe defaults so older encrypted vault and backup payloads continue to deserialize.
