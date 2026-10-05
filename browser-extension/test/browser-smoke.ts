@@ -1,0 +1,58 @@
+import { findFields, fillFields } from '../src/fields';
+const fixture = document.getElementById('fixture');
+const results = document.getElementById('results');
+if (!fixture || !results) throw new Error('Missing test layout');
+let checks = 0;
+function check(value: boolean, label: string): void { if (!value) throw new Error(label); checks++; }
+try {
+  fixture.innerHTML = '<form><input type="email" autocomplete="username"><input type="password" autocomplete="current-password"><button>Sign in</button></form>';
+  const fields = findFields();
+  check(!!fields?.username, 'email and password detected');
+  let input = 0, change = 0, submit = 0;
+  fixture.addEventListener('input', () => input++);
+  fixture.addEventListener('change', () => change++);
+  fixture.addEventListener('submit', () => submit++);
+  if (!fields) throw new Error('Missing fields');
+  fillFields(fields, 'synthetic@example.test', 'synthetic-password');
+  check(fields.username?.value === 'synthetic@example.test' && fields.password.value === 'synthetic-password', 'native setters fill');
+  check(input === 2 && change === 2 && submit === 0, 'events emitted without submit');
+  fixture.innerHTML = '<input type="password" autocomplete="new-password">';
+  check(!findFields(), 'new password excluded');
+  fixture.innerHTML = '<input type="password" disabled><input type="password" readonly><input type="password" hidden>';
+  check(!findFields(), 'noneditable/hidden inputs excluded');
+  fixture.innerHTML = '<form><input type="password"></form><form><input type="password"></form>';
+  check(!findFields(), 'ambiguous passwords rejected');
+  const focused = fixture.querySelector('input');
+  check(focused instanceof HTMLInputElement && findFields(focused)?.password === focused, 'focus resolves ambiguity');
+  fixture.innerHTML = '<form><input type="password"></form>';
+  check(!!findFields() && !findFields()?.username, 'password-only detected');
+  fixture.innerHTML = '<form><input type="text"><input type="text"><input type="password"></form>';
+  check(!findFields(), 'ambiguous usernames rejected');
+  const chosen = fixture.querySelector('input');
+  if (!(chosen instanceof HTMLInputElement)) throw new Error('Missing username');
+  const selected = findFields(chosen);
+  if (!selected) throw new Error('Focus must resolve username');
+  fillFields(selected, 'chosen-user', 'chosen-password');
+  check(chosen.value === 'chosen-user' && selected.password.value === 'chosen-password', 'focused username survives fill revalidation');
+  fixture.innerHTML = '<form><input type="text" autocomplete="username"><input type="password"><input type="password"></form>';
+  const chosenPassword = fixture.querySelector('input[type=password]');
+  if (!(chosenPassword instanceof HTMLInputElement)) throw new Error('Missing password');
+  const passwordSelection = findFields(chosenPassword);
+  if (!passwordSelection) throw new Error('Focus must resolve password');
+  fillFields(passwordSelection, 'user', 'chosen-password');
+  check(chosenPassword.value === 'chosen-password', 'focused password survives username revalidation');
+  fixture.innerHTML = '<form><fieldset disabled><input type="text"><input type="password"></fieldset></form>';
+  check(!findFields(), 'fieldset disabled is inherited');
+  fixture.innerHTML = '<form><fieldset disabled><legend><input type="password"></legend><input type="password"></fieldset></form>';
+  check(!!findFields(), 'first legend retains native enabled semantics');
+  fixture.innerHTML = '';
+  fixture.insertAdjacentHTML('beforeend', '<form><input type="text" autocomplete="username"><input type="password"></form>');
+  check(!!findFields()?.username, 'dynamic form detected');
+  const dynamic = findFields();
+  if (!dynamic?.username) throw new Error('Missing dynamic fields');
+  dynamic.username.addEventListener('input', () => { dynamic.password.autocomplete = 'new-password'; }, { once: true });
+  let rejected = false;
+  try { fillFields(dynamic, 'test', 'must-not-fill'); } catch { rejected = true; }
+  check(rejected && dynamic.password.value === '', 'reclassified password rejected after username events');
+  results.textContent = `PASS: ${checks} browser detection/fill checks`;
+} catch (error) { results.textContent = 'FAIL: ' + (error instanceof Error ? error.message : 'Unknown error'); throw error; }

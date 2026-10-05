@@ -19,6 +19,7 @@ public partial class App : Application
 {
     private SingleInstanceGuard? singleInstance;
     private int fatalErrorHandling;
+    private AutofillPipeServer? autofillServer;
     /// <summary>
     /// The main application window. Use <c>App.Window</c> from any class that needs
     /// the window reference (for dialogs, pickers, interop, etc.).
@@ -61,7 +62,7 @@ public partial class App : Application
         singleInstance = SingleInstanceGuard.TryAcquire(out var acquired);
         if (!acquired)
         {
-            NativeDialog.ShowInformation("PasswordTool is already running.");
+            NativeDialog.ShowInformation("YourSafe is already running.");
             singleInstance.Dispose();
             singleInstance = null;
             Exit();
@@ -73,6 +74,7 @@ public partial class App : Application
         Window = new MainWindow();
         Window.Closed += Window_Closed;
         Window.Activate();
+        autofillServer = new AutofillPipeServer(Services.GetRequiredService<AppFlowCoordinator>());
     }
 
     private async void App_UnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
@@ -109,6 +111,8 @@ public partial class App : Application
 
     private async void Window_Closed(object sender, WindowEventArgs args)
     {
+        if (autofillServer is not null) await autofillServer.StopAsync();
+        autofillServer = null;
         try
         {
             Services.GetRequiredService<DialogLifetime>().DismissAll();

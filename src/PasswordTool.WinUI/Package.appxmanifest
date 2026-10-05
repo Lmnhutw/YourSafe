@@ -16,7 +16,7 @@
   <mp:PhoneIdentity PhoneProductId="C75686D5-8151-4FBD-AD3D-3830CF8A5CF2" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>PasswordTool.WinUI</DisplayName>
+    <DisplayName>YourSafe</DisplayName>
     <PublisherDisplayName>AppPublisher</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -35,8 +35,8 @@
       Executable="$targetnametoken$.exe"
       EntryPoint="$targetentrypoint$">
       <uap:VisualElements
-        DisplayName="PasswordTool.WinUI"
-        Description="PasswordTool.WinUI"
+        DisplayName="YourSafe"
+        Description="YourSafe password vault"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">

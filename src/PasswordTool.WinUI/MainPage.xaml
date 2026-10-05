@@ -78,20 +78,20 @@
                     <StackPanel Spacing="16">
                         <StackPanel x:Name="LoadingPanel" Spacing="12">
                             <ProgressRing IsActive="True" />
-                            <TextBlock HorizontalAlignment="Center" Text="Opening PasswordTool…" />
+                            <TextBlock HorizontalAlignment="Center" Text="Opening YourSafe…" />
                         </StackPanel>
 
                         <StackPanel x:Name="PartialStoragePanel" Spacing="16" Visibility="Collapsed">
                             <FontIcon HorizontalAlignment="Left" FontSize="36" Glyph="&#xE7BA;" />
                             <TextBlock Style="{StaticResource PasswordToolPageTitleStyle}" Text="Storage needs attention" />
-                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="PasswordTool found an incomplete config/vault pair. It will not overwrite or recover over these files. Restore the missing file or inspect the local PasswordTool storage folder before continuing." TextWrapping="Wrap" />
-                            <Button HorizontalAlignment="Left" Click="ExitButton_Click" Content="Exit PasswordTool" />
+                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="YourSafe found an incomplete config/vault pair. It will not overwrite or recover over these files. Restore the missing file or inspect this app's local storage folder before continuing." TextWrapping="Wrap" />
+                            <Button HorizontalAlignment="Left" Click="ExitButton_Click" Content="Exit YourSafe" />
                         </StackPanel>
 
                         <StackPanel x:Name="FirstLaunchPanel" Spacing="16" Visibility="Collapsed">
                             <FontIcon HorizontalAlignment="Left" FontSize="36" Glyph="&#xE72E;" />
-                            <TextBlock Style="{StaticResource PasswordToolPageTitleStyle}" Text="Welcome to PasswordTool" />
-                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Create an empty encrypted vault, or recover items from a PasswordTool backup. Recovery creates a new Master Password and Authenticator for this installation." TextWrapping="Wrap" />
+                            <TextBlock Style="{StaticResource PasswordToolPageTitleStyle}" Text="Welcome to YourSafe" />
+                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Create an empty encrypted vault, or recover items from a YourSafe backup. Recovery creates a new Master Password and Authenticator for this installation." TextWrapping="Wrap" />
                             <Button Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="BtnCreateVault" HorizontalAlignment="Stretch" Click="CreateVaultButton_Click" Content="Create a new empty vault" />
                             <Button AutomationProperties.AutomationId="BtnRecoverVault" HorizontalAlignment="Stretch" Click="RecoverVaultButton_Click" Content="Recover from encrypted backup" />
                             <Button HorizontalAlignment="Stretch" Click="ExitButton_Click" Content="Cancel" />
@@ -99,7 +99,7 @@
 
                         <StackPanel x:Name="RecoveryPanel" Spacing="16" Visibility="Collapsed">
                             <TextBlock Style="{StaticResource PasswordToolPageTitleStyle}" Text="Recover encrypted backup" />
-                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Choose a PasswordTool JSON backup and enter its backup password. The file is authenticated before recovery can continue." TextWrapping="Wrap" />
+                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Choose a YourSafe JSON backup and enter its backup password. The file is authenticated before recovery can continue." TextWrapping="Wrap" />
                             <Button AutomationProperties.AutomationId="BtnChooseRecovery" HorizontalAlignment="Left" Click="ChooseRecoveryButton_Click" Content="Choose backup file" />
                             <TextBlock AutomationProperties.AutomationId="TxtRecoveryPath" Text="{x:Bind ViewModel.RecoveryPath, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                             <PasswordBox x:Name="RecoveryPassphraseInput" AutomationProperties.Name="Backup password" Header="Backup password" />
@@ -162,7 +162,7 @@
                             IsOpen="{x:Bind ViewModel.IsStatusOpen, Mode=TwoWay}"
                             Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
                             Severity="Error"
-                            Title="PasswordTool could not continue" />
+                            Title="YourSafe could not continue" />
                     </StackPanel>
                 </Border>
             </ScrollViewer>
@@ -615,7 +615,7 @@
                         <Border Style="{StaticResource PasswordToolCardStyle}">
                             <StackPanel Spacing="12">
                                 <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Local snapshots" />
-                                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Snapshots are prior encrypted config/vault pairs on this device. Restoring returns PasswordTool to Unlock." TextWrapping="Wrap" />
+                                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Snapshots are prior encrypted config/vault pairs on this device. Restoring returns YourSafe to Unlock." TextWrapping="Wrap" />
                                 <ListView Height="180" ItemsSource="{x:Bind ViewModel.Backup.Snapshots}" SelectedItem="{x:Bind ViewModel.Backup.SelectedSnapshot, Mode=TwoWay}">
                                     <ListView.ItemTemplate>
                                         <DataTemplate x:DataType="models:VaultSnapshotInfo">

@@ -46,6 +46,11 @@ try {
     $publishDirectory = Join-Path $stagingRoot 'publish'
     New-Item -ItemType Directory -Path $publishDirectory -Force | Out-Null
     [System.IO.File]::WriteAllBytes((Join-Path $publishDirectory 'YourSafe.exe'), [byte[]](1, 2, 3, 4))
+    [System.IO.File]::WriteAllBytes((Join-Path $publishDirectory 'YourSafe.NativeHost.exe'), [byte[]](1, 2, 3, 4))
+    Import-Module (Join-Path $PSScriptRoot 'BrowserIntegration.psm1') -Force
+    foreach ($browser in @('chrome', 'edge')) {
+        Write-NativeHostManifest -Path (Join-Path $publishDirectory "yoursafe-native-$browser.json") -ExecutablePath 'YourSafe.NativeHost.exe' -ExtensionId 'lhffehnfgjhbipabkdgniaenehidnhfa'
+    }
     [System.IO.File]::WriteAllBytes((Join-Path $publishDirectory 'PasswordTool.Core.dll'), [byte[]](5, 6, 7, 8))
 
     Invoke-ReleasePipelineTest -Name 'Release staging rejects output outside its configured root' -Action {

@@ -16,10 +16,10 @@ public sealed partial class TotpService
         finally { CryptographicOperations.ZeroMemory(secretBytes); }
     }
 
-    public string CreateOtpAuthUri(string secretBase32, string issuer = "PasswordTool", string? accountName = null)
+    public string CreateOtpAuthUri(string secretBase32, string issuer = "YourSafe", string? accountName = null)
     {
         var normalizedSecret = NormalizeSecret(secretBase32);
-        var normalizedIssuer = string.IsNullOrWhiteSpace(issuer) ? "PasswordTool" : issuer.Trim();
+        var normalizedIssuer = string.IsNullOrWhiteSpace(issuer) ? "YourSafe" : issuer.Trim();
         var normalizedAccount = string.IsNullOrWhiteSpace(accountName)
             ? Environment.UserName
             : accountName.Trim();

@@ -1,5 +1,7 @@
 using PasswordTool.Core.Models;
 using PasswordTool.Core.Services;
+using PasswordTool.Autofill;
+using PasswordTool.Presentation.Autofill;
 
 namespace PasswordTool.Presentation;
 
@@ -188,7 +190,7 @@ public sealed class AppFlowCoordinator
         FlowState = AppFlowState.SetupAuthenticator;
         return new AuthenticatorSetup(
             secret,
-            totpService.CreateOtpAuthUri(secret, "PasswordTool", Environment.UserName));
+            totpService.CreateOtpAuthUri(secret, "YourSafe", Environment.UserName));
     }
 
     public AuthenticatorSetup CreateAuthenticatorSetup()
@@ -196,7 +198,7 @@ public sealed class AppFlowCoordinator
         var secret = totpService.GenerateSecret();
         return new AuthenticatorSetup(
             secret,
-            totpService.CreateOtpAuthUri(secret, "PasswordTool", Environment.UserName));
+            totpService.CreateOtpAuthUri(secret, "YourSafe", Environment.UserName));
     }
 
     public Task<VaultBackupInspection> InspectRecoveryBackupAsync(
@@ -282,6 +284,26 @@ public sealed class AppFlowCoordinator
 
     public Task<IReadOnlyList<VaultItemListItem>> GetListItemsAsync(CancellationToken cancellationToken = default) =>
         RunVaultAsync(() => (IReadOnlyList<VaultItemListItem>)vaultService.GetItems().Select(VaultItemListItem.FromVaultItem).ToList(), cancellationToken);
+
+    public Task<IReadOnlyList<CredentialMetadata>> FindAutofillCredentialsAsync(string origin, CancellationToken cancellationToken = default)
+    {
+        AutofillPolicy.RequireOrigin(origin);
+        return RunVaultAsync(() => (IReadOnlyList<CredentialMetadata>)vaultService.GetAutofillCredentials()
+            .Where(item => AutofillPolicy.Matches(item, origin))
+            .Select(item => new CredentialMetadata(item.Id, item.Title, item.Username)).ToList(), cancellationToken);
+    }
+
+    public Task<CredentialSecret> GetAutofillCredentialSecretAsync(string origin, Guid id, CancellationToken cancellationToken = default)
+    {
+        AutofillPolicy.RequireOrigin(origin);
+        return RunVaultAsync(() =>
+        {
+            var candidate = vaultService.GetAutofillCredentials().FirstOrDefault(item => item.Id == id && AutofillPolicy.Matches(item, origin))
+                ?? throw new UnauthorizedAccessException("The credential is unavailable for this origin.");
+            var secret = vaultService.GetAutofillSecret(id, candidate.Url);
+            return new CredentialSecret(secret.Username, secret.Password);
+        }, cancellationToken);
+    }
 
     public Task<IReadOnlyList<VaultGroup>> GetGroupsAsync(CancellationToken cancellationToken = default) =>
         RunVaultAsync(vaultService.GetGroups, cancellationToken);

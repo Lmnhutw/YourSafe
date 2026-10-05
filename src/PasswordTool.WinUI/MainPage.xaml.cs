@@ -632,7 +632,7 @@ public sealed partial class MainPage : Page
                 {
                     FontSize = 16,
                     TextWrapping = TextWrapping.Wrap,
-                    Text = "PasswordTool cannot show or retrieve your Master Password.\n\n"
+                    Text = "YourSafe cannot show or retrieve your Master Password.\n\n"
                         + "If you saved your Recovery Key, you can use it to create a new Master Password and set up a new Authenticator. Your saved vault items are kept.\n\n"
                         + "You will also receive a replacement Recovery Key. Save it before finishing; you will then return to Login. Without your current Recovery Key, these credentials cannot be reset."
                 },
@@ -1085,7 +1085,7 @@ public sealed partial class MainPage : Page
         if (item is null || !ViewModel.IsCurrentUnlock(version)) return;
         var panel = new StackPanel { Spacing = 12 };
         panel.Children.Add(new TextBlock { Text = $"Title: {item.Title}\nUsername: {item.Username}\nURL: {item.Url}\nUpdated: {item.UpdatedDisplay}", TextWrapping = TextWrapping.Wrap });
-        panel.Children.Add(new TextBlock { Text = "Recovery codes belong to the external account. They do not reset PasswordTool.", TextWrapping = TextWrapping.Wrap });
+        panel.Children.Add(new TextBlock { Text = "Recovery codes belong to the external account. They do not reset YourSafe.", TextWrapping = TextWrapping.Wrap });
         var dialog = new ContentDialog { Title = "View details", Content = panel, CloseButtonText = "Close" };
         void Reveal(string label, Func<Task> action)
         {

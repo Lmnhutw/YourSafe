@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import { readFile, mkdir } from 'node:fs/promises';
+import { build } from 'esbuild';
+await mkdir('dist/test', { recursive: true });
+await build({ entryPoints: ['src/protocol.ts', 'src/context.ts'], bundle: true, outdir: 'dist/test', format: 'esm', platform: 'node' });
+const protocol = await import('../dist/test/protocol.js');
+const context = await import('../dist/test/context.js');
+const fixtures = JSON.parse(await readFile(new URL('contract-fixtures.json', import.meta.url), 'utf8'));
+for (const fixture of fixtures.requests) assert.equal(protocol.isRequest(fixture.value), fixture.valid, JSON.stringify(fixture.value));
+for (const fixture of fixtures.origins) assert.equal(protocol.canonicalOrigin(fixture.value) ?? null, fixture.canonical, fixture.value);
+const target = { tabId: 1, windowId: 1, frameId: 0, documentId: 'doc', url: 'https://example.com/login', origin: 'https://example.com' };
+assert(context.sameTarget(target, { ...target }));
+for (const change of [{ tabId: 2 }, { windowId: 2 }, { frameId: 1 }, { documentId: 'new' }, { url: target.url + '#changed' }, { origin: 'https://evil.example' }]) {
+  assert(!context.sameTarget(target, { ...target, ...change }));
+}
+globalThis.chrome = { runtime: { id: 'official', getURL: path => 'chrome-extension://official/' + path } };
+assert(context.isPopup({ id: 'official', url: 'chrome-extension://official/popup.html' }));
+assert(!context.isPopup({ id: 'official', url: target.url, tab: { id: 1 } }));
+assert(!context.isPopup({ id: 'other', url: 'chrome-extension://official/popup.html' }));
+assert(!context.isPopup({ id: 'official', url: 'chrome-extension://official/other.html' }));
+const request = fixtures.requests.find(fixture => fixture.value?.action === 'getCredentialSecret').value;
+assert(protocol.isResponse({ version: 1, requestId: request.requestId, ok: true, result: { username: 'test', password: 'synthetic' } }, request));
+assert(!protocol.isResponse({ version: 1, requestId: 'wrong', ok: true, result: { username: 'test', password: 'synthetic' } }, request));
+assert(!protocol.isResponse({ version: 1, requestId: request.requestId, ok: true, result: { username: 'test', password: 'synthetic', totp: 'hidden' } }, request));
+const discoveryRequest = fixtures.requests.find(fixture => fixture.valid && fixture.value?.action === 'findCredentials').value;
+const discoveryResult = { credentials: [{ id: request.payload.credentialId, title: 'Account', username: '' }], truncated: true };
+assert(protocol.isResponse({ version: 1, requestId: discoveryRequest.requestId, ok: true, result: discoveryResult }, discoveryRequest));
+assert(!protocol.isDiscovery({ ...discoveryResult, truncated: undefined }));
+assert(!protocol.isDiscovery({ ...discoveryResult, credentials: [{ ...discoveryResult.credentials[0], username: null }] }));
+console.log(`Passed shared contract (${fixtures.requests.length} requests, ${fixtures.origins.length} origins), response and target authorization checks.`);
+await import('./worker-checks.mjs');

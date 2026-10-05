@@ -5,6 +5,9 @@ param(
 
     [string]$ArtifactsRoot,
 
+    [string]$ChromeExtensionId = '',
+    [string]$EdgeExtensionId = '',
+
     [ValidateSet('Auto', 'Required', 'Disabled')]
     [string]$SigningMode = 'Auto',
 
@@ -18,6 +21,9 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot 'ReleasePipeline.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'BrowserIntegration.psm1') -Force
+Assert-ProductionExtensionId $ChromeExtensionId
+Assert-ProductionExtensionId $EdgeExtensionId
 
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if ([string]::IsNullOrWhiteSpace($ArtifactsRoot)) {
@@ -50,6 +56,14 @@ if ($LASTEXITCODE -ne 0) {
     throw 'dotnet publish failed; no release directory was finalized.'
 }
 
+$nativeProject = Join-Path $repositoryRoot 'src\PasswordTool.NativeHost\PasswordTool.NativeHost.csproj'
+# Publish the single-file host directly alongside the desktop; no Node runtime is shipped.
+& dotnet publish $nativeProject -c Release -r win-x64 --self-contained true -o $publishDirectory `
+    '-p:PublishSingleFile=true' '-p:DebugType=embedded' '-p:DebugSymbols=false' "-p:Version=$Version"
+if ($LASTEXITCODE -ne 0) { throw 'NativeHost publish failed; no release directory was finalized.' }
+Write-NativeHostManifest -Path (Join-Path $publishDirectory 'yoursafe-native-chrome.json') -ExecutablePath 'YourSafe.NativeHost.exe' -ExtensionId $ChromeExtensionId
+Write-NativeHostManifest -Path (Join-Path $publishDirectory 'yoursafe-native-edge.json') -ExecutablePath 'YourSafe.NativeHost.exe' -ExtensionId $EdgeExtensionId
+
 # Symbols are useful in CI output but are not part of the portable single-file
 # distribution and can reveal local build paths. Remove only generated PDBs from
 # this newly-created staging directory before payload qualification.
@@ -59,6 +73,7 @@ Get-ChildItem -LiteralPath $publishDirectory -Recurse -Force -File -Filter '*.pd
 $payload = Assert-PublishedPayload -PublishDirectory $publishDirectory -OutputRoot $safeWorkingDirectory -MaximumPayloadSizeMB $MaximumPayloadSizeMB
 $signingConfiguration = Get-SigningConfiguration -SigningMode $SigningMode
 Invoke-ReleaseSigning -Configuration $signingConfiguration -FilePath $payload.ExecutablePath -OutputRoot $safeWorkingDirectory
+Invoke-ReleaseSigning -Configuration $signingConfiguration -FilePath $payload.NativeHostPath -OutputRoot $safeWorkingDirectory
 
 $installerPath = $null
 if (-not $SkipInstaller) {
@@ -69,7 +84,7 @@ if (-not $SkipInstaller) {
     }
 }
 
-$archivePath = Join-Path $safeWorkingDirectory "PasswordTool-$Version-win-x64.zip"
+$archivePath = Join-Path $safeWorkingDirectory "YourSafe-$Version-win-x64.zip"
 New-ReleaseArchive -PublishDirectory $publishDirectory -ArchivePath $archivePath -OutputRoot $safeWorkingDirectory | Out-Null
 
 $releaseStatus = if ($signingConfiguration.Status -eq 'Requested') {

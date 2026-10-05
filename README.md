@@ -33,7 +33,7 @@ Before running a downloaded build:
 2. Compare the package SHA-256 value with the matching entry in `checksums.sha256`:
 
    ```powershell
-   Get-FileHash .\PasswordTool-<version>-win-x64.zip -Algorithm SHA256
+   Get-FileHash .\YourSafe-<version>-win-x64.zip -Algorithm SHA256
    ```
 
 3. For a signed executable, open **Properties → Digital Signatures** and confirm the signature is valid, or verify it with `signtool verify /pa /tw <file>` when Windows SDK tools are available.
@@ -234,7 +234,7 @@ PasswordTool supports Windows x64. The release workflow publishes a deterministi
 Create an unsigned developer/test release with a new numeric `major.minor.patch` version:
 
 ```powershell
-pwsh .\scripts\Publish-WindowsRelease.ps1 -Version 1.0.0
+pwsh .\scripts\Publish-WindowsRelease.ps1 -Version 1.0.0 -ChromeExtensionId $chromeStoreId -EdgeExtensionId $edgeStoreId
 ```
 
 The script writes a non-overwriting versioned directory under `artifacts\releases\1.0.0`. It validates the published payload, excludes vault and source inputs, produces a portable ZIP, and writes SHA-256 checksums, a public static release manifest, and an explicit `release-status.txt`. Do not distribute a release whose status says `UNSIGNED` as a production-signed release.
@@ -269,3 +269,6 @@ docs/
 ```
 
 For implementation details and rules for future changes, read [docs/architecture.md](docs/architecture.md).
+## Browser autofill
+
+YourSafe includes a local C# NativeHost and a standalone TypeScript extension for Chrome and Edge. See [browser-extension/README.md](browser-extension/README.md) for development builds, registration, security boundaries, tests and the manual browser/installer checklist.

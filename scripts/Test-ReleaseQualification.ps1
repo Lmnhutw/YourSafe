@@ -47,9 +47,14 @@ function New-TestRelease {
     $publishDirectory = Join-Path $releaseDirectory 'publish'
     New-Item -ItemType Directory -Path $publishDirectory -Force | Out-Null
     [System.IO.File]::WriteAllBytes((Join-Path $publishDirectory 'YourSafe.exe'), [byte[]](1, 2, 3, 4, 5, 6))
+    [System.IO.File]::WriteAllBytes((Join-Path $publishDirectory 'YourSafe.NativeHost.exe'), [byte[]](1, 2, 3, 4, 5, 6))
+    Import-Module (Join-Path $PSScriptRoot 'BrowserIntegration.psm1') -Force
+    foreach ($browser in @('chrome', 'edge')) {
+        Write-NativeHostManifest -Path (Join-Path $publishDirectory "yoursafe-native-$browser.json") -ExecutablePath 'YourSafe.NativeHost.exe' -ExtensionId 'lhffehnfgjhbipabkdgniaenehidnhfa'
+    }
     [System.IO.File]::WriteAllBytes((Join-Path $publishDirectory 'PasswordTool.Core.dll'), [byte[]](7, 8, 9, 10))
 
-    $archivePath = Join-Path $releaseDirectory "PasswordTool-$Version-win-x64.zip"
+    $archivePath = Join-Path $releaseDirectory "YourSafe-$Version-win-x64.zip"
     New-ReleaseArchive -PublishDirectory $publishDirectory -ArchivePath $archivePath -OutputRoot $releaseDirectory | Out-Null
     Write-ReleaseChecksums -OutputRoot $releaseDirectory -PublishDirectory $publishDirectory | Out-Null
     Write-ReleaseManifest -OutputRoot $releaseDirectory -Version $Version -PublishDirectory $publishDirectory | Out-Null
@@ -121,7 +126,7 @@ try {
     Invoke-ReleaseQualificationTest -Name 'Checksum verification detects a modified distribution artifact' -Action {
         $caseRoot = Join-Path $temporaryRoot 'modified-artifact'
         $releaseDirectory = New-TestRelease -Root $caseRoot
-        $archivePath = Join-Path $releaseDirectory 'PasswordTool-1.2.3-win-x64.zip'
+        $archivePath = Join-Path $releaseDirectory 'YourSafe-1.2.3-win-x64.zip'
         $archiveStream = [System.IO.File]::Open($archivePath, [System.IO.FileMode]::Append, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
         try {
             $archiveStream.WriteByte(99)

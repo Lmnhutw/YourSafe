@@ -1,4 +1,5 @@
 Set-StrictMode -Version Latest
+Import-Module (Join-Path $PSScriptRoot 'BrowserIntegration.psm1') -Force
 
 function Assert-PathWithinRoot {
     [CmdletBinding()]
@@ -54,6 +55,11 @@ function Assert-PublishedPayload {
     if (-not (Test-Path -LiteralPath $expectedExecutable -PathType Leaf)) {
         throw "Expected published executable '$expectedExecutable' is missing."
     }
+    $nativeHost = Join-Path $publishPath 'YourSafe.NativeHost.exe'
+    if (-not (Test-Path -LiteralPath $nativeHost -PathType Leaf)) { throw 'Published NativeHost executable is missing.' }
+    foreach ($manifestName in @('yoursafe-native-chrome.json', 'yoursafe-native-edge.json')) {
+        Assert-NativeHostManifest -Path (Join-Path $publishPath $manifestName)
+    }
 
     $files = @(Get-ChildItem -LiteralPath $publishPath -Recurse -Force -File)
     if ($files.Count -eq 0) {
@@ -89,6 +95,7 @@ function Assert-PublishedPayload {
     return [pscustomobject]@{
         PublishDirectory = $publishPath
         ExecutablePath = $expectedExecutable
+        NativeHostPath = $nativeHost
         FileCount = $files.Count
         PayloadBytes = $payloadBytes
     }
@@ -234,7 +241,7 @@ function Invoke-InnoSetupBuild {
         throw 'Inno Setup compilation failed.'
     }
 
-    $expectedInstaller = Join-Path $safeInstallerDirectory "PasswordTool-$Version-win-x64-setup.exe"
+    $expectedInstaller = Join-Path $safeInstallerDirectory "YourSafe-$Version-win-x64-setup.exe"
     if (-not (Test-Path -LiteralPath $expectedInstaller -PathType Leaf) -or (Get-Item -LiteralPath $expectedInstaller).Length -le 0) {
         throw "Inno Setup did not create the expected installer '$expectedInstaller'."
     }

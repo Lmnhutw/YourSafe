@@ -53,7 +53,7 @@ public sealed partial class BackupViewModel(
         }
         await RunAsync(async version =>
         {
-            var path = await filePicker.PickSavePathAsync($"PasswordTool-backup-{DateTime.Now:yyyyMMdd-HHmm}.json");
+            var path = await filePicker.PickSavePathAsync($"YourSafe-backup-{DateTime.Now:yyyyMMdd-HHmm}.json");
             EnsureCurrent(version);
             if (path is null) return;
             try
@@ -134,7 +134,7 @@ public sealed partial class BackupViewModel(
             SelectedCsvPath = path;
             Summary = $"{plan.NewItemCount:N0} new · {plan.DuplicateCount:N0} duplicate";
             CanImportCsv = plan.NewItemCount > 0;
-            ShowStatus("CSV preview is ready. Plaintext source files are never copied into PasswordTool storage.");
+            ShowStatus("CSV preview is ready. Plaintext source files are never copied into YourSafe storage.");
         });
     }
 

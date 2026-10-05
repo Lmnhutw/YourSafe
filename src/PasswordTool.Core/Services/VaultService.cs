@@ -874,6 +874,31 @@ public sealed class VaultService : IDisposable
         return items;
     }
 
+    public IReadOnlyList<AutofillCredential> GetAutofillCredentials()
+    {
+        ThrowIfDisposed();
+        EnsureOpen();
+        var credentials = vaultData!.Items
+            .Where(item => !item.IsDeleted && item.Type == VaultItemType.Password && !string.IsNullOrEmpty(item.Password))
+            .Select(item => new AutofillCredential(item.Id, item.Title, item.Username ?? "", item.Url)).ToList();
+        EnsureOpen();
+        return credentials;
+    }
+
+    // Popup consent is authorized by the application; ordinary reveal/edit still requires TOTP.
+    public AutofillSecret GetAutofillSecret(Guid id, string matchedUrl)
+    {
+        ThrowIfDisposed();
+        EnsureOpen();
+        var item = FindItem(id);
+        if (item.Type != VaultItemType.Password || string.IsNullOrEmpty(item.Password)
+            || !string.Equals(item.Url, matchedUrl, StringComparison.Ordinal))
+            throw new UnauthorizedAccessException("The credential is unavailable for this origin.");
+        var secret = new AutofillSecret(item.Username ?? "", item.Password);
+        EnsureOpen();
+        return secret;
+    }
+
     public IReadOnlyList<VaultGroup> GetGroups()
     {
         ThrowIfDisposed();

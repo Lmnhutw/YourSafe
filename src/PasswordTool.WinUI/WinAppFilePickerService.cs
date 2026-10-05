@@ -25,7 +25,7 @@ internal sealed class WinAppFilePickerService : IFilePickerService
             SuggestedFileName = suggestedFileName
         };
         var extension = Path.GetExtension(suggestedFileName);
-        picker.FileTypeChoices.Add("PasswordTool data", [string.Equals(extension, ".csv", StringComparison.OrdinalIgnoreCase) ? ".csv" : ".json"]);
+        picker.FileTypeChoices.Add("YourSafe data", [string.Equals(extension, ".csv", StringComparison.OrdinalIgnoreCase) ? ".csv" : ".json"]);
         var result = await picker.PickSaveFileAsync();
         cancellationToken.ThrowIfCancellationRequested();
         return result?.Path;

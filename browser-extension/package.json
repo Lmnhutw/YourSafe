@@ -1,0 +1,18 @@
+{
+  "name": "yoursafe-browser-autofill",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "build:production": "node build.mjs --production",
+    "typecheck": "tsc --noEmit",
+    "test": "node test/run.mjs",
+    "test:browser:build": "esbuild test/browser-smoke.ts --bundle --outfile=dist/test/browser-smoke.js"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.9.0"
+  }
+}

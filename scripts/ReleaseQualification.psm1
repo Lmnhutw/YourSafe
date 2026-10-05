@@ -182,7 +182,7 @@ function Assert-ReleaseDirectoryShape {
         throw 'Release qualification requires a finalized release directory, not mutable staging output.'
     }
 
-    $zipName = "PasswordTool-$Version-win-x64.zip"
+    $zipName = "YourSafe-$Version-win-x64.zip"
     $requiredFileNames = @('checksums.sha256', 'release-manifest.json', 'release-status.txt', $zipName)
     $topLevelFiles = @(Get-ChildItem -LiteralPath $ReleaseDirectory -Force -File)
     $actualFileNames = @($topLevelFiles.Name)
@@ -220,7 +220,7 @@ function Get-ExpectedDistributionArtifacts {
     )
 
     $artifacts = [System.Collections.Generic.List[object]]::new()
-    $zipName = "PasswordTool-$Version-win-x64.zip"
+    $zipName = "YourSafe-$Version-win-x64.zip"
     $zipPath = Join-Path $ReleaseDirectory $zipName
     if (-not (Test-Path -LiteralPath $zipPath -PathType Leaf)) {
         throw "Expected portable ZIP '$zipPath' is missing."
@@ -229,7 +229,7 @@ function Get-ExpectedDistributionArtifacts {
 
     $installerDirectory = Join-Path $ReleaseDirectory 'installer'
     if (Test-Path -LiteralPath $installerDirectory -PathType Container) {
-        $expectedInstallerName = "PasswordTool-$Version-win-x64-setup.exe"
+        $expectedInstallerName = "YourSafe-$Version-win-x64-setup.exe"
         $installerFiles = @(Get-ChildItem -LiteralPath $installerDirectory -Force -File)
         $installerDirectories = @(Get-ChildItem -LiteralPath $installerDirectory -Force -Directory)
         if ($installerDirectories.Count -gt 0 -or $installerFiles.Count -ne 1 -or $installerFiles[0].Name -cne $expectedInstallerName) {
@@ -424,14 +424,23 @@ function Assert-ReleaseBuildAndOfflineContract {
 
     $publishScript = Get-Content -LiteralPath (Join-Path $RepositoryRoot 'scripts\Publish-WindowsRelease.ps1') -Raw
     if ($publishScript -notmatch [regex]::Escape("src\PasswordTool.WinUI\PasswordTool.WinUI.csproj") -or
+        $publishScript -notmatch [regex]::Escape("src\PasswordTool.NativeHost\PasswordTool.NativeHost.csproj") -or
         $publishScript -match 'PasswordTool\.Api' -or
-        @([regex]::Matches($publishScript, '(?im)^\s*&\s*dotnet\s+publish\b')).Count -ne 1) {
-        throw 'Release publishing must target only PasswordTool.WinUI and must not include PasswordTool.Api.'
+        @([regex]::Matches($publishScript, '(?im)^\s*&\s*dotnet\s+publish\b')).Count -ne 2) {
+        throw 'Release publishing must target only PasswordTool.WinUI and PasswordTool.NativeHost.'
+    }
+
+    [xml]$nativeProject = Get-Content -Raw -LiteralPath (Join-Path $RepositoryRoot 'src\PasswordTool.NativeHost\PasswordTool.NativeHost.csproj')
+    if ($nativeProject.Project.PropertyGroup.TargetFramework -cne 'net10.0' -or
+        $nativeProject.Project.PropertyGroup.AssemblyName -cne 'YourSafe.NativeHost' -or
+        $nativeProject.SelectNodes('/Project/ItemGroup/ProjectReference').Count -ne 0) {
+        throw 'NativeHost must remain a standalone .NET 10 transport executable without project references.'
     }
 
     $sourceRoots = @(
         (Join-Path $RepositoryRoot 'src\PasswordTool.Core'),
         (Join-Path $RepositoryRoot 'src\PasswordTool.Presentation'),
+        (Join-Path $RepositoryRoot 'src\PasswordTool.NativeHost'),
         (Join-Path $RepositoryRoot 'src\PasswordTool.WinUI')
     )
     $networkOrLoggingPattern = '(?i)using\s+System\.Net|\bHttpClient\b|\bIHttpClientFactory\b|\bWebRequest\b|\bWebClient\b|\bClientWebSocket\b|\bTcpClient\b|\bUdpClient\b|\bGrpcChannel\b|\bApplicationInsights\b|\bSentry\b|\bAutoUpdater\b|\bUpdateManager\b|\bILogger(?:<|\b)|\bLogInformation\s*\(|\bLogDebug\s*\(|\bTrace\.Write|\bDebug\.Write|\bConsole\.Write'
@@ -491,15 +500,15 @@ function Assert-InstallerTemplateContract {
 
     $expectedSetup = [ordered]@{
         AppId = '{{8DFF6D6D-6678-4455-9B24-CEB32A1D854A}'
-        AppName = 'PasswordTool'
+        AppName = 'YourSafe'
         AppVersion = '{#AppVersion}'
-        DefaultDirName = '{localappdata}\Programs\PasswordTool'
-        DefaultGroupName = 'PasswordTool'
+        DefaultDirName = '{localappdata}\Programs\YourSafe'
+        DefaultGroupName = 'YourSafe'
         PrivilegesRequired = 'lowest'
         ArchitecturesAllowed = 'x64compatible'
         ArchitecturesInstallIn64BitMode = 'x64compatible'
         OutputDir = '{#OutputDir}'
-        OutputBaseFilename = 'PasswordTool-{#AppVersion}-win-x64-setup'
+        OutputBaseFilename = 'YourSafe-{#AppVersion}-win-x64-setup'
         UsePreviousAppDir = 'yes'
     }
     foreach ($entry in $expectedSetup.GetEnumerator()) {
@@ -516,15 +525,23 @@ function Assert-InstallerTemplateContract {
         throw 'Inno Setup must contain only the validated SourceDir payload.'
     }
     $iconLines = @(Get-InnoSectionLines -Lines $lines -SectionName 'Icons')
-    if ($iconLines.Count -ne 1 -or $iconLines[0] -cne 'Name: "{group}\PasswordTool"; Filename: "{app}\YourSafe.exe"') {
-        throw 'Inno Setup must create the expected PasswordTool Start Menu entry.'
+    if ($iconLines.Count -ne 1 -or $iconLines[0] -cne 'Name: "{group}\YourSafe"; Filename: "{app}\YourSafe.exe"') {
+        throw 'Inno Setup must create the expected YourSafe Start Menu entry.'
     }
     $runLines = @(Get-InnoSectionLines -Lines $lines -SectionName 'Run')
-    if ($runLines.Count -ne 1 -or $runLines[0] -cne 'Filename: "{app}\YourSafe.exe"; Description: "Launch PasswordTool"; Flags: nowait postinstall skipifsilent') {
-        throw 'Inno Setup must launch only the expected PasswordTool WinUI executable.'
+    if ($runLines.Count -ne 1 -or $runLines[0] -cne 'Filename: "{app}\YourSafe.exe"; Description: "Launch YourSafe"; Flags: nowait postinstall skipifsilent') {
+        throw 'Inno Setup must launch only the expected YourSafe WinUI executable.'
     }
     if (@(Get-InnoSectionLines -Lines $lines -SectionName 'UninstallDelete').Count -ne 0) {
         throw 'Inno Setup must not delete vault data or any path outside the application binaries.'
+    }
+    $registryLines = @(Get-InnoSectionLines -Lines $lines -SectionName 'Registry')
+    $expectedRegistry = @(
+        'Root: HKCU32; Subkey: "Software\Google\Chrome\NativeMessagingHosts\com.yoursafe.autofill"; ValueType: string; ValueName: ""; ValueData: "{app}\yoursafe-native-chrome.json"',
+        'Root: HKCU32; Subkey: "Software\Microsoft\Edge\NativeMessagingHosts\com.yoursafe.autofill"; ValueType: string; ValueName: ""; ValueData: "{app}\yoursafe-native-edge.json"'
+    )
+    if ($registryLines.Count -ne 2 -or @($registryLines | Where-Object { $expectedRegistry -cnotcontains $_ }).Count -gt 0) {
+        throw 'Installer must register only the production host in HKCU for Chrome and Edge.'
     }
 }
 
@@ -628,7 +645,7 @@ function Invoke-ReleaseQualification {
     $publishDirectory = Join-Path $releasePath 'publish'
     $payload = Assert-PublishedPayload -PublishDirectory $publishDirectory -OutputRoot $releasePath
     $distributionArtifacts = @(Get-ExpectedDistributionArtifacts -ReleaseDirectory $releasePath -Version $manifest.Version)
-    $portableArchive = @($distributionArtifacts | Where-Object RelativePath -CEQ "PasswordTool-$($manifest.Version)-win-x64.zip")
+    $portableArchive = @($distributionArtifacts | Where-Object RelativePath -CEQ "YourSafe-$($manifest.Version)-win-x64.zip")
     Assert-PortableArchiveMatchesPayload -ArchivePath $portableArchive[0].FullName -PublishDirectory $publishDirectory
 
     $checksumEntries = Read-ReleaseChecksums -ChecksumPath $checksumPath
@@ -647,6 +664,7 @@ function Invoke-ReleaseQualification {
             throw 'Release claims SIGNED, but signtool.exe is unavailable. Authenticode and timestamp qualification did not pass.'
         }
         Assert-AuthenticodeAndTimestamp -FilePath $payload.ExecutablePath -SignToolPath $resolvedSignTool
+        Assert-AuthenticodeAndTimestamp -FilePath $payload.NativeHostPath -SignToolPath $resolvedSignTool
         foreach ($installerArtifact in @($distributionArtifacts | Where-Object RelativePath -CLike 'installer/*')) {
             Assert-AuthenticodeAndTimestamp -FilePath $installerArtifact.FullName -SignToolPath $resolvedSignTool
         }

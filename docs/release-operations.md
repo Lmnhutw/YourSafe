@@ -5,17 +5,19 @@
 This is the only supported release-publish path for `PasswordTool.WinUI`:
 
 ```powershell
-pwsh .\scripts\Publish-WindowsRelease.ps1 -Version 1.0.0
+pwsh .\scripts\Publish-WindowsRelease.ps1 -Version 1.0.0 -ChromeExtensionId $chromeStoreId -EdgeExtensionId $edgeStoreId
 ```
 
 It targets `win-x64` and uses the repository's .NET 10 release properties: self-contained, single-file, non-trimmed, deterministic publish with embedded debug information disabled. Output is staged under `artifacts\releases\.staging` and finalized only as `artifacts\releases\<version>`. An existing version directory is always rejected rather than overwritten.
 
-The release script publishes only `src\PasswordTool.WinUI\PasswordTool.WinUI.csproj`; it does not publish `PasswordTool.Api`, test projects, source files, or local user data. The WinUI payload is unpackaged, self-contained, and includes the Windows App SDK runtime content for first-run extraction. Before archiving, the script rejects source files, logs, certificates, database files, and the vault paths `.config`, `.storage`, `.trusted-unlock`, and `.snapshots`. It also rejects missing or empty files, output outside its configured staging root, and payloads above the configured size limit.
+The release script publishes `PasswordTool.WinUI` and the standalone `PasswordTool.NativeHost`; it does not publish `PasswordTool.Api`, test projects, source files, or local user data. Both executables are self-contained. The WinUI payload includes the Windows App SDK runtime content for first-run extraction. Before archiving, the script rejects source files, logs, certificates, database files, and the vault paths `.config`, `.storage`, `.trusted-unlock`, and `.snapshots`. It also rejects missing or empty files, output outside its configured staging root, and payloads above the configured size limit.
+
+Supply the actual Chrome/Edge store extension IDs. Missing, malformed, known placeholder and development IDs are rejected. `YourSafe.NativeHost.exe` and per-browser Native Messaging manifests are required payload files; both executables are signed and independently qualified. The installer registers the production host in HKCU32 and removes only registration values still owned by that installation. The portable ZIP never changes the registry. See [browser integration instructions](../browser-extension/README.md) for development scripts and the separate Chrome/Edge manual E2E checklist.
 
 The resulting directory contains:
 
 - `publish\` — the validated self-contained application payload.
-- `PasswordTool-<version>-win-x64.zip` — the portable distribution archive.
+- `YourSafe-<version>-win-x64.zip` — the portable distribution archive.
 - `checksums.sha256` — SHA-256 entries for the application payload and every ZIP/installer distribution artifact.
 - `release-manifest.json` — public version, artifact name, SHA-256, and manual-update release notes only.
 - `release-status.txt` — `UNSIGNED` developer/test status or `SIGNED` only after signing and verification succeed.
@@ -88,7 +90,7 @@ Example, with secret values supplied by the release environment rather than past
 ```powershell
 $env:PASSWORDTOOL_SIGN_CERT_THUMBPRINT = '<40-hex-thumbprint>'
 $env:PASSWORDTOOL_SIGN_TIMESTAMP_URL = 'https://<approved-timestamp-service>'
-pwsh .\scripts\Publish-WindowsRelease.ps1 -Version 1.0.0 -SigningMode Required
+pwsh .\scripts\Publish-WindowsRelease.ps1 -Version 1.0.0 -ChromeExtensionId $chromeStoreId -EdgeExtensionId $edgeStoreId -SigningMode Required
 ```
 
 ## Verify a received release
