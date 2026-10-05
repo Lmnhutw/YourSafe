@@ -1,0 +1,82 @@
+name: Release YourSafe for Windows
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-2025
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      CHROME_EXTENSION_ID: ${{ vars.CHROME_EXTENSION_ID }}
+      EDGE_EXTENSION_ID: ${{ vars.EDGE_EXTENSION_ID }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Validate version tag
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v(\d+\.\d+\.\d+)$') {
+            throw 'Use a version tag such as v1.0.0.'
+          }
+          "RELEASE_VERSION=$($Matches[1])" >> $env:GITHUB_ENV
+          Import-Module ./scripts/BrowserIntegration.psm1
+          Assert-ProductionExtensionId $env:CHROME_EXTENSION_ID
+          Assert-ProductionExtensionId $env:EDGE_EXTENSION_ID
+
+      - name: Install Inno Setup
+        run: |
+          choco install innosetup --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed.' }
+          $compilerDirectory = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6'
+          if (-not (Test-Path (Join-Path $compilerDirectory 'ISCC.exe'))) {
+            throw 'Inno Setup compiler was not found.'
+          }
+          $compilerDirectory >> $env:GITHUB_PATH
+
+      - name: Check release pipeline
+        run: |
+          & ./scripts/Test-ReleasePipeline.ps1
+          & ./scripts/Test-ReleaseQualification.ps1
+          & ./scripts/Test-BrowserIntegration.ps1
+
+      - name: Build and qualify installer
+        run: |
+          & ./scripts/Publish-WindowsRelease.ps1 -Version $env:RELEASE_VERSION -ChromeExtensionId $env:CHROME_EXTENSION_ID -EdgeExtensionId $env:EDGE_EXTENSION_ID -SigningMode Disabled
+          $releaseDirectory = Join-Path 'artifacts/releases' $env:RELEASE_VERSION
+          $installer = Join-Path $releaseDirectory "installer/YourSafe-$env:RELEASE_VERSION-win-x64-setup.exe"
+          if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) {
+            throw 'The required installer EXE was not produced.'
+          }
+          & ./scripts/Invoke-ReleaseQualification.ps1 -ReleaseDirectory $releaseDirectory
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $releaseDirectory = Join-Path 'artifacts/releases' $env:RELEASE_VERSION
+          $assets = @(
+            (Join-Path $releaseDirectory "installer/YourSafe-$env:RELEASE_VERSION-win-x64-setup.exe"),
+            (Join-Path $releaseDirectory "YourSafe-$env:RELEASE_VERSION-win-x64.zip"),
+            (Join-Path $releaseDirectory 'checksums.sha256'),
+            (Join-Path $releaseDirectory 'release-manifest.json'),
+            (Join-Path $releaseDirectory 'release-status.txt')
+          )
+          gh release create $env:RELEASE_TAG @assets --verify-tag --title "YourSafe $env:RELEASE_TAG" --generate-notes --notes 'Windows x64: download the setup.exe installer, or extract the portable ZIP. This build is unsigned. Install/upgrade/uninstall smoke testing is not performed by this workflow.'
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub Release publication failed.' }
