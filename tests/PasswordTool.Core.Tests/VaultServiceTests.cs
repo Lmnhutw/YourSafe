@@ -79,7 +79,7 @@ public sealed class VaultServiceTests : IDisposable
     }
 
     [Fact]
-    public void Group_deletion_requires_exact_confirmation_and_fresh_totp_and_removes_only_group_data()
+    public void Group_deletion_requires_exact_confirmation_and_active_login_and_removes_only_group_data()
     {
         var totpService = new TotpService();
         var secret = totpService.GenerateSecret();
@@ -96,11 +96,10 @@ public sealed class VaultServiceTests : IDisposable
 
         var confirmation = "Confirm delete all data in \"Database\"";
         Assert.Throws<ArgumentException>(() => vault.DeleteGroup(group.Id, "Delete Database", ComputeTotp(secret)));
-        Assert.Throws<UnauthorizedAccessException>(() => vault.DeleteGroup(group.Id, confirmation, GetInvalidTotpCode(secret, totpService)));
         Assert.Equal(2, vault.GetItems().Count);
         Assert.Single(vault.GetGroups());
         Assert.Single(vault.GetDeletedItems());
-        vault.DeleteGroup(group.Id, confirmation, ComputeTotp(secret));
+        vault.DeleteGroup(group.Id, confirmation, string.Empty);
 
         Assert.Equal(other.Id, Assert.Single(vault.GetItems()).Id);
         Assert.Empty(vault.GetDeletedItems());

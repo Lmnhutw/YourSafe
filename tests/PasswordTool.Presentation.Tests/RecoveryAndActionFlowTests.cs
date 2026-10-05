@@ -7,6 +7,65 @@ namespace PasswordTool.Presentation.Tests;
 public sealed class RecoveryAndActionFlowTests
 {
     [Fact]
+    public async Task Table_lock_keeps_login_and_metadata_but_requires_password_for_each_action()
+    {
+        using var context = new Context();
+        var item = context.Vault.AddItem(new VaultItem { Title = "Test", Password = "synthetic-password", Url = "https://example.com", Notes = "synthetic-note" });
+        await context.Shell.Vault.RefreshAsync();
+        var loginDeadline = context.Vault.LoginExpiresAt;
+        context.Now = context.Now.AddMinutes(1);
+        await context.Shell.LockTableAsync();
+        Assert.True(context.Shell.IsSignedIn);
+        Assert.True(context.Shell.IsTableLocked);
+        Assert.Single(context.Shell.Vault.Items);
+        Assert.False(context.Vault.IsVaultUnlocked);
+        context.Dialogs.ActionPassword = "wrong";
+        await context.Shell.RevealPasswordAsync(item.Id);
+        Assert.Empty(context.Dialogs.Secrets);
+        context.Dialogs.ActionPassword = Context.Password;
+        await context.Shell.RevealPasswordAsync(item.Id);
+        await context.Shell.RevealPasswordAsync(item.Id);
+        Assert.Equal(3, context.Dialogs.PasswordPrompts);
+        Assert.Equal(2, context.Dialogs.Secrets.Count);
+        context.Dialogs.ActionPassword = null;
+        await context.Shell.RevealNotesAsync(item.Id);
+        Assert.Equal(2, context.Dialogs.Secrets.Count);
+        Assert.False(context.Vault.IsVaultUnlocked);
+        context.Dialogs.ActionPassword = Context.Password;
+        var promptsBeforeMove = context.Dialogs.PasswordPrompts;
+        await context.Shell.MoveItemToGroupAsync(item.Id, null);
+        Assert.Equal(promptsBeforeMove + 1, context.Dialogs.PasswordPrompts);
+        Assert.False(context.Vault.IsVaultUnlocked);
+        Assert.Equal(loginDeadline, context.Vault.LoginExpiresAt);
+        await Assert.ThrowsAsync<OperationCanceledException>(() => context.Flow.FindAutofillCredentialsAsync("https://example.com"));
+        await context.Shell.UnlockTableAsync();
+        Assert.False(context.Shell.IsTableLocked);
+        var prompts = context.Dialogs.PasswordPrompts;
+        await context.Shell.RevealPasswordAsync(item.Id);
+        Assert.Equal(prompts, context.Dialogs.PasswordPrompts);
+        context.Now = loginDeadline!.Value;
+        await context.Shell.LockTableAsync();
+        Assert.False(context.Shell.IsSignedIn);
+        Assert.Empty(context.Shell.Vault.Items);
+    }
+
+    [Fact]
+    public async Task Expiring_login_while_action_password_is_pending_cannot_release_a_secret()
+    {
+        using var context = new Context();
+        var item = context.Vault.AddItem(new VaultItem { Title = "Test", Password = "synthetic-password" });
+        await context.Shell.LockTableAsync();
+        var pending = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        context.Flow.RequestActionPasswordAsync = _ => pending.Task;
+        var reveal = context.Shell.RevealPasswordAsync(item.Id);
+        context.Now = context.Vault.LoginExpiresAt!.Value;
+        pending.SetResult(Context.Password);
+        await reveal;
+        Assert.Empty(context.Dialogs.Secrets);
+        Assert.False(context.Vault.IsVaultUnlocked);
+    }
+
+    [Fact]
     public async Task New_setup_requires_saved_recovery_key_before_creating_storage()
     {
         var directory = Path.Combine(Path.GetTempPath(), "PasswordTool.Presentation.Tests", Guid.NewGuid().ToString("N"));
@@ -319,6 +378,13 @@ public sealed class RecoveryAndActionFlowTests
 
     private sealed class Dialogs : IUserDialogService
     {
+        public string? ActionPassword { get; set; }
+        public int PasswordPrompts { get; private set; }
+        public Task<string?> PromptMasterPasswordAsync(CancellationToken cancellationToken = default)
+        {
+            PasswordPrompts++;
+            return Task.FromResult(ActionPassword);
+        }
         public bool Confirmed { get; set; } = true;
         public TaskCompletionSource<bool>? Pending { get; set; }
         public List<string> Secrets { get; } = [];

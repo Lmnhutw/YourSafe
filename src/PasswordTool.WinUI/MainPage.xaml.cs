@@ -40,9 +40,15 @@ public sealed partial class MainPage : Page
     public MainPage()
     {
         InitializeComponent();
-        signInTimer.Tick += (_, _) =>
+        signInTimer.Tick += async (_, _) =>
         {
-            if ((ViewModel.IsUnlocked || ViewModel.FlowState == AppFlowState.SaveRecoveryKey) && !ViewModel.IsVaultSessionActive)
+            if (ViewModel.FlowState == AppFlowState.Unlocked && ViewModel.IsSignedIn && !ViewModel.IsVaultSessionActive)
+            {
+                if (Interlocked.Exchange(ref lifecycleLockInProgress, 1) != 0) return;
+                try { await ViewModel.LockTableAsync(); }
+                finally { Interlocked.Exchange(ref lifecycleLockInProgress, 0); }
+            }
+            else if (ViewModel.FlowState == AppFlowState.SaveRecoveryKey && !ViewModel.IsVaultSessionActive)
                 SystemLockMonitor_LockRequired(this, EventArgs.Empty);
             if (ViewModel.IsSignedIn) hadSignIn = true;
             else if (hadSignIn)
@@ -408,7 +414,7 @@ public sealed partial class MainPage : Page
     private async void LockVaultButton_Click(object sender, RoutedEventArgs e)
     {
         App.Services.GetRequiredService<DialogLifetime>().DismissAll();
-        var locking = ViewModel.LockCommand.ExecuteAsync(null);
+        var locking = ViewModel.LockTableAsync();
         var version = ViewModel.LifecycleVersion;
         await locking;
         if (version != ViewModel.LifecycleVersion) return;
@@ -416,7 +422,7 @@ public sealed partial class MainPage : Page
         ClearSettingsInputs();
         ClearBackupInputs();
         ApplyShellState();
-        MasterPasswordInput.Focus(FocusState.Programmatic);
+        if (!ViewModel.IsTableLocked) MasterPasswordInput.Focus(FocusState.Programmatic);
     }
 
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -741,6 +747,11 @@ public sealed partial class MainPage : Page
 
     private void ApplyShellState()
     {
+        if (ViewModel.IsTableLocked)
+        {
+            ClearEditor(); ClearSettingsInputs(); ClearBackupInputs();
+            App.Services.GetRequiredService<DialogLifetime>().DismissAll();
+        }
         AuthenticationPanel.Visibility = ViewModel.IsUnlocked ? Visibility.Collapsed : Visibility.Visible;
         ShellNavigation.Visibility = ViewModel.IsUnlocked ? Visibility.Visible : Visibility.Collapsed;
         LoadingPanel.Visibility = Visibility.Collapsed;
@@ -1307,9 +1318,24 @@ public sealed partial class MainPage : Page
     {
         if (VaultDurationInput.SelectedIndex < 0) return;
         ViewModel.Settings.VaultDurationMinutes = new[] { 1, 2, 5, 10, 30, 60, 120, 300 }[VaultDurationInput.SelectedIndex];
-        try { await ViewModel.Settings.SaveAsync(SettingsMasterPassword.Password); }
+        try
+        {
+            var version = ViewModel.LifecycleVersion;
+            if (await ViewModel.Settings.SaveAsync(SettingsMasterPassword.Password) && ViewModel.IsCurrentUnlock(version))
+            {
+                var dialog = new ContentDialog
+                {
+                    Title = "Settings saved",
+                    Content = "Your vault table lock duration has been saved. Close and reopen YourSafe to apply it. The current Login and vault timers stay unchanged.",
+                    CloseButtonText = "Got it"
+                };
+                await App.Services.GetRequiredService<DialogLifetime>().ShowAsync(dialog, CancellationToken.None);
+            }
+        }
         finally { SettingsMasterPassword.Password = string.Empty; }
     }
+
+    private async void UnlockTableButton_Click(object sender, RoutedEventArgs e) => await ViewModel.UnlockTableAsync();
 
     private async void ChangeMasterPasswordButton_Click(object sender, RoutedEventArgs e)
     {

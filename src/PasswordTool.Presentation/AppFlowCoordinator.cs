@@ -12,6 +12,9 @@ public sealed class AppFlowCoordinator
     private readonly IVaultOperationRunner operations;
     private readonly TotpService totpService;
     private readonly bool hasPartialStorage;
+    private IReadOnlyList<VaultItemListItem> tableItems = [];
+    private IReadOnlyList<VaultGroup> tableGroups = [];
+    public Func<CancellationToken, Task<string?>>? RequestActionPasswordAsync { get; set; }
 
     public AppFlowCoordinator(VaultService vaultService, IVaultOperationRunner operations, TotpService totpService)
     {
@@ -114,7 +117,8 @@ public sealed class AppFlowCoordinator
     }
     private long lifecycleVersion;
     public long LifecycleVersion => Volatile.Read(ref lifecycleVersion);
-    public bool IsCurrentUnlock(long version) => version == LifecycleVersion && vaultService.IsVaultUnlocked && FlowState == AppFlowState.Unlocked;
+    public bool IsCurrentUnlock(long version) => version == LifecycleVersion &&
+        (FlowState == AppFlowState.Unlocked && vaultService.IsVaultUnlocked || FlowState == AppFlowState.TableLocked && IsSignedIn);
 
     public static AppFlowState ResolveInitialState(bool isInitialized, bool hasPartialStorage) =>
         hasPartialStorage ? AppFlowState.Recover : isInitialized ? AppFlowState.Unlock : AppFlowState.FirstLaunch;
@@ -134,7 +138,8 @@ public sealed class AppFlowCoordinator
 
     public async Task<VaultUnlockResult> UnlockAsync(string masterPassword, string totpCode, CancellationToken cancellationToken = default)
     {
-        RequireFlowState(AppFlowState.Unlock);
+        if (FlowState is not (AppFlowState.Unlock or AppFlowState.TableLocked))
+            throw new InvalidOperationException("Unlock is unavailable in the current state.");
         var version = Interlocked.Increment(ref lifecycleVersion);
         var result = await operations.RunAsync(() =>
         {
@@ -266,6 +271,8 @@ public sealed class AppFlowCoordinator
     {
         var version = Interlocked.Increment(ref lifecycleVersion);
         FlowState = AppFlowState.Unlock;
+        tableItems = [];
+        tableGroups = [];
         await operations.RunAsync(() =>
         {
             if (vaultService.IsSignInSessionActive) vaultService.LockVault();
@@ -274,23 +281,34 @@ public sealed class AppFlowCoordinator
         if (version == LifecycleVersion) FlowState = AppFlowState.Unlock;
     }
 
+    public async Task LockTableAsync(CancellationToken cancellationToken = default)
+    {
+        var version = Interlocked.Increment(ref lifecycleVersion);
+        FlowState = AppFlowState.TableLocked;
+        await operations.RunAsync(vaultService.LockVault, cancellationToken);
+        if (version == LifecycleVersion && !IsSignedIn) FlowState = AppFlowState.Unlock;
+    }
+
     public async Task LogoutAsync(CancellationToken cancellationToken = default)
     {
         var version = Interlocked.Increment(ref lifecycleVersion);
         FlowState = AppFlowState.Unlock;
+        tableItems = [];
+        tableGroups = [];
         await operations.RunAsync(vaultService.ClearSession, cancellationToken).ConfigureAwait(false);
         if (version == LifecycleVersion) FlowState = AppFlowState.Unlock;
     }
 
     public Task<IReadOnlyList<VaultItemListItem>> GetListItemsAsync(CancellationToken cancellationToken = default) =>
-        RunVaultAsync(() => (IReadOnlyList<VaultItemListItem>)vaultService.GetItems().Select(VaultItemListItem.FromVaultItem).ToList(), cancellationToken);
+        FlowState == AppFlowState.TableLocked && IsSignedIn ? Task.FromResult(tableItems) :
+        RunVaultAsync(() => tableItems = vaultService.GetItems().Select(VaultItemListItem.FromVaultItem).ToList(), cancellationToken);
 
     public Task<IReadOnlyList<CredentialMetadata>> FindAutofillCredentialsAsync(string origin, CancellationToken cancellationToken = default)
     {
         AutofillPolicy.RequireOrigin(origin);
         return RunVaultAsync(() => (IReadOnlyList<CredentialMetadata>)vaultService.GetAutofillCredentials()
             .Where(item => AutofillPolicy.Matches(item, origin))
-            .Select(item => new CredentialMetadata(item.Id, item.Title, item.Username)).ToList(), cancellationToken);
+            .Select(item => new CredentialMetadata(item.Id, item.Title, item.Username)).ToList(), cancellationToken, allowTableLocked: false);
     }
 
     public Task<CredentialSecret> GetAutofillCredentialSecretAsync(string origin, Guid id, CancellationToken cancellationToken = default)
@@ -302,11 +320,12 @@ public sealed class AppFlowCoordinator
                 ?? throw new UnauthorizedAccessException("The credential is unavailable for this origin.");
             var secret = vaultService.GetAutofillSecret(id, candidate.Url);
             return new CredentialSecret(secret.Username, secret.Password);
-        }, cancellationToken);
+        }, cancellationToken, allowTableLocked: false);
     }
 
     public Task<IReadOnlyList<VaultGroup>> GetGroupsAsync(CancellationToken cancellationToken = default) =>
-        RunVaultAsync(vaultService.GetGroups, cancellationToken);
+        FlowState == AppFlowState.TableLocked && IsSignedIn ? Task.FromResult(tableGroups) :
+        RunVaultAsync(() => tableGroups = vaultService.GetGroups(), cancellationToken);
 
     public Task<VaultGroup> AddGroupAsync(string name, string? accentColor = null, CancellationToken cancellationToken = default) =>
         RunVaultAsync(() => vaultService.AddGroup(name, accentColor), cancellationToken);
@@ -328,6 +347,14 @@ public sealed class AppFlowCoordinator
 
     public Task UpdateItemAsync(VaultItem item, CancellationToken cancellationToken = default) =>
         RunVaultAsync(() => vaultService.UpdateItem(item), cancellationToken);
+
+    public Task MoveItemToGroupAsync(Guid itemId, Guid? groupId, CancellationToken cancellationToken = default) =>
+        RunVaultAsync(() =>
+        {
+            var item = vaultService.GetItemForEditing(itemId, string.Empty);
+            item.GroupId = groupId;
+            vaultService.UpdateItem(item);
+        }, cancellationToken);
 
     public Task DeleteItemAsync(Guid id, CancellationToken cancellationToken = default) =>
         RunVaultAsync(() => vaultService.DeleteItem(id), cancellationToken);
@@ -533,16 +560,36 @@ public sealed class AppFlowCoordinator
         return File.ReadAllText(path);
     }
 
-    private async Task<T> RunVaultAsync<T>(Func<T> operation, CancellationToken cancellationToken)
+    private async Task<T> RunVaultAsync<T>(Func<T> operation, CancellationToken cancellationToken, bool allowTableLocked = true)
     {
         var version = LifecycleVersion;
+        var locked = FlowState == AppFlowState.TableLocked;
+        string? actionPassword = null;
+        if (locked)
+        {
+            if (!allowTableLocked || !IsSignedIn || RequestActionPasswordAsync is null) throw new OperationCanceledException("Unlock the vault on the desktop first.");
+            actionPassword = await RequestActionPasswordAsync(cancellationToken);
+            if (actionPassword is null || !IsCurrentUnlock(version)) throw new OperationCanceledException();
+        }
         T result;
         try
         {
             result = await operations.RunAsync(() =>
             {
                 if (!IsCurrentUnlock(version)) throw new OperationCanceledException("The vault was locked or the sign-in session expired.");
-                return operation();
+                if (!locked) return operation();
+                try
+                {
+                    if (!vaultService.IsSignInSessionActive) throw new OperationCanceledException();
+                    var unlock = vaultService.UnlockWithMasterPassword(actionPassword!);
+                    if (!unlock.Success) throw new UnauthorizedAccessException("The Master Password is incorrect.");
+                    if (!IsCurrentUnlock(version) || !vaultService.HasActiveVaultSession) throw new OperationCanceledException();
+                    var value = operation();
+                    tableItems = vaultService.GetItems().Select(VaultItemListItem.FromVaultItem).ToList();
+                    tableGroups = vaultService.GetGroups();
+                    return value;
+                }
+                finally { vaultService.LockVault(); }
             }, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception) when (!IsCurrentUnlock(version))

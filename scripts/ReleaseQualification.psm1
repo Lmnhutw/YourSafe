@@ -537,11 +537,12 @@ function Assert-InstallerTemplateContract {
     }
     $registryLines = @(Get-InnoSectionLines -Lines $lines -SectionName 'Registry')
     $expectedRegistry = @(
+        'Root: HKCU32; Subkey: "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.yoursafe.autofill"; ValueType: string; ValueName: ""; ValueData: "{app}\yoursafe-native-chrome.json"',
         'Root: HKCU32; Subkey: "Software\Google\Chrome\NativeMessagingHosts\com.yoursafe.autofill"; ValueType: string; ValueName: ""; ValueData: "{app}\yoursafe-native-chrome.json"',
         'Root: HKCU32; Subkey: "Software\Microsoft\Edge\NativeMessagingHosts\com.yoursafe.autofill"; ValueType: string; ValueName: ""; ValueData: "{app}\yoursafe-native-edge.json"'
     )
-    if ($registryLines.Count -ne 2 -or @($registryLines | Where-Object { $expectedRegistry -cnotcontains $_ }).Count -gt 0) {
-        throw 'Installer must register only the production host in HKCU for Chrome and Edge.'
+    if ($registryLines.Count -ne 3 -or @($registryLines | Where-Object { $expectedRegistry -cnotcontains $_ }).Count -gt 0) {
+        throw 'Installer must register only the production host in HKCU for Chrome, Edge and Brave.'
     }
 }
 

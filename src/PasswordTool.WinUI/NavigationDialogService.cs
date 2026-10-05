@@ -6,12 +6,21 @@ namespace PasswordTool_WinUI;
 
 internal sealed class NavigationDialogService(ISensitiveClipboardService clipboard, DialogLifetime lifetime) : IUserDialogService
 {
+    public async Task<string?> PromptMasterPasswordAsync(CancellationToken cancellationToken = default)
+    {
+        var password = new PasswordBox { Header = "Master Password" };
+        var panel = new StackPanel { Spacing = 12 };
+        panel.Children.Add(new TextBlock { Text = "Your Login is still active. Confirm your Master Password for this action, or use Unlock Vault to stop repeated prompts.", TextWrapping = TextWrapping.Wrap });
+        panel.Children.Add(password);
+        var dialog = new ContentDialog { Title = "Vault table is locked", Content = panel, PrimaryButtonText = "Confirm", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
+        try { return await lifetime.ShowAsync(dialog, cancellationToken) == ContentDialogResult.Primary ? password.Password : null; }
+        finally { password.Password = string.Empty; }
+    }
     public async Task<(string Confirmation, string TotpCode)?> ConfirmGroupDeletionAsync(
         string groupName, CancellationToken cancellationToken = default)
     {
         var expected = $"Confirm delete all data in \"{groupName}\"";
         var confirmation = new TextBox { Header = "Type the exact confirmation below" };
-        var code = new SixDigitCodeInput();
         var dialog = new ContentDialog
         {
             Title = "Delete group and all its data",
@@ -26,9 +35,7 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
                         TextWrapping = TextWrapping.Wrap
                     },
                     new TextBlock { Text = expected, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true },
-                    confirmation,
-                    new TextBlock { Text = "Enter the current 6-digit code from Google Authenticator.", TextWrapping = TextWrapping.Wrap },
-                    code
+                    confirmation
                 }
             },
             PrimaryButtonText = "Delete all data",
@@ -37,15 +44,14 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
             DefaultButton = ContentDialogButton.Close
         };
         void UpdateConfirmation() => dialog.IsPrimaryButtonEnabled =
-            string.Equals(confirmation.Text, expected, StringComparison.Ordinal) && code.Code.Length == 6;
+            string.Equals(confirmation.Text, expected, StringComparison.Ordinal);
         confirmation.TextChanged += (_, _) => UpdateConfirmation();
-        code.CodeChanged += (_, _) => UpdateConfirmation();
         try
         {
             return await ShowDialogAsync(dialog, cancellationToken) == ContentDialogResult.Primary
-                ? (confirmation.Text, code.Code) : null;
+                ? (confirmation.Text, string.Empty) : null;
         }
-        finally { confirmation.Text = string.Empty; code.Clear(); }
+        finally { confirmation.Text = string.Empty; }
     }
 
     public Task<bool> ConfirmAsync(

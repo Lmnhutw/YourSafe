@@ -2,11 +2,13 @@
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>YourSafe</title><link rel="stylesheet" href="popup.css"></head>
 <body>
-  <h1>YourSafe</h1>
-  <p id="origin" class="origin"></p>
-  <p id="status" role="status" aria-live="polite"></p>
-  <div id="accounts" aria-label="Saved accounts"></div>
-  <div class="actions"><button id="refresh" type="button">Refresh</button><button id="show-app" type="button">Open YourSafe</button></div>
+  <header><span class="mark" aria-hidden="true">Y</span><div><h1>YourSafe</h1><span class="caption">Your vault, on your device</span></div><span class="badge">LOCAL</span></header>
+  <main>
+    <section class="site" aria-label="Current website"><span class="eyebrow">CURRENT WEBSITE</span><p id="origin" class="origin"></p></section>
+    <p id="status" role="status" aria-live="polite"></p>
+    <div id="accounts" aria-label="Saved accounts"></div>
+  </main>
+  <footer><div class="actions"><button id="refresh" type="button">Refresh</button><button id="show-app" type="button">Show YourSafe <span aria-hidden="true">↗</span></button></div><p class="footnote">You choose what gets filled.</p></footer>
   <script src="popup.js"></script>
 </body>
 </html>

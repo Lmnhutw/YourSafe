@@ -1,11 +1,36 @@
-:root { color-scheme: light dark; font: 14px system-ui, sans-serif; }
-body { width: 340px; margin: 0; padding: 18px; box-sizing: border-box; }
-h1 { margin: 0 0 12px; font-size: 20px; }
-p { line-height: 1.5; overflow-wrap: anywhere; }
-.origin { font-weight: 600; }
-button { font: inherit; padding: 10px; border: 1px solid #64748b; border-radius: 6px; cursor: pointer; overflow-wrap: anywhere; }
-button:focus-visible { outline: 3px solid #3b82f6; outline-offset: 2px; }
-button:disabled { cursor: wait; opacity: .65; }
-#accounts { display: grid; gap: 8px; }
-#accounts button { text-align: left; }
-.actions { display: flex; gap: 8px; margin-top: 18px; }
+:root { color-scheme: light dark; font: 13px/1.5 "Segoe UI", system-ui, sans-serif; --bg: #f7f9fc; --surface: #fff; --text: #15243c; --muted: #627087; --border: #dfe6ee; --accent: #204BDB; --tint: #edf1ff; }
+* { box-sizing: border-box; }
+body { width: 360px; margin: 0; background: var(--bg); color: var(--text); }
+header { display: flex; align-items: center; gap: 11px; padding: 20px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.mark { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: #204BDB; color: #fff; font-size: 24px; font-weight: 700; }
+h1 { margin: 0; font-size: 19px; line-height: 1.3; letter-spacing: -.5px; }
+.caption { font-size: 11px; color: var(--muted); }
+.badge { margin-left: auto; color: var(--accent); background: var(--tint); border-radius: 5px; padding: 3px 6px; font-size: 9px; font-weight: 700; letter-spacing: .8px; }
+main { padding: 18px 20px 22px; }
+.site { padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.eyebrow { font-size: 9px; font-weight: 700; letter-spacing: 1.2px; color: var(--muted); }
+.origin { margin: 4px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+.origin:empty::before { content: "Checking this tab…"; color: var(--muted); font-weight: 400; }
+#status { margin: 16px 0 12px; color: var(--muted); overflow-wrap: anywhere; }
+#accounts { display: grid; gap: 8px; max-height: 260px; overflow-y: auto; padding: 3px; margin: -3px; }
+button { font: inherit; color: var(--text); border: 1px solid var(--border); border-radius: 9px; background: var(--surface); cursor: pointer; min-height: 40px; padding: 9px 13px; overflow-wrap: anywhere; }
+button:hover { border-color: var(--accent); background: var(--tint); }
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+button:disabled { cursor: wait; opacity: .6; }
+#accounts button { display: flex; align-items: center; gap: 12px; padding: 14px; text-align: left; font-weight: 600; }
+.account-label { display: grid; min-width: 0; text-align: start; }
+.account-label strong { font-weight: 600; }
+.account-label > span { font-weight: 400; font-size: 12px; color: var(--muted); }
+#status[data-state="error"] { color: #a12b25; }
+#status[data-state="success"] { color: #24664b; }
+@media (prefers-color-scheme: dark) { #status[data-state="error"] { color: #ffb4ab; } #status[data-state="success"] { color: #8bdbb4; } }
+@media (forced-colors: active) { button:focus-visible { outline-color: Highlight; } #status[data-state] { color: CanvasText; } }
+#accounts button::before { content: "↳"; flex-shrink: 0; display: grid; place-items: center; width: 30px; height: 30px; background: var(--tint); color: var(--accent); border-radius: 8px; font-size: 19px; }
+footer { padding: 16px 20px 12px; background: var(--surface); border-top: 1px solid var(--border); }
+.actions { display: flex; gap: 9px; }
+#refresh { color: var(--muted); }
+#show-app { flex: 1; background: #204BDB; border-color: #204BDB; color: #fff; font-weight: 600; }
+#show-app:hover { background: #193CB0; border-color: #193CB0; color: #fff; }
+#show-app span { margin-left: 8px; }
+.footnote { margin: 10px 0 0; color: var(--muted); font-size: 10px; text-align: center; }
+@media (prefers-color-scheme: dark) { :root { --bg: #111923; --surface: #182332; --text: #e6edf5; --muted: #a6b4c7; --border: #2d3a4b; --accent: #a8bbff; --tint: #243459; } }

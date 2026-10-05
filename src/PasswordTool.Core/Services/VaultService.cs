@@ -27,6 +27,7 @@ public sealed class VaultService : IDisposable
     private bool masterPasswordAuthenticated;
     private DateTimeOffset? signInSessionExpiresAt;
     private DateTimeOffset? vaultExpiresAt;
+    private int? applicationVaultDurationMinutes;
     private readonly RecoveryKeyService recoveryKeys = new();
     private bool disposed;
 
@@ -83,7 +84,8 @@ public sealed class VaultService : IDisposable
 
     private void BeginVaultDeadline()
     {
-        var duration = SecuritySettings.VaultOpenDurationMinutes;
+        applicationVaultDurationMinutes ??= SecuritySettings.VaultOpenDurationMinutes;
+        var duration = applicationVaultDurationMinutes.Value;
         var deadline = utcNow().AddMinutes(duration);
         vaultExpiresAt = signInSessionExpiresAt is { } login && login < deadline ? login : deadline;
     }
@@ -945,8 +947,7 @@ public sealed class VaultService : IDisposable
         var group = vaultData!.Groups.FirstOrDefault(group => group.Id == id) ?? throw new KeyNotFoundException("Group not found.");
         if (!string.Equals(confirmation, $"Confirm delete all data in \"{group.Name}\"", StringComparison.Ordinal))
             throw new ArgumentException("The confirmation text does not match the group name.", nameof(confirmation));
-        if (totpSecretBase32 is null || !totpService.VerifyCode(totpSecretBase32, totpCode))
-            throw new UnauthorizedAccessException("Incorrect authenticator code. Please try again.");
+        RequireSensitiveTotp(totpCode);
 
         var data = vaultData;
         var previousItems = data.Items;

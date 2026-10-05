@@ -13,5 +13,6 @@ public enum AppFlowState
     RecoveryKeySave,
     RecoveryAuthenticator,
     Unlock,
-    Unlocked
+    Unlocked,
+    TableLocked
 }

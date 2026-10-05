@@ -206,6 +206,9 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Spacing="4">
                             <TextBlock Text="Vault" Style="{StaticResource PasswordToolPageTitleStyle}" />
+                            <InfoBar IsOpen="{x:Bind ViewModel.IsTableLocked, Mode=OneWay}" IsClosable="False" Severity="Informational" Title="Vault table locked" Message="Your Login is active. Each action requires your Master Password.">
+                                <InfoBar.ActionButton><Button Content="Unlock Vault" Click="UnlockTableButton_Click" /></InfoBar.ActionButton>
+                            </InfoBar>
                             <TextBlock
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                 Text="Search and manage your saved credentials."
@@ -713,7 +716,7 @@
                                     <ComboBoxItem Content="30 minutes" /><ComboBoxItem Content="1 hour" />
                                     <ComboBoxItem Content="2 hours" /><ComboBoxItem Content="5 hours" />
                                 </ComboBox>
-                                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Vault Session — duration starts at unlock. Activity does not extend it. Changes apply at the next unlock." TextWrapping="Wrap" />
+                                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Vault table lock — duration starts at unlock. When locked, each action needs your Master Password. Unlock Vault enables actions without repeated prompts. Saved changes apply after closing and reopening YourSafe." TextWrapping="Wrap" />
                                 <PasswordBox x:Name="SettingsMasterPassword" AutomationProperties.Name="Master Password for settings" Header="Current Master Password" />
                                 <Button Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Left" Click="SaveSettingsButton_Click" Content="Save security settings" />
                                 <Button HorizontalAlignment="Left" Click="RotateRecoveryKeyButton_Click" Content="Rotate Recovery Key" />

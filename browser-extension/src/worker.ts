@@ -25,6 +25,7 @@ chrome.windows.onFocusChanged.addListener(windowId => {
 async function currentTarget(watch = false): Promise<Target> {
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   if (tab?.id === undefined || !tab.url) throw new Error('targetChanged');
+  if (!canonicalOrigin(tab.url)) throw new Error('unsupportedPage');
   if (watch) watchedTarget = { tabId: tab.id, windowId: tab.windowId };
   const frame = await chrome.webNavigation.getFrame({ tabId: tab.id, frameId: 0 });
   const origin = canonicalOrigin(tab.url);
@@ -96,7 +97,7 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
   };
   void handle().then(result => sendResponse({ ok: true, result }), error => {
     invalidate();
-    const allowed = ['locked', 'unavailable', 'desktopUnavailable', 'invalidRequest', 'targetChanged', 'ambiguousFields'];
+    const allowed = ['locked', 'unavailable', 'desktopUnavailable', 'invalidRequest', 'targetChanged', 'ambiguousFields', 'unsupportedPage'];
     const code = error instanceof Error && allowed.includes(error.message) ? error.message : 'unavailable';
     sendResponse({ ok: false, error: code });
   });

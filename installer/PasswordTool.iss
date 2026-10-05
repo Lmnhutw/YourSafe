@@ -38,6 +38,7 @@ Name: "{group}\YourSafe"; Filename: "{app}\YourSafe.exe"
 Filename: "{app}\YourSafe.exe"; Description: "Launch YourSafe"; Flags: nowait postinstall skipifsilent
 
 [Registry]
+Root: HKCU32; Subkey: "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.yoursafe.autofill"; ValueType: string; ValueName: ""; ValueData: "{app}\yoursafe-native-chrome.json"
 Root: HKCU32; Subkey: "Software\Google\Chrome\NativeMessagingHosts\com.yoursafe.autofill"; ValueType: string; ValueName: ""; ValueData: "{app}\yoursafe-native-chrome.json"
 Root: HKCU32; Subkey: "Software\Microsoft\Edge\NativeMessagingHosts\com.yoursafe.autofill"; ValueType: string; ValueName: ""; ValueData: "{app}\yoursafe-native-edge.json"
 
@@ -48,6 +49,12 @@ var
 begin
   if CurUninstallStep = usUninstall then
   begin
+    if RegQueryStringValue(HKCU32, 'Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.yoursafe.autofill', '', Value) and
+      (CompareText(Value, ExpandConstant('{app}\yoursafe-native-chrome.json')) = 0) then
+    begin
+      RegDeleteValue(HKCU32, 'Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.yoursafe.autofill', '');
+      RegDeleteKeyIfEmpty(HKCU32, 'Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.yoursafe.autofill');
+    end;
     if RegQueryStringValue(HKCU32, 'Software\Google\Chrome\NativeMessagingHosts\com.yoursafe.autofill', '', Value) and
       (CompareText(Value, ExpandConstant('{app}\yoursafe-native-chrome.json')) = 0) then
     begin

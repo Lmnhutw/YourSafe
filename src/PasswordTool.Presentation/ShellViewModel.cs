@@ -34,6 +34,7 @@ public sealed partial class ShellViewModel : ObservableObject
         this.filePicker = filePicker;
         this.errorMapper = errorMapper;
         this.dialogs = dialogs;
+        if (dialogs is not null) flow.RequestActionPasswordAsync = dialogs.PromptMasterPasswordAsync;
         Vault = vault;
         HashTool = hashTool;
         Settings = settings;
@@ -62,7 +63,8 @@ public sealed partial class ShellViewModel : ObservableObject
     [ObservableProperty] public partial string RecoverySummary { get; set; } = string.Empty;
     [ObservableProperty] public partial AuthenticatorSetup? PendingAuthenticatorSetup { get; set; }
 
-    public bool IsUnlocked => FlowState == AppFlowState.Unlocked;
+    public bool IsUnlocked => FlowState is AppFlowState.Unlocked or AppFlowState.TableLocked;
+    public bool IsTableLocked => FlowState == AppFlowState.TableLocked;
     public bool IsSignedIn => flow.IsSignedIn;
     public bool IsVaultSessionActive => flow.IsVaultSessionActive;
     public bool NeedsRecoveryKey => flow.NeedsRecoveryKey;
@@ -286,6 +288,31 @@ public sealed partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsSignedIn));
     }
 
+    public async Task LockTableAsync()
+    {
+        if (!IsSignedIn) { await LogoutAsync(); return; }
+        var locking = flow.LockTableAsync();
+        var version = LifecycleVersion;
+        await locking;
+        if (version != LifecycleVersion) return;
+        Trash.Clear(); SecurityCheck.Clear(); Backup.Clear(); Settings.Clear();
+        await clipboard.ClearOwnedValueAsync();
+        if (version != LifecycleVersion) return;
+        navigation.Navigate(AppRoute.Vault);
+        CurrentRoute = AppRoute.Vault;
+        FlowState = flow.FlowState;
+        OnPropertyChanged(nameof(IsTableLocked));
+    }
+
+    public async Task UnlockTableAsync()
+    {
+        var version = LifecycleVersion;
+        var password = await dialogs.PromptMasterPasswordAsync();
+        if (password is null || !IsCurrentUnlock(version)) return;
+        await UnlockAsync(password, string.Empty);
+        OnPropertyChanged(nameof(IsTableLocked));
+    }
+
     [RelayCommand]
     private async Task LogoutAsync()
     {
@@ -401,7 +428,7 @@ public sealed partial class ShellViewModel : ObservableObject
         var confirmation = await dialogs.ConfirmGroupDeletionAsync(name);
         if (confirmation is null || !IsCurrentUnlock(version)) return;
         try { await flow.DeleteGroupAsync(id, confirmation.Value.Confirmation, confirmation.Value.TotpCode); await Vault.RefreshAsync(); }
-        catch (UnauthorizedAccessException) { if (IsCurrentUnlock(version)) await dialogs.ShowErrorAsync("Group was not deleted", "Incorrect authenticator code. Please try again."); }
+        catch (UnauthorizedAccessException exception) { ShowMappedError(exception); }
         catch (Exception exception) { ShowMappedError(exception); }
     }
 
@@ -428,10 +455,8 @@ public sealed partial class ShellViewModel : ObservableObject
         var version = LifecycleVersion;
         try
         {
-            var item = await flow.GetItemForEditingAsync(itemId, string.Empty);
+            await flow.MoveItemToGroupAsync(itemId, groupId);
             if (!IsCurrentUnlock(version)) return;
-            item.GroupId = groupId;
-            await flow.UpdateItemAsync(item);
             await Vault.RefreshAsync();
         }
         catch (Exception exception) { ShowMappedError(exception); }
@@ -487,7 +512,7 @@ public sealed partial class ShellViewModel : ObservableObject
         if (item is null || !item.HasNotes) return;
 
         var notes = item.Notes;
-        if (item.HideNotes)
+        if (item.HideNotes || IsTableLocked)
         {
             var fullItem = await GetItemForEditingAsync(itemId);
             if (fullItem is null) return;
@@ -539,7 +564,11 @@ public sealed partial class ShellViewModel : ObservableObject
         }
     }
 
-    partial void OnFlowStateChanged(AppFlowState value) => OnPropertyChanged(nameof(IsUnlocked));
+    partial void OnFlowStateChanged(AppFlowState value)
+    {
+        OnPropertyChanged(nameof(IsUnlocked));
+        OnPropertyChanged(nameof(IsTableLocked));
+    }
 
     private async Task CompleteUnlockAsync(VaultUnlockResult result)
     {

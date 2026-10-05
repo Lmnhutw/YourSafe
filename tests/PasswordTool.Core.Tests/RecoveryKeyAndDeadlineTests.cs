@@ -364,11 +364,17 @@ public sealed class RecoveryKeyAndDeadlineTests : IDisposable
         var now = DateTimeOffset.UtcNow;
         var storage = new VaultStorageService(directory);
         var secret = totp.GenerateSecret();
+        using var original = new VaultService(storage, new EncryptionService(), totp, utcNow: () => now);
+        original.InitializeNewVault(Password, secret, totp.GetCurrentCode(secret).Code, RecoveryKeyService.Generate(), true);
+        Assert.True(original.TryUpdateSettings(Password, VaultLoginMode.Hybrid, new VaultSecuritySettings(1, 5, duration), out _));
+        original.LockVault();
+        Assert.True(original.UnlockWithMasterPassword(Password).Success);
+        Assert.Equal(now.AddMinutes(1), original.VaultExpiresAt); // Saved settings require an app restart.
+        original.Dispose();
         using var vault = new VaultService(storage, new EncryptionService(), totp, utcNow: () => now);
-        vault.InitializeNewVault(Password, secret, totp.GetCurrentCode(secret).Code, RecoveryKeyService.Generate(), true);
+        Assert.True(vault.UnlockWithMasterPassword(Password).Success);
+        Assert.True(vault.VerifyTotpForSession(totp.GetCurrentCode(secret).Code));
         var loginDeadline = vault.LoginExpiresAt;
-        Assert.True(vault.TryUpdateSettings(Password, VaultLoginMode.Hybrid, new VaultSecuritySettings(1, 5, duration), out _));
-        Assert.Equal(now.AddMinutes(1), vault.VaultExpiresAt); // Settings apply only on next unlock.
         vault.LockVault();
         Assert.True(vault.UnlockWithMasterPassword(Password).Success);
         var deadline = vault.VaultExpiresAt;

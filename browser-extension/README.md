@@ -1,6 +1,6 @@
 # YourSafe browser autofill
 
-Chrome 127+ and Edge integration for the running YourSafe desktop vault. TypeScript lives only here; the .NET solution contains a C# console NativeHost. Node/npm are build tools and are never shipped.
+Chrome 127+, Edge and Brave integration for the running YourSafe desktop vault. TypeScript lives only here; the .NET solution contains a C# console NativeHost. Node/npm are build tools and are never shipped.
 
 ## Development
 
@@ -17,7 +17,9 @@ pwsh .\scripts\Register-BrowserAutofill.ps1
 pwsh .\scripts\Start-BrowserAutofill.ps1
 ```
 
-Open `chrome://extensions` or `edge://extensions`, enable Developer mode, choose **Load unpacked**, and select `browser-extension/dist/development`. The checked-in public development key fixes the extension ID to `cmfnnjellknkpnbooenlahijcmalbifg`; it contains no private key. Pin YourSafe in the browser toolbar.
+Open `chrome://extensions`, `edge://extensions` or `brave://extensions`, enable Developer mode, choose **Load unpacked**, and select `browser-extension/dist/development`. The checked-in public development key fixes the extension ID to `cmfnnjellknkpnbooenlahijcmalbifg`; it contains no private key. Pin YourSafe in the browser toolbar.
+
+Registration writes the current user's 32-bit Native Messaging keys for Chrome, Edge and Brave. Brave uses `Software\BraveSoftware\Brave-Browser\NativeMessagingHosts`; production reuses the Chrome manifest and Chrome Web Store extension ID. The app-only `-test` prerelease installer omits all browser registration: use the development build and registration commands above for unpacked-extension testing.
 
 Save a password item with a complete HTTPS URL in the desktop. Unlock the desktop vault, visit the matching site, and click **Fill with YourSafe** or its toolbar icon. The trusted popup shows the canonical origin and accounts. Clicking an account is the final consent; the page receives the username/password only then. The extension does not submit the form. Focus a specific username/password field first when multiple forms are ambiguous.
 
@@ -88,7 +90,7 @@ node test/browser-smoke.mjs
 
 No browser or automation dependency is downloaded by this smoke runner. This isolated DOM test covers selected username/password preservation, fieldset-disabled and first-legend behavior, and password reclassification after username events. It is separate from live extension/desktop E2E. Building its bundle alone does not verify browser behavior.
 
-Complete the following manual checklist separately on Chrome and Edge, using a disposable vault and synthetic credentials:
+Complete the following manual checklist separately on Chrome, Edge and Brave, using a disposable vault and synthetic credentials:
 
 - Happy path for a normal, password-only and dynamically rendered form; input/change fire and submit does not.
 - Hidden URL matches; HTTP, a different subdomain/port and malformed/missing-scheme URLs do not.
@@ -102,7 +104,18 @@ Complete the following manual checklist separately on Chrome and Edge, using a d
 - Start two Debug desktops with separate disposable test directories: an occupied pipe must not freeze the second desktop; closing it must cancel any retry wait.
 - Clean install, upgrade, uninstall and portable ZIP: registrations target the installed manifests, unregister affects only owned values, portable launch never edits the registry, vault storage survives unchanged.
 
-## Distribution
+## Popup user stories
+
+- Unlocked desktop: show the current origin and separate account title/username; selection fills once without submitting the form.
+- Locked table: direct the user to Show YourSafe, Unlock Vault, then Refresh. Never request the Master Password in the extension.
+- No matching account: explain how to add an account with this exact origin, then refresh.
+- Desktop disconnected: explain how to start the matching desktop and check registration; keep recovery buttons available.
+- Unsupported page or changed target: refuse filling and explain how to retry on the intended HTTPS page.
+- Pending request: disable duplicate requests; success consumes account selection, and failure clears stale accounts.
+
+`npm test` checks these popup states with a minimal DOM and synthetic responses, plus worker authorization races. This does not replace live Chrome/Edge/Brave Native Messaging qualification.
+
+## Release distribution
 
 Build the store extension with `pwsh scripts/Build-BrowserAutofill.ps1 -Production`; distribute `dist/production` through the browser stores. Release publishing requires the actual Chrome and Edge store extension IDs:
 
@@ -110,7 +123,7 @@ Build the store extension with `pwsh scripts/Build-BrowserAutofill.ps1 -Producti
 pwsh .\scripts\Publish-WindowsRelease.ps1 -Version 1.0.0 -ChromeExtensionId $chromeStoreId -EdgeExtensionId $edgeStoreId -SigningMode Required
 ```
 
-Missing, malformed, repeated-letter placeholders and the known development ID are rejected. The self-contained `win-x64` NativeHost is published beside `YourSafe.exe`. Per-browser manifests contain only the corresponding store origin and a relative NativeHost path. The per-user installer registers HKCU32 entries for Chrome/Edge; its uninstall cleanup removes a value only if it still points to that installation. The portable ZIP never auto-registers. Signing and qualification verify both executables plus the installer when present. Signing credentials and Inno Setup remain external controlled-release inputs.
+Missing, malformed, repeated-letter placeholders and the known development ID are rejected. The self-contained `win-x64` NativeHost is published beside `YourSafe.exe`. Per-browser manifests contain only the corresponding store origin and a relative NativeHost path. The per-user installer registers HKCU32 entries for Chrome/Edge/Brave; its uninstall cleanup removes a value only if it still points to that installation. The portable ZIP never auto-registers. Signing and qualification verify both executables plus the installer when present. Signing credentials and Inno Setup remain external controlled-release inputs.
 
 V1 defers iframe/shadow DOM support, multi-step login, desktop hotkeys, UI Automation, Auto-Type and clipboard autofill. No additional Contracts project, runtime Node package or frontend framework is needed.
 

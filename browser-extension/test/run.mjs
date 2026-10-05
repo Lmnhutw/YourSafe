@@ -29,3 +29,4 @@ assert(!protocol.isDiscovery({ ...discoveryResult, truncated: undefined }));
 assert(!protocol.isDiscovery({ ...discoveryResult, credentials: [{ ...discoveryResult.credentials[0], username: null }] }));
 console.log(`Passed shared contract (${fixtures.requests.length} requests, ${fixtures.origins.length} origins), response and target authorization checks.`);
 await import('./worker-checks.mjs');
+await import('./popup-checks.mjs');

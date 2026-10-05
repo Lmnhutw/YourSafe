@@ -6,7 +6,7 @@ Import-Module (Join-Path $PSScriptRoot 'BrowserIntegration.psm1') -Force
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $desktopDirectory = Join-Path $repositoryRoot 'src/PasswordTool.WinUI/bin/x64/Debug/net10.0-windows10.0.26100.0/win-x64'
 $manifestPath = Join-Path $desktopDirectory 'yoursafe-native-dev.json'
-$registrationKeys = @('Software\Google\Chrome\NativeMessagingHosts\com.yoursafe.autofill.dev', 'Software\Microsoft\Edge\NativeMessagingHosts\com.yoursafe.autofill.dev')
+$registrationKeys = @('Software\Google\Chrome\NativeMessagingHosts\com.yoursafe.autofill.dev', 'Software\Microsoft\Edge\NativeMessagingHosts\com.yoursafe.autofill.dev', 'Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.yoursafe.autofill.dev')
 if (-not $Unregister) {
     foreach ($file in @('YourSafe.exe', 'YourSafe.NativeHost.exe')) {
         if (-not (Test-Path -LiteralPath (Join-Path $desktopDirectory $file) -PathType Leaf)) { throw 'Build development integration first.' }
@@ -31,4 +31,4 @@ try {
         }
     }
 } finally { $registry.Dispose() }
-Write-Output $(if ($Unregister) { 'Removed only development registrations still owned by this checkout.' } else { 'Registered YourSafe development host for Chrome and Edge.' })
+Write-Output $(if ($Unregister) { 'Removed only development registrations still owned by this checkout.' } else { 'Registered YourSafe development host for Chrome, Edge and Brave.' })
