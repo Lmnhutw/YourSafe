@@ -227,9 +227,6 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Spacing="4">
                             <TextBlock Text="Vault" Style="{StaticResource PasswordToolPageTitleStyle}" />
-                            <InfoBar IsOpen="{x:Bind ViewModel.IsTableLocked, Mode=OneWay}" IsClosable="False" Severity="Informational" Title="Vault table locked" Message="Your Login is active. Each action requires your Master Password.">
-                                <InfoBar.ActionButton><Button Content="Unlock Vault" Click="UnlockTableButton_Click" /></InfoBar.ActionButton>
-                            </InfoBar>
                             <TextBlock
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                 Text="Search and manage your saved credentials."
@@ -243,20 +240,28 @@
                                 </InfoBar.Content>
                             </InfoBar>
                         </StackPanel>
-                        <Button
-                            Grid.Column="1"
+                        <StackPanel Grid.Column="1" Spacing="8" HorizontalAlignment="Right" MaxWidth="460">
+                        <Button x:Name="VaultLockButton"
+                            HorizontalAlignment="Right"
                             MinWidth="144"
                             MinHeight="44"
                             Padding="16,8"
                             AutomationProperties.AutomationId="BtnLockVault"
                             Style="{StaticResource AccentButtonStyle}"
                             AutomationProperties.Name="Lock vault"
-                            Click="LockVaultButton_Click">
+                            Click="LockVaultButton_Click"
+                            PointerEntered="VaultLockButton_PointerEntered"
+                            PointerExited="VaultLockButton_PointerExited">
                             <StackPanel Orientation="Horizontal" Spacing="10">
-                                <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="18" Glyph="&#xE785;" />
-                                <TextBlock FontSize="16" Text="Lock vault" VerticalAlignment="Center" />
+                                <FontIcon x:Name="VaultLockIcon" FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="18" Glyph="&#xE785;" />
+                                <TextBlock x:Name="VaultLockLabel" FontSize="16" Text="Lock vault" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
+                        <TextBlock AutomationProperties.AutomationId="TxtVaultLockHint"
+                            Visibility="{x:Bind local:MainPage.BoolToVisibility(ViewModel.IsTableLocked), Mode=OneWay}"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextAlignment="Right" TextWrapping="Wrap"
+                            Text="YourSafe's vault is locked. Unlock to avoid re-entering your password." />
+                        </StackPanel>
                     </Grid>
 
                     <Grid Grid.Row="1" Margin="0,24,0,16" RowSpacing="12">
@@ -763,7 +768,7 @@
                                     <ComboBoxItem Content="30 minutes" /><ComboBoxItem Content="1 hour" />
                                     <ComboBoxItem Content="2 hours" /><ComboBoxItem Content="5 hours" />
                                 </local:AppComboBox>
-                                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Vault table lock — duration starts at unlock. When locked, each action needs your Master Password. Unlock Vault enables actions without repeated prompts. Saved changes apply after closing and reopening YourSafe." TextWrapping="Wrap" />
+                                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="The timer starts when you unlock YourSafe's vault. Restart YourSafe to apply changes." TextWrapping="Wrap" />
                                 <PasswordBox x:Name="SettingsMasterPassword" AutomationProperties.Name="Master Password for settings" Header="Current Master Password" />
                                 <Button Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Right" Click="SaveSettingsButton_Click" Content="Save security settings" />
                                 <Button HorizontalAlignment="Right" Click="RotateRecoveryKeyButton_Click" Content="Rotate Recovery Key" />

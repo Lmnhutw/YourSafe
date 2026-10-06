@@ -33,7 +33,29 @@ foreach ($value in @('Recovery codes', 'Favorites', 'Passwords', 'All items', 'R
     } while (-not $below -and [DateTime]::UtcNow -lt $deadline)
     if (-not $below) { throw "Dropdown at $($first.y) must be below field bottom $($combo.y + $combo.height)." }
     $option = Element $value ListItem
-    $null = Ui invoke $option.selector
+    $null = Ui focus $option.selector
+    $null = Ui click $option.selector
+    $closed = Ui wait-for $combo.selector -p ExpandCollapseState --value Collapsed -t 5000
+    if ($closed.timedOut) { throw 'Dropdown did not close after the first click.' }
     $null = Ui wait-for $combo.selector --value $value -t 5000
     Write-Output "PASS: downward popup and selection '$value'."
 }
+$null = Ui invoke NavSettings
+foreach ($value in @('Dark', 'Light', 'System')) {
+    $combo = Element 'App background' ComboBox
+    $null = Ui invoke $combo.selector
+    $option = Element $value ListItem
+    $null = Ui focus $option.selector
+    $null = Ui click $option.selector
+    $closed = Ui wait-for CmbAppTheme -p ExpandCollapseState --value Collapsed -t 5000
+    if ($closed.timedOut) { throw 'Background dropdown did not close after the first click.' }
+    $result = Ui wait-for CmbAppTheme --value $value -t 5000
+    if (-not $result.found) { throw "First selection did not update background to '$value'." }
+    $deadline = [DateTime]::UtcNow.AddSeconds(3)
+    do {
+        $theme = (Get-Content -Raw -LiteralPath (Join-Path $TestDirectory 'appearance.json') | ConvertFrom-Json).Theme
+    } while ($theme -ne $value -and [DateTime]::UtcNow -lt $deadline)
+    if ($theme -ne $value) { throw "Background '$value' was not saved." }
+    Write-Output "PASS: first selection applies and saves background '$value'."
+}
+$null = Ui invoke NavVault

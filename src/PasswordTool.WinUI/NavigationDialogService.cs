@@ -10,9 +10,8 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
     {
         var password = new PasswordBox { Header = "Master Password" };
         var panel = new StackPanel { Spacing = 12 };
-        panel.Children.Add(new TextBlock { Text = "Your Login is still active. Confirm your Master Password for this action, or use Unlock Vault to stop repeated prompts.", TextWrapping = TextWrapping.Wrap });
         panel.Children.Add(password);
-        var dialog = new AppContentDialog { Title = "Vault table is locked", Content = panel, PrimaryButtonText = "Confirm", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
+        var dialog = new AppContentDialog { Title = "YourSafe's vault is locked", Content = panel, PrimaryButtonText = "Confirm", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
         try { return await lifetime.ShowAsync(dialog, cancellationToken) == ContentDialogResult.Primary ? password.Password : null; }
         finally { password.Password = string.Empty; }
     }

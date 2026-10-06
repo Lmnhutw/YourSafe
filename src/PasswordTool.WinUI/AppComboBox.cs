@@ -13,6 +13,7 @@ public sealed class AppComboBox : ComboBox
     public AppComboBox()
     {
         DropDownOpened += (_, _) => KeepSelectionVisible();
+        DropDownClosed += (_, _) => KeepSelectionVisible();
     }
 
     protected override void OnApplyTemplate()
@@ -32,7 +33,7 @@ public sealed class AppComboBox : ComboBox
         {
             // The native split animation follows the selected row and hides the faceplate.
             foreach (var group in VisualStateManager.GetVisualStateGroups(root).Where(group => group.Name == "DropDownStates"))
-                foreach (var state in group.States) state.Storyboard = new Storyboard();
+                foreach (var state in group.States.Where(state => state.Name == "Opened")) state.Storyboard = new Storyboard();
         }
     }
 
@@ -40,11 +41,15 @@ public sealed class AppComboBox : ComboBox
     {
         if (selectionPresenter is null || SelectedItem is null) return;
         selectionPresenter.ContentTemplate = string.IsNullOrEmpty(DisplayMemberPath) ? ItemTemplate : null;
-        selectionPresenter.SetBinding(ContentPresenter.ContentProperty, new Binding
+        // Keep the binding on a separate text element: binding the presenter's Content
+        // prevents ComboBox from replacing it when an option is selected.
+        var text = new TextBlock();
+        text.SetBinding(TextBlock.TextProperty, new Binding
         {
             Source = SelectedItem is ComboBoxItem item ? item.Content : SelectedItem,
             Path = string.IsNullOrEmpty(DisplayMemberPath) ? null : new PropertyPath(DisplayMemberPath)
         });
+        selectionPresenter.Content = text;
     }
 
     private static void ResetNativeOffset(DependencyObject sender, DependencyProperty property)

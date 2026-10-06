@@ -413,17 +413,39 @@ public sealed partial class MainPage : Page
 
     private async void LockVaultButton_Click(object sender, RoutedEventArgs e)
     {
-        App.Services.GetRequiredService<DialogLifetime>().DismissAll();
-        var locking = ViewModel.LockTableAsync();
-        var version = ViewModel.LifecycleVersion;
-        await locking;
-        if (version != ViewModel.LifecycleVersion) return;
-        ClearEditor();
-        ClearSettingsInputs();
-        ClearBackupInputs();
-        ApplyShellState();
-        if (!ViewModel.IsTableLocked) MasterPasswordInput.Focus(FocusState.Programmatic);
+        if (!VaultLockButton.IsEnabled) return;
+        VaultLockButton.IsEnabled = false;
+        try
+        {
+            if (ViewModel.IsTableLocked)
+            {
+                await ViewModel.UnlockTableAsync();
+                return;
+            }
+            App.Services.GetRequiredService<DialogLifetime>().DismissAll();
+            var locking = ViewModel.LockTableAsync();
+            var version = ViewModel.LifecycleVersion;
+            await locking;
+            if (version != ViewModel.LifecycleVersion) return;
+            ClearEditor();
+            ClearSettingsInputs();
+            ClearBackupInputs();
+            ApplyShellState();
+            if (!ViewModel.IsTableLocked) MasterPasswordInput.Focus(FocusState.Programmatic);
+        }
+        finally { VaultLockButton.IsEnabled = true; UpdateVaultLockButton(); }
     }
+
+    private void UpdateVaultLockButton(bool hover = false)
+    {
+        var locked = ViewModel.IsTableLocked;
+        VaultLockLabel.Text = locked ? "Unlock vault" : "Lock vault";
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(VaultLockButton, VaultLockLabel.Text);
+        VaultLockIcon.Glyph = locked != hover ? "\uE72E" : "\uE785";
+    }
+
+    private void VaultLockButton_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e) => UpdateVaultLockButton(true);
+    private void VaultLockButton_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e) => UpdateVaultLockButton();
 
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -747,6 +769,7 @@ public sealed partial class MainPage : Page
 
     private void ApplyShellState()
     {
+        UpdateVaultLockButton();
         if (ViewModel.IsTableLocked)
         {
             ClearEditor(); ClearSettingsInputs(); ClearBackupInputs();
@@ -1326,7 +1349,7 @@ public sealed partial class MainPage : Page
                 var dialog = new AppContentDialog
                 {
                     Title = "Settings saved",
-                    Content = "Your vault table lock duration has been saved. Close and reopen YourSafe to apply it. The current Login and vault timers stay unchanged.",
+                    Content = "Vault timeout saved. Restart YourSafe to apply it.",
                     CloseButtonText = "Got it"
                 };
                 await App.Services.GetRequiredService<DialogLifetime>().ShowAsync(dialog, CancellationToken.None);
@@ -1335,7 +1358,6 @@ public sealed partial class MainPage : Page
         finally { SettingsMasterPassword.Password = string.Empty; }
     }
 
-    private async void UnlockTableButton_Click(object sender, RoutedEventArgs e) => await ViewModel.UnlockTableAsync();
 
     private async void ChangeMasterPasswordButton_Click(object sender, RoutedEventArgs e)
     {
