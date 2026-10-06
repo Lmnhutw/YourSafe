@@ -31,6 +31,7 @@ public sealed partial class MainPage : Page
     private bool updatingAppearanceInputs = true;
     private bool updatingNavigation;
     private bool confirmingEditorDiscard;
+    private bool preservingEditorDuringTimeoutUnlock;
     private VaultItemEditorInput? editorBaseline;
     private readonly DispatcherTimer signInTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private bool hadSignIn;
@@ -45,7 +46,19 @@ public sealed partial class MainPage : Page
             if (ViewModel.FlowState == AppFlowState.Unlocked && ViewModel.IsSignedIn && !ViewModel.IsVaultSessionActive)
             {
                 if (Interlocked.Exchange(ref lifecycleLockInProgress, 1) != 0) return;
-                try { await ViewModel.LockTableAsync(); }
+                try
+                {
+                    preservingEditorDuringTimeoutUnlock = ViewModel.CurrentRoute == AppRoute.ItemEditor;
+                    await ViewModel.LockTableAsync(preserveCurrentRoute: preservingEditorDuringTimeoutUnlock);
+                    if (preservingEditorDuringTimeoutUnlock && ViewModel.IsTableLocked)
+                        await ViewModel.UnlockTableAsync();
+                    if (preservingEditorDuringTimeoutUnlock && ViewModel.IsTableLocked)
+                    {
+                        ViewModel.Navigate(AppRoute.Vault);
+                        ApplyRoute(AppRoute.Vault);
+                    }
+                    else if (preservingEditorDuringTimeoutUnlock) preservingEditorDuringTimeoutUnlock = false;
+                }
                 finally { Interlocked.Exchange(ref lifecycleLockInProgress, 0); }
             }
             else if (ViewModel.FlowState == AppFlowState.SaveRecoveryKey && !ViewModel.IsVaultSessionActive)
@@ -84,6 +97,7 @@ public sealed partial class MainPage : Page
 
     public static Visibility BoolToVisibility(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
     public static bool Not(bool value) => !value;
+    public static bool CanEditItem(bool isSaving, bool isTableLocked) => !isSaving && !isTableLocked;
     public static bool HasSelection(object? value) => value is not null;
     public static Visibility EmptyVisibility(int count) => count == 0 ? Visibility.Visible : Visibility.Collapsed;
     public static Visibility InvertBoolToVisibility(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
@@ -416,6 +430,13 @@ public sealed partial class MainPage : Page
             if (ViewModel.IsTableLocked)
             {
                 await ViewModel.UnlockTableAsync();
+                if (!ViewModel.IsTableLocked && preservingEditorDuringTimeoutUnlock)
+                {
+                    preservingEditorDuringTimeoutUnlock = false;
+                    ViewModel.Navigate(AppRoute.ItemEditor);
+                    ApplyRoute(AppRoute.ItemEditor);
+                    EditorItemTitle.Focus(FocusState.Programmatic);
+                }
                 return;
             }
             App.Services.GetRequiredService<DialogLifetime>().DismissAll();
@@ -577,7 +598,7 @@ public sealed partial class MainPage : Page
         };
         var saved = new CheckBox { Content = "I saved this key in a safe place outside this device." };
         var panel = new StackPanel { Spacing = 16 };
-        panel.Children.Add(new TextBlock { Text = "This key can reset your Master Password and Authenticator. Old exported snapshots retain their old security credentials.", TextWrapping = TextWrapping.Wrap });
+        panel.Children.Add(new TextBlock { Text = "This recovery code lets you create a new Master Password if you forget it. Save the new code somewhere safe outside this device. After you confirm it is saved, your previous recovery code will stop working. Exported backups keep the credentials they had when they were created.", TextWrapping = TextWrapping.Wrap });
         panel.Children.Add(text);
         var copyRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
         copyRow.Children.Add(copy);
@@ -589,7 +610,7 @@ public sealed partial class MainPage : Page
             TextWrapping = TextWrapping.Wrap
         });
         panel.Children.Add(saved);
-        var dialog = new AppContentDialog { Title = "Save Recovery Key", Content = panel, PrimaryButtonText = "Continue", CloseButtonText = "Cancel", IsPrimaryButtonEnabled = false };
+        var dialog = new AppContentDialog { Title = "Save new recovery code", Content = panel, PrimaryButtonText = "I've saved it", CloseButtonText = "Cancel", IsPrimaryButtonEnabled = false };
         saved.Checked += (_, _) => dialog.IsPrimaryButtonEnabled = true;
         saved.Unchecked += (_, _) => dialog.IsPrimaryButtonEnabled = false;
         var confirmed = false;
@@ -768,7 +789,8 @@ public sealed partial class MainPage : Page
         UpdateVaultLockButton();
         if (ViewModel.IsTableLocked)
         {
-            ClearEditor(); ClearSettingsInputs(); ClearBackupInputs();
+            if (!preservingEditorDuringTimeoutUnlock) ClearEditor();
+            ClearSettingsInputs(); ClearBackupInputs();
             App.Services.GetRequiredService<DialogLifetime>().DismissAll();
         }
         AuthenticationPanel.Visibility = ViewModel.IsUnlocked ? Visibility.Collapsed : Visibility.Visible;

@@ -496,7 +496,7 @@
                     <InfoBar Grid.Row="3" IsClosable="True" IsOpen="{x:Bind ViewModel.Trash.IsErrorOpen, Mode=TwoWay}" Message="{x:Bind ViewModel.Trash.ErrorMessage, Mode=OneWay}" Severity="Error" Title="Trash operation could not continue" />
                 </Grid>
 
-                <ScrollViewer x:Name="EditorPage" Grid.Row="1" MaxWidth="1024" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled" Visibility="Collapsed" IsEnabled="{x:Bind local:MainPage.Not(ViewModel.IsSavingItem), Mode=OneWay}">
+                <ScrollViewer x:Name="EditorPage" Grid.Row="1" MaxWidth="1024" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled" Visibility="Collapsed" IsEnabled="{x:Bind local:MainPage.CanEditItem(ViewModel.IsSavingItem, ViewModel.IsTableLocked), Mode=OneWay}">
                     <Grid Margin="24" RowSpacing="24" VerticalAlignment="Top">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -763,7 +763,9 @@
                                 <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="The timer starts when you unlock YourSafe's vault. Restart YourSafe to apply changes." TextWrapping="Wrap" />
                                 <PasswordBox x:Name="SettingsMasterPassword" AutomationProperties.Name="Master Password for settings" Header="Current Master Password" />
                                 <Button Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Right" Click="SaveSettingsButton_Click" Content="Save security settings" />
-                                <Button HorizontalAlignment="Right" Click="RotateRecoveryKeyButton_Click" Content="Rotate Recovery Key" />
+                                <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Recovery code" />
+                                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Use this code if you forget your Master Password. Create a new code if you need to replace the one you saved." TextWrapping="Wrap" />
+                                <Button HorizontalAlignment="Right" Click="RotateRecoveryKeyButton_Click" Content="Create a new recovery code" />
                                 <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.Settings.BackupHealthText, Mode=OneWay}" TextWrapping="Wrap" />
                             </StackPanel>
                         </Border>

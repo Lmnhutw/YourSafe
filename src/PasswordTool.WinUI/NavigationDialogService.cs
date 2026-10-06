@@ -10,6 +10,11 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
     {
         var password = new PasswordBox { Header = "Master Password" };
         var panel = new StackPanel { Spacing = 12 };
+        panel.Children.Add(new TextBlock
+        {
+            Text = "Your vault is locked. Enter your Master Password to continue. If you were adding an item, everything will be lost if you cancel.",
+            TextWrapping = TextWrapping.Wrap
+        });
         panel.Children.Add(password);
         var dialog = new AppContentDialog { Title = "YourSafe's vault is locked", Content = panel, PrimaryButtonText = "Confirm", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
         try { return await lifetime.ShowAsync(dialog, cancellationToken) == ContentDialogResult.Primary ? password.Password : null; }
@@ -18,7 +23,7 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
     public async Task<(string Confirmation, string TotpCode)?> ConfirmGroupDeletionAsync(
         string groupName, CancellationToken cancellationToken = default)
     {
-        var expected = $"Confirm delete all data in \"{groupName}\"";
+        var expected = $"Confirm delete all the data in \"{groupName}\"";
         var confirmation = new TextBox { Header = "Type the exact confirmation below" };
         var dialog = new AppContentDialog
         {
@@ -30,7 +35,7 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
                 {
                     new TextBlock
                     {
-                        Text = $"Permanently delete \"{groupName}\" and ALL its passwords, recovery codes, notes, and other saved data, including items in Trash? Review this group carefully. This cannot be undone in the vault.",
+                        Text = $"Permanently delete \"{groupName}\" and ALL its passwords, recovery codes, notes, and other saved data, including items in Trash? Review this group carefully. This cannot be undone once it is confirmed. This data will be permanently deleted!",
                         TextWrapping = TextWrapping.Wrap
                     },
                     new TextBlock { Text = expected, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true },

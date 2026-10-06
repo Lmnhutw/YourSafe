@@ -288,7 +288,7 @@ public sealed partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsSignedIn));
     }
 
-    public async Task LockTableAsync()
+    public async Task LockTableAsync(bool preserveCurrentRoute = false)
     {
         if (!IsSignedIn) { await LogoutAsync(); return; }
         var locking = flow.LockTableAsync();
@@ -298,8 +298,11 @@ public sealed partial class ShellViewModel : ObservableObject
         Trash.Clear(); SecurityCheck.Clear(); Backup.Clear(); Settings.Clear();
         await clipboard.ClearOwnedValueAsync();
         if (version != LifecycleVersion) return;
-        navigation.Navigate(AppRoute.Vault);
-        CurrentRoute = AppRoute.Vault;
+        if (!preserveCurrentRoute)
+        {
+            navigation.Navigate(AppRoute.Vault);
+            CurrentRoute = AppRoute.Vault;
+        }
         FlowState = flow.FlowState;
         OnPropertyChanged(nameof(IsTableLocked));
     }
