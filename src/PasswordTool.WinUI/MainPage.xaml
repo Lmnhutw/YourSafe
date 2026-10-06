@@ -740,15 +740,13 @@
                         <Border Style="{StaticResource PasswordToolCardStyle}">
                             <StackPanel Spacing="12">
                                 <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Appearance" />
-                                <TextBlock Style="{StaticResource PasswordToolDescriptionStyle}" Text="Appearance is saved on this device. No Master Password is required. Contrast themes use Windows colors." />
+                                <TextBlock Style="{StaticResource PasswordToolDescriptionStyle}" Text="Appearance is saved on this device." />
                                 <local:AppComboBox x:Name="AppThemeInput" Header="Background" AutomationProperties.AutomationId="CmbAppTheme" AutomationProperties.Name="App background" SelectionChanged="AppearanceSelection_Changed">
                                     <ComboBoxItem Content="System" /><ComboBoxItem Content="Light" /><ComboBoxItem Content="Dark" />
                                 </local:AppComboBox>
-                                <TextBlock Style="{StaticResource PasswordToolDescriptionStyle}" Text="Right-click any vault tab to rename it or choose its color." />
                                 <local:AppComboBox x:Name="GroupTabPlacement" Header="Vault layout" AutomationProperties.AutomationId="CmbGroupTabPlacement" AutomationProperties.Name="Vault layout" SelectionChanged="GroupTabPlacement_SelectionChanged">
                                     <ComboBoxItem Content="Horizontal" /><ComboBoxItem Content="Vertical" />
                                 </local:AppComboBox>
-                                <TextBlock x:Name="AppearanceStatus" AutomationProperties.AutomationId="TxtAppearanceStatus" Style="{StaticResource PasswordToolDescriptionStyle}" />
                             </StackPanel>
                         </Border>
 
@@ -770,21 +768,40 @@
                             </StackPanel>
                         </Border>
 
-                        <Expander Header="Master Password" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <Border Style="{StaticResource PasswordToolCardStyle}">
                             <StackPanel Spacing="12">
+                                <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Master Password" />
                                 <TextBlock Style="{StaticResource PasswordToolDescriptionStyle}" Text="Choose a new Master Password with at least 12 characters." />
                                 <PasswordBox x:Name="CurrentMasterPassword" AutomationProperties.Name="Current Master Password" Header="Current Master Password" />
                                 <PasswordBox x:Name="ReplacementMasterPassword" AutomationProperties.Name="New Master Password" Header="New Master Password" />
                                 <PasswordBox x:Name="ConfirmReplacementMasterPassword" AutomationProperties.Name="Confirm new Master Password" Header="Confirm new Master Password" />
-                                <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
-                                    <Button Style="{StaticResource AccentButtonStyle}" Click="ChangeMasterPasswordButton_Click" Content="Change Master Password" />
-                                    <Button Click="UpgradeKdfButton_Click" Content="Upgrade KDF if needed" IsEnabled="{x:Bind ViewModel.Settings.NeedsKdfUpgrade, Mode=OneWay}" />
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="4">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="Password protection" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <Button AutomationProperties.AutomationId="BtnPasswordProtectionHelp" AutomationProperties.Name="About password protection" Background="Transparent" BorderThickness="0" Padding="4" MinWidth="24" MinHeight="24">
+                                        <FontIcon Glyph="&#xE946;" FontSize="16" />
+                                        <ToolTipService.ToolTip>
+                                            <ToolTip Padding="16">
+                                                <TextBlock MaxWidth="340" LineHeight="22" LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" Text="Password protection (KDF) makes guessing your password harder if someone copies your vault. Upgrading strengthens this protection without changing your Master Password or saved items." />
+                                            </ToolTip>
+                                        </ToolTipService.ToolTip>
+                                    </Button>
                                 </StackPanel>
+                                <TextBlock Style="{StaticResource PasswordToolDescriptionStyle}" Text="Your password protection is up to date." Visibility="{x:Bind local:MainPage.InvertBoolToVisibility(ViewModel.Settings.NeedsKdfUpgrade), Mode=OneWay}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Top" Orientation="Horizontal" Spacing="8">
+                                <Button AutomationProperties.AutomationId="BtnUpgradePasswordProtection" HorizontalAlignment="Right" Click="UpgradeKdfButton_Click" Content="Upgrade password protection (KDF)" IsEnabled="{x:Bind ViewModel.Settings.NeedsKdfUpgrade, Mode=OneWay}" />
+                                        <Button Style="{StaticResource AccentButtonStyle}" Click="ChangeMasterPasswordButton_Click" Content="Change Master Password" />
+                                    </StackPanel>
+                                </Grid>
                             </StackPanel>
-                        </Expander>
+                        </Border>
 
-                        <Expander Header="Authenticator" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <Border Style="{StaticResource PasswordToolCardStyle}">
                             <StackPanel Spacing="12">
+                                <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Authenticator" />
                                 <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Generate a replacement setup, scan it, and confirm the new 6-digit code. Existing trusted tokens are replaced only after successful verification." TextWrapping="Wrap" />
                                 <Button HorizontalAlignment="Right" Click="PrepareAuthenticatorResetButton_Click" Content="Prepare replacement Authenticator" />
                                 <Image x:Name="SettingsAuthenticatorQr" Width="220" Height="220" Visibility="Collapsed" />
@@ -793,7 +810,7 @@
                                 <local:SixDigitCodeInput x:Name="AuthenticatorResetCode" />
                                 <Button HorizontalAlignment="Right" Click="ResetAuthenticatorButton_Click" Content="Reset Authenticator" />
                             </StackPanel>
-                        </Expander>
+                        </Border>
 
                         <InfoBar
                             IsClosable="True"

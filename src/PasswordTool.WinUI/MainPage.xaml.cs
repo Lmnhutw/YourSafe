@@ -222,7 +222,6 @@ public sealed partial class MainPage : Page
             AppThemeInput.SelectedIndex = (int)appearance.Settings.Theme;
             GroupTabPlacement.SelectedIndex = appearance.Settings.IsVerticalTabs ? 1 : 0;
             ViewModel.Vault.IsVerticalTabs = appearance.Settings.IsVerticalTabs;
-            AppearanceStatus.Text = $"Background: {appearance.Settings.Theme}. Tab names and colors can be changed from their right-click menu.";
         }
         finally { updatingAppearanceInputs = false; }
     }
@@ -235,12 +234,11 @@ public sealed partial class MainPage : Page
 
     private void SaveAppearance(AppearanceSettings settings)
     {
-        try { appearance.Save(settings); AppearanceStatus.Text += " Appearance saved."; }
+        try { appearance.Save(settings); }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
         {
             SyncAppearanceInputs();
-            AppearanceStatus.Text = "Appearance could not be saved. Check access to the app's local storage and try again.";
-            ViewModel.StatusMessage = AppearanceStatus.Text;
+            ViewModel.StatusMessage = "Appearance could not be saved. Check access to the app's local storage and try again.";
             ViewModel.IsStatusOpen = true;
         }
     }
@@ -1367,8 +1365,18 @@ public sealed partial class MainPage : Page
 
     private async void UpgradeKdfButton_Click(object sender, RoutedEventArgs e)
     {
-        if (await ViewModel.Settings.UpgradeKdfAsync(CurrentMasterPassword.Password))
-            CurrentMasterPassword.Password = string.Empty;
+        if (sender is not Button button || !button.IsEnabled) return;
+        button.IsEnabled = false;
+        var version = ViewModel.LifecycleVersion;
+        try
+        {
+            if (!await dialogs.ConfirmAsync("Upgrade password protection?",
+                "This makes guessing your password harder. Your Master Password and saved items stay the same. Upgrade now?", "Upgrade")
+                || !ViewModel.IsCurrentUnlock(version)) return;
+            if (await ViewModel.Settings.UpgradeKdfAsync(CurrentMasterPassword.Password))
+                CurrentMasterPassword.Password = string.Empty;
+        }
+        finally { button.IsEnabled = ViewModel.Settings.NeedsKdfUpgrade; }
     }
 
     private async void PrepareAuthenticatorResetButton_Click(object sender, RoutedEventArgs e)

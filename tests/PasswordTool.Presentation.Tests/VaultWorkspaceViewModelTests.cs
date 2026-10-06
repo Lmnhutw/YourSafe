@@ -29,6 +29,24 @@ public sealed class VaultWorkspaceViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Locked_page_metadata_does_not_prompt_but_using_a_vault_function_does()
+    {
+        var flow = new AppFlowCoordinator(vault, runner, new TotpService());
+        var prompts = 0;
+        flow.RequestActionPasswordAsync = _ => { prompts++; return Task.FromResult<string?>(null); };
+        await flow.GetGroupsAsync();
+        var items = await flow.GetListItemsAsync();
+        await flow.LockTableAsync();
+        await flow.GetSettingsAsync();
+        await flow.GetSnapshotsAsync();
+        await flow.GetDeletedItemsAsync();
+        Assert.Equal(0, prompts);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => flow.RestoreDeletedItemAsync(items[0].Id));
+        Assert.Equal(1, prompts);
+        Assert.Equal(AppFlowState.TableLocked, flow.FlowState);
+    }
+
+    [Fact]
     public async Task Clear_filters_availability_tracks_resettable_state_without_changing_layout()
     {
         await workspace.RefreshAsync();

@@ -137,12 +137,20 @@ try {
         Ui wait-for CmbAppTheme -t 5000 | Out-Null
         SelectCombo CmbAppTheme Light
         SelectCombo CmbGroupTabPlacement Horizontal
-        Ui wait-for TxtAppearanceStatus -t 5000 | Out-Null
         AssertPreferences Light $false
         Capture '01-light-blue'
         SelectCombo CmbAppTheme Dark
         AssertPreferences Dark $false
         Capture '02-dark-blue'
+    }
+    Test 'Password protection has a readable explanation without expanding a section' {
+        Reveal BtnPasswordProtectionHelp
+        EnsureForeground BtnPasswordProtectionHelp
+        Ui hover BtnPasswordProtectionHelp --dwell-time 1500 | Out-Null
+        $help = @(Matches 'makes guessing your password harder' | Where-Object { $_.type -eq 'Text' }) | Select-Object -First 1
+        if ($null -eq $help) { throw 'Password protection explanation is missing.' }
+        Ui hover CurrentMasterPassword | Out-Null
+        if ((Ui wait-for $help.selector --gone -t 5000).timedOut) { throw 'Password protection explanation did not dismiss.' }
     }
     Test 'All tab is default and has no context actions' {
         Ui invoke NavVault | Out-Null

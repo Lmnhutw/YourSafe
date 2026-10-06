@@ -14,6 +14,9 @@ public sealed class AppFlowCoordinator
     private readonly bool hasPartialStorage;
     private IReadOnlyList<VaultItemListItem> tableItems = [];
     private IReadOnlyList<VaultGroup> tableGroups = [];
+    private IReadOnlyList<TrashItemListItem> tableTrash = [];
+    private IReadOnlyList<VaultSnapshotInfo> tableSnapshots = [];
+    private SettingsSnapshot tableSettings = new(VaultSecuritySettings.DefaultVaultOpenDurationMinutes, false, null, null);
     public Func<CancellationToken, Task<string?>>? RequestActionPasswordAsync { get; set; }
 
     public AppFlowCoordinator(VaultService vaultService, IVaultOperationRunner operations, TotpService totpService)
@@ -273,6 +276,9 @@ public sealed class AppFlowCoordinator
         FlowState = AppFlowState.Unlock;
         tableItems = [];
         tableGroups = [];
+        tableTrash = [];
+        tableSnapshots = [];
+        tableSettings = new(VaultSecuritySettings.DefaultVaultOpenDurationMinutes, false, null, null);
         await operations.RunAsync(() =>
         {
             if (vaultService.IsSignInSessionActive) vaultService.LockVault();
@@ -295,13 +301,20 @@ public sealed class AppFlowCoordinator
         FlowState = AppFlowState.Unlock;
         tableItems = [];
         tableGroups = [];
+        tableTrash = [];
+        tableSnapshots = [];
+        tableSettings = new(VaultSecuritySettings.DefaultVaultOpenDurationMinutes, false, null, null);
         await operations.RunAsync(vaultService.ClearSession, cancellationToken).ConfigureAwait(false);
         if (version == LifecycleVersion) FlowState = AppFlowState.Unlock;
     }
 
     public Task<IReadOnlyList<VaultItemListItem>> GetListItemsAsync(CancellationToken cancellationToken = default) =>
         FlowState == AppFlowState.TableLocked && IsSignedIn ? Task.FromResult(tableItems) :
-        RunVaultAsync(() => tableItems = vaultService.GetItems().Select(VaultItemListItem.FromVaultItem).ToList(), cancellationToken);
+        RunVaultAsync(() =>
+        {
+            CachePageMetadata();
+            return tableItems = vaultService.GetItems().Select(VaultItemListItem.FromVaultItem).ToList();
+        }, cancellationToken);
 
     public Task<IReadOnlyList<CredentialMetadata>> FindAutofillCredentialsAsync(string origin, CancellationToken cancellationToken = default)
     {
@@ -387,8 +400,9 @@ public sealed class AppFlowCoordinator
         RunVaultAsync(() => vaultService.GetPasswordHistory(id, totpCode), cancellationToken);
 
     public Task<IReadOnlyList<TrashItemListItem>> GetDeletedItemsAsync(CancellationToken cancellationToken = default) =>
+        FlowState == AppFlowState.TableLocked && IsSignedIn ? Task.FromResult(tableTrash) :
         RunVaultAsync(
-            () => (IReadOnlyList<TrashItemListItem>)vaultService.GetDeletedItems().Select(TrashItemListItem.FromVaultItem).ToList(),
+            () => tableTrash = vaultService.GetDeletedItems().Select(TrashItemListItem.FromVaultItem).ToList(),
             cancellationToken);
 
     public Task RestoreDeletedItemAsync(Guid id, CancellationToken cancellationToken = default) =>
@@ -401,15 +415,22 @@ public sealed class AppFlowCoordinator
         RunVaultAsync(() => vaultService.PermanentlyDeleteItem(id, totpCode), cancellationToken);
 
     public Task<SettingsSnapshot> GetSettingsAsync(CancellationToken cancellationToken = default) =>
-        RunVaultAsync(() =>
-        {
-            var security = vaultService.SecuritySettings;
-            return new SettingsSnapshot(
-                security.VaultOpenDurationMinutes,
-                vaultService.NeedsKdfUpgrade,
-                vaultService.LastExternalBackupAt,
-                vaultService.LastVerifiedBackupAt);
-        }, cancellationToken);
+        FlowState == AppFlowState.TableLocked && IsSignedIn ? Task.FromResult(tableSettings) :
+        RunVaultAsync(() => tableSettings = ReadSettings(), cancellationToken);
+
+    private SettingsSnapshot ReadSettings()
+    {
+        var security = vaultService.SecuritySettings;
+        return new SettingsSnapshot(security.VaultOpenDurationMinutes, vaultService.NeedsKdfUpgrade,
+            vaultService.LastExternalBackupAt, vaultService.LastVerifiedBackupAt);
+    }
+
+    private void CachePageMetadata()
+    {
+        tableTrash = vaultService.GetDeletedItems().Select(TrashItemListItem.FromVaultItem).ToList();
+        tableSnapshots = vaultService.GetSnapshots();
+        tableSettings = ReadSettings();
+    }
 
     public Task<OperationResult> UpdateSettingsAsync(
         string masterPassword,
@@ -510,7 +531,8 @@ public sealed class AppFlowCoordinator
             cancellationToken);
 
     public Task<IReadOnlyList<VaultSnapshotInfo>> GetSnapshotsAsync(CancellationToken cancellationToken = default) =>
-        RunVaultAsync(() => vaultService.GetSnapshots(), cancellationToken);
+        FlowState == AppFlowState.TableLocked && IsSignedIn ? Task.FromResult(tableSnapshots) :
+        RunVaultAsync(() => tableSnapshots = vaultService.GetSnapshots(), cancellationToken);
 
     public Task<IReadOnlyList<VaultSecurityFinding>> GetSecurityFindingsAsync(
         string totpCode,
@@ -586,6 +608,7 @@ public sealed class AppFlowCoordinator
                     if (!IsCurrentUnlock(version) || !vaultService.HasActiveVaultSession) throw new OperationCanceledException();
                     var value = operation();
                     tableItems = vaultService.GetItems().Select(VaultItemListItem.FromVaultItem).ToList();
+                    CachePageMetadata();
                     tableGroups = vaultService.GetGroups();
                     return value;
                 }
