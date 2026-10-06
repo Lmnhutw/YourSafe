@@ -88,7 +88,7 @@ public sealed partial class MainPage : Page
     public static Visibility EmptyVisibility(int count) => count == 0 ? Visibility.Visible : Visibility.Collapsed;
     public static Visibility InvertBoolToVisibility(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
     public static string ItemAutomationId(string action, Guid id) => $"{action}_{id:N}";
-    public static string GroupAutomationId(Guid? id) => id is null ? "Group_Ungrouped" : $"Group_{id:N}";
+    public static string GroupAutomationId(Guid? id) => id is null ? "Group_All" : $"Group_{id:N}";
     private static Brush GroupBrush(string value) => new SolidColorBrush(Windows.UI.Color.FromArgb(255,
             Convert.ToByte(value.Substring(1, 2), 16),
             Convert.ToByte(value.Substring(3, 2), 16),
@@ -147,10 +147,8 @@ public sealed partial class MainPage : Page
     private void UiSettings_ColorValuesChanged(Windows.UI.ViewManagement.UISettings sender, object args) =>
         DispatcherQueue.TryEnqueue(UpdateGroupTabs);
 
-    private string DisplayGroupName(VaultItemGroup group) => group.Id is not null ? group.Name
-        : group.IsAll ? appearance.Settings.AllTabName ?? group.Name : appearance.Settings.UngroupedTabName ?? group.Name;
-    private string? GroupColor(VaultItemGroup group) => group.Id is not null ? group.AccentColor
-        : group.IsAll ? appearance.Settings.AllTabColor : appearance.Settings.UngroupedTabColor;
+    private static string DisplayGroupName(VaultItemGroup group) => group.Name;
+    private static string? GroupColor(VaultItemGroup group) => group.IsAll ? null : group.AccentColor;
     private string? DisplayGroupColor(VaultItemGroup group) => accessibility.HighContrast ? null : GroupColor(group);
 
     private void UpdateGroupTab(Button button)
@@ -940,24 +938,20 @@ public sealed partial class MainPage : Page
 
     private async void RenameGroupMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        if ((sender as FrameworkElement)?.Tag is not VaultItemGroup group) return;
+        if ((sender as FrameworkElement)?.Tag is not VaultItemGroup { Id: { } id, IsAll: false } group) return;
         var version = ViewModel.LifecycleVersion;
         var name = await PromptAsync("Rename tab", "Tab name", DisplayGroupName(group), "Confirm", "TxtTabName");
         if (name is null || !ViewModel.IsCurrentUnlock(version)) return;
-        if (group.Id is { } id) await ViewModel.UpdateGroupAsync(id, name, group.AccentColor);
-        else SaveAppearance(group.IsAll ? appearance.Settings with { AllTabName = name }
-            : appearance.Settings with { UngroupedTabName = name });
+        await ViewModel.UpdateGroupAsync(id, name, group.AccentColor);
     }
 
     private async void ChangeGroupColorMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        if ((sender as FrameworkElement)?.Tag is not VaultItemGroup group) return;
+        if ((sender as FrameworkElement)?.Tag is not VaultItemGroup { Id: { } id, IsAll: false } group) return;
         var version = ViewModel.LifecycleVersion;
         var chosen = await PickColorAsync(DisplayGroupName(group), GroupColor(group));
         if (!chosen.Confirmed || !ViewModel.IsCurrentUnlock(version)) return;
-        if (group.Id is { } id) await ViewModel.UpdateGroupAsync(id, group.Name, chosen.Color);
-        else SaveAppearance(group.IsAll ? appearance.Settings with { AllTabColor = chosen.Color }
-            : appearance.Settings with { UngroupedTabColor = chosen.Color });
+        await ViewModel.UpdateGroupAsync(id, group.Name, chosen.Color);
     }
 
     private async Task<(bool Confirmed, string? Color)> PickColorAsync(string tabName, string? current)

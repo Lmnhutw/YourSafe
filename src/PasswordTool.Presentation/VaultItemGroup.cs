@@ -9,7 +9,6 @@ public sealed partial class VaultItemGroup(Guid? id, string name, string? accent
     public string? AccentColor { get; } = accentColor;
     public int SortOrder { get; } = sortOrder;
     public bool IsAll { get; } = isAll;
-    public bool IsSystemGroup => Id is null;
     public string CountText => Count.ToString("N0");
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CountText))]

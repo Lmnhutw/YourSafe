@@ -21,8 +21,8 @@ public sealed partial class VaultWorkspaceViewModel : ObservableObject
 
     public ObservableCollection<VaultItemListItem> Items { get; } = [];
     public VaultItemGroup AllGroup { get; } = new(null, "All", null, -1, isAll: true);
-    public ObservableCollection<VaultItemGroup> GroupTabs { get; } = [new(null, "Ungrouped", null, -1)];
-    public ObservableCollection<VaultGroupOption> GroupOptions { get; } = [new("Ungrouped", null), new("Create new group...", null, true)];
+    public ObservableCollection<VaultItemGroup> GroupTabs { get; } = [];
+    public ObservableCollection<VaultGroupOption> GroupOptions { get; } = [new("Create new group...", null, true)];
     public IReadOnlyList<VaultFilterOption> ViewFilters { get; } = [new("All items", VaultViewFilter.All), new("Favorites", VaultViewFilter.Favorites), new("Passwords", VaultViewFilter.Passwords), new("Recovery codes", VaultViewFilter.RecoveryCodes)];
     public IReadOnlyList<VaultSortOption> SortOrders { get; } = [new("Title A–Z", VaultSortOrder.TitleAscending), new("Title Z–A", VaultSortOrder.TitleDescending), new("Recently updated", VaultSortOrder.UpdatedNewest), new("Oldest updated", VaultSortOrder.UpdatedOldest)];
 
@@ -44,8 +44,8 @@ public sealed partial class VaultWorkspaceViewModel : ObservableObject
         var version = flow.LifecycleVersion;
         try
         {
-            var loadedItems = await flow.GetListItemsAsync(cancellationToken);
             var loadedGroups = await flow.GetGroupsAsync(cancellationToken);
+            var loadedItems = await flow.GetListItemsAsync(cancellationToken);
             if (!flow.IsCurrentUnlock(version)) return;
             allItems = loadedItems;
             groups = loadedGroups;
@@ -62,7 +62,7 @@ public sealed partial class VaultWorkspaceViewModel : ObservableObject
     public void Clear()
     {
         allItems = []; groups = []; GroupOptions.Clear();
-        GroupOptions.Add(new("Ungrouped", null)); GroupOptions.Add(new("Create new group...", null, true));
+        GroupOptions.Add(new("Create new group...", null, true));
         RefreshGroupTabs();
         FilterByGroup = false;
         ResetToDefaultView();
@@ -165,7 +165,6 @@ public sealed partial class VaultWorkspaceViewModel : ObservableObject
         {
             AllGroup.Count = allItems.Count;
             GroupTabs.Clear();
-            GroupTabs.Add(new(null, "Ungrouped", null, -1) { Count = allItems.Count(item => item.GroupId is null) });
             foreach (var group in groups.OrderBy(group => group.SortOrder).ThenBy(group => group.Name, StringComparer.CurrentCultureIgnoreCase))
                 GroupTabs.Add(new(group.Id, group.Name, group.AccentColor, group.SortOrder) { Count = allItems.Count(item => item.GroupId == group.Id) });
             SelectedGroup = previous is { IsAll: false } ? GroupTabs.FirstOrDefault(group => group.Id == previous.Id) ?? AllGroup : AllGroup;
@@ -175,7 +174,7 @@ public sealed partial class VaultWorkspaceViewModel : ObservableObject
 
     private void RefreshGroupOptions()
     {
-        GroupOptions.Clear(); GroupOptions.Add(new("Ungrouped", null));
+        GroupOptions.Clear();
         foreach (var group in groups.OrderBy(group => group.SortOrder).ThenBy(group => group.Name, StringComparer.CurrentCultureIgnoreCase)) GroupOptions.Add(new(group.Name, group.Id));
         GroupOptions.Add(new("Create new group...", null, true));
     }

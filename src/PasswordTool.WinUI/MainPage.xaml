@@ -409,12 +409,6 @@
                                     <TextBlock Grid.Column="1" Text="All" TextTrimming="CharacterEllipsis" />
                                     <TextBlock Grid.Column="2" Text="{x:Bind ViewModel.Vault.AllGroup.CountText, Mode=OneWay}" />
                                 </Grid>
-                                <Button.ContextFlyout>
-                                    <MenuFlyout>
-                                        <MenuFlyoutItem Click="RenameGroupMenuItem_Click" Tag="{x:Bind ViewModel.Vault.AllGroup}" Text="Rename tab" />
-                                        <MenuFlyoutItem Click="ChangeGroupColorMenuItem_Click" Tag="{x:Bind ViewModel.Vault.AllGroup}" Text="Change tab color" />
-                                    </MenuFlyout>
-                                </Button.ContextFlyout>
                             </Button>
                                 <ItemsRepeater x:Name="GroupTabsRepeater" ItemsSource="{x:Bind ViewModel.Vault.GroupTabs, Mode=OneWay}" ElementPrepared="GroupTabsRepeater_ElementPrepared">
                                     <ItemsRepeater.Layout>
@@ -437,7 +431,7 @@
                                                     <MenuFlyout>
                                                         <MenuFlyoutItem Click="RenameGroupMenuItem_Click" Tag="{x:Bind}" Text="Rename tab" />
                                                         <MenuFlyoutItem Click="ChangeGroupColorMenuItem_Click" Tag="{x:Bind}" Text="Change tab color" />
-                                                        <MenuFlyoutItem Click="DeleteGroupMenuItem_Click" Tag="{x:Bind}" Text="Delete group" Visibility="{x:Bind local:MainPage.InvertBoolToVisibility(IsSystemGroup)}" />
+                                                        <MenuFlyoutItem Click="DeleteGroupMenuItem_Click" Tag="{x:Bind}" Text="Delete group" />
                                                     </MenuFlyout>
                                                 </Button.ContextFlyout>
                                             </Button>

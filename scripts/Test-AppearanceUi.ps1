@@ -144,32 +144,17 @@ try {
         AssertPreferences Dark $false
         Capture '02-dark-blue'
     }
-    Test 'All tab color validates, persists exact RGB, and Cancel preserves it' {
-        OpenTabColor Group_All
-        Ui set-value TxtGroupColorHex '#xyzxyz' | Out-Null
-        Ui invoke PrimaryButton | Out-Null
-        Ui wait-for GroupColorError -t 5000 | Out-Null
-        Ui wait-for GroupColorPicker -t 5000 | Out-Null
-        Reveal GroupColorError
-        Capture '03-tab-invalid' -Popup
-        Ui set-value TxtGroupColorHex '#808080' | Out-Null
-        Ui wait-for PrimaryButton -p IsEnabled --value True -t 5000 | Out-Null
-        Ui invoke PrimaryButton | Out-Null
-        Ui wait-for GroupColorPicker --gone -t 5000 | Out-Null
-        AssertTabPreference AllTabColor '#808080'
+    Test 'All tab is default and has no context actions' {
+        Ui invoke NavVault | Out-Null
+        EnsureForeground Group_All
+        Ui click Group_All --right | Out-Null
+        Start-Sleep -Milliseconds 300
+        if (@(Matches 'Rename tab' | Where-Object { $_.type -eq 'MenuItem' }).Count -gt 0 -or
+            @(Matches 'Change tab color' | Where-Object { $_.type -eq 'MenuItem' }).Count -gt 0) {
+            throw 'The default All tab exposes context actions.'
+        }
         Ui invoke Group_All | Out-Null
-        Capture '04-all-custom-buttons-blue'
-        OpenTabColor Group_All
-        Ui wait-for TxtGroupColorHex --value '#808080' -t 5000 | Out-Null
-        Ui set-value TxtGroupColorHex '#FF0000' | Out-Null
-        Ui invoke CloseButton | Out-Null
-        Ui wait-for GroupColorPicker --gone -t 5000 | Out-Null
-        AssertTabPreference AllTabColor '#808080'
-        OpenTabColor Group_All
-        Ui wait-for TxtGroupColorHex --value '#808080' -t 5000 | Out-Null
-        Ui invoke CloseButton | Out-Null
-        Ui wait-for GroupColorPicker --gone -t 5000 | Out-Null
-        Capture '05-all-cancel-buttons-blue'
+        if ((Ui get-property Group_All -p Name).properties.Name -ne 'All') { throw 'All tab name must remain All.' }
     }
     Test 'Vertical and horizontal layout choices persist across page navigation' {
         Ui invoke NavSettings | Out-Null
@@ -184,23 +169,23 @@ try {
         AssertPreferences Dark $false
     }
     Test 'Ungrouped tab color persists independently and Reset clears it' {
-        OpenTabColor Group_Ungrouped
+        Ui invoke NavVault | Out-Null
+        $ungrouped = VisibleItem Ungrouped Button
+        $ungroupedId = $ungrouped.automationId
+        OpenTabColor $ungroupedId
         Ui set-value TxtGroupColorHex '#00AAFF' | Out-Null
         Ui invoke PrimaryButton | Out-Null
         Ui wait-for GroupColorPicker --gone -t 5000 | Out-Null
-        AssertTabPreference UngroupedTabColor '#00AAFF'
-        AssertTabPreference AllTabColor '#808080'
-        Ui invoke Group_Ungrouped | Out-Null
+        Ui invoke $ungroupedId | Out-Null
         Capture '07-ungrouped-custom-buttons-blue'
-        OpenTabColor Group_Ungrouped
+        OpenTabColor $ungroupedId
         Ui wait-for TxtGroupColorHex --value '#00AAFF' -t 5000 | Out-Null
         Ui invoke SecondaryButton | Out-Null
         Ui wait-for GroupColorPicker --gone -t 5000 | Out-Null
-        AssertTabPreference UngroupedTabColor $null
-        OpenTabColor Group_All
-        Ui invoke SecondaryButton | Out-Null
+        OpenTabColor $ungroupedId
+        if ((Ui get-value TxtGroupColorHex).text -eq '#00AAFF') { throw 'Reset retained the group color.' }
+        Ui invoke CloseButton | Out-Null
         Ui wait-for GroupColorPicker --gone -t 5000 | Out-Null
-        AssertTabPreference AllTabColor $null
         Capture '08-system-tabs-reset'
     }
     Test 'Custom tab color uses its right-click menu and persists through encrypted refresh' {
@@ -238,13 +223,7 @@ try {
         Ui wait-for TxtTabName --gone -t 5000 | Out-Null
         Capture '11-work-renamed'
         RenameTab $script:workTabId Work
-        RenameTab Group_All 'All renamed'
-        AssertTabPreference AllTabName 'All renamed'
-        OpenTabMenu Group_All 'Rename tab'
-        Ui wait-for TxtTabName --value 'All renamed' -t 5000 | Out-Null
-        Ui invoke CloseButton | Out-Null
-        Ui wait-for TxtTabName --gone -t 5000 | Out-Null
-        RenameTab Group_All All
+
     }
     Test 'Trash Back to Vault synchronizes navigation selection' {
         Ui invoke NavTrash | Out-Null

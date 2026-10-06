@@ -344,6 +344,7 @@ public sealed class VaultService : IDisposable
             config.CredentialRevision = 1;
             config.RecoveryKeySlot = recoveryKeys.Wrap(recoveryKey, vaultKey);
             var data = new VaultData();
+            NormalizeGroupMembership(data, utcNow());
             var payload = encryptionService.EncryptObject(data, vaultKey, MasterPasswordService.VaultContext);
             SaveRecoveryState(config, payload, masterPassword, recoveryKey, vaultKey, totpSecretBase32);
 
@@ -905,6 +906,7 @@ public sealed class VaultService : IDisposable
     {
         ThrowIfDisposed();
         EnsureOpen();
+        if (NormalizeGroupMembership(vaultData!, utcNow())) SaveVault();
         var groups = vaultData!.Groups.OrderBy(group => group.SortOrder).ThenBy(group => group.Name, StringComparer.CurrentCultureIgnoreCase)
             .Select(CloneGroup).ToList();
         EnsureOpen();
@@ -1364,6 +1366,7 @@ public sealed class VaultService : IDisposable
     private void SaveVault()
     {
         EnsureOpen();
+        NormalizeGroupMembership(vaultData!, utcNow());
         var payload = encryptionUsesEnvelope
             ? encryptionService.EncryptObject(vaultData, encryptionKey!, MasterPasswordService.VaultContext)
             : encryptionService.EncryptObject(vaultData, encryptionKey!);
@@ -1691,6 +1694,23 @@ public sealed class VaultService : IDisposable
                 item.PasswordChangedAt = PasswordLifecycle.GetEffectivePasswordChangedAt(item, utcNow);
             }
         }
+    }
+
+    private static bool NormalizeGroupMembership(VaultData data, DateTimeOffset now)
+    {
+        var migrating = data.Version < 2;
+        var unassigned = data.Items.Where(item => item.GroupId is null).ToList();
+        if (!migrating && unassigned.Count == 0) return false;
+        var group = migrating ? data.Groups.FirstOrDefault(group => string.Equals(group.Name, "Ungrouped", StringComparison.CurrentCultureIgnoreCase))
+            : data.Groups.OrderBy(group => group.SortOrder).FirstOrDefault();
+        if (group is null)
+        {
+            group = new VaultGroup { Name = "Ungrouped", SortOrder = -1, CreatedAt = now, UpdatedAt = now };
+            data.Groups.Add(group);
+        }
+        foreach (var item in unassigned) item.GroupId = group.Id;
+        data.Version = Math.Max(data.Version, 2);
+        return true;
     }
 
     private static void NormalizeGroups(VaultData data, DateTimeOffset now)

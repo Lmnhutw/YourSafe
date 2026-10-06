@@ -59,6 +59,7 @@ public sealed class VaultWorkspaceViewModelTests : IDisposable
         Assert.False(workspace.IsVerticalTabs);
         Assert.Equal(["Alpha", "GitHub personal", "GitHub work", "Recovery"], workspace.Items.Select(item => item.Title));
         Assert.Equal(["Ungrouped", "Work", "Personal", "Empty"], workspace.GroupTabs.Select(group => group.Name));
+        Assert.All(workspace.GroupTabs, group => Assert.NotNull(group.Id));
         Assert.Equal(4, workspace.AllGroup.Count);
         Assert.Equal(0, workspace.GroupTabs.Single(group => group.Name == "Empty").Count);
         workspace.SelectGroup(workspace.GroupTabs.Single(group => group.Name == "Empty"));
@@ -81,7 +82,7 @@ public sealed class VaultWorkspaceViewModelTests : IDisposable
         Assert.Empty(workspace.Items);
         workspace.ResetToDefaultView();
         workspace.FilterByGroup = true;
-        workspace.SelectGroup(Tab(null));
+        workspace.SelectGroup(workspace.GroupTabs.Single(group => group.Name == "Ungrouped"));
         workspace.SelectedViewFilter = workspace.ViewFilters[3];
         Assert.Equal("Recovery", Assert.Single(workspace.Items).Title);
         Assert.False(workspace.SelectedGroup.IsAll);

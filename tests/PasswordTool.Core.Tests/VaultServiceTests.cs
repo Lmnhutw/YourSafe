@@ -13,6 +13,54 @@ public sealed class VaultServiceTests : IDisposable
         Guid.NewGuid().ToString("N"));
 
     [Fact]
+    public void Legacy_ungrouped_items_migrate_to_an_ordinary_group_that_can_be_renamed_and_deleted()
+    {
+        const string password = "correct horse battery staple";
+        var storage = new VaultStorageService(tempDirectory);
+        var encryption = new EncryptionService();
+        var totp = new TotpService();
+        var secret = totp.GenerateSecret();
+        using var vault = new VaultService(storage, encryption, totp);
+        vault.InitializeNewVault(password, secret, ComputeTotp(secret), RecoveryKeyService.Generate(), true);
+        var item = vault.AddItem(new VaultItem { Title = "Legacy item", Password = "secret" });
+        Assert.True(new MasterPasswordService(encryption).TryUnlockConfig(password, storage.LoadConfig(), out var key, out _));
+        try
+        {
+            var legacy = encryption.DecryptObject<VaultData>(storage.LoadVaultPayload(), key, MasterPasswordService.VaultContext);
+            legacy.Version = 1;
+            legacy.Groups.Clear();
+            Assert.Single(legacy.Items).GroupId = null;
+            storage.SaveVaultPayload(encryption.EncryptObject(legacy, key, MasterPasswordService.VaultContext));
+        }
+        finally { CryptographicOperations.ZeroMemory(key); }
+
+        vault.ClearSession();
+        Assert.True(vault.TryUnlockMasterPassword(password, out _));
+        Assert.True(vault.VerifyTotpForSession(ComputeTotp(secret)));
+        var group = Assert.Single(vault.GetGroups());
+        Assert.Equal("Ungrouped", group.Name);
+        Assert.NotEqual(Guid.Empty, group.Id);
+        Assert.Equal(group.Id, Assert.Single(vault.GetItems()).GroupId);
+        vault.UpdateGroup(group.Id, "Inbox", "#336699");
+
+        vault.ClearSession();
+        Assert.True(vault.TryUnlockMasterPassword(password, out _));
+        Assert.True(vault.VerifyTotpForSession(ComputeTotp(secret)));
+        var renamed = Assert.Single(vault.GetGroups());
+        Assert.Equal(group.Id, renamed.Id);
+        Assert.Equal("Inbox", renamed.Name);
+        Assert.Equal("#336699", renamed.AccentColor);
+        Assert.Equal(item.Id, Assert.Single(vault.GetItems()).Id);
+        vault.DeleteGroup(group.Id, "Confirm delete all data in \"Inbox\"", string.Empty);
+
+        vault.ClearSession();
+        Assert.True(vault.TryUnlockMasterPassword(password, out _));
+        Assert.True(vault.VerifyTotpForSession(ComputeTotp(secret)));
+        Assert.Empty(vault.GetGroups());
+        Assert.Empty(vault.GetItems());
+    }
+
+    [Fact]
     public void Group_colors_validate_before_mutation_and_invalid_legacy_colors_do_not_block_unlock()
     {
         const string password = "correct horse battery staple";
@@ -28,19 +76,19 @@ public sealed class VaultServiceTests : IDisposable
         foreach (var reset in new string?[] { null, string.Empty, " \t " })
         {
             vault.UpdateGroup(group.Id, group.Name, reset);
-            Assert.Null(Assert.Single(vault.GetGroups()).AccentColor);
+            Assert.Null(Assert.Single(vault.GetGroups(), candidate => candidate.Id == group.Id).AccentColor);
             vault.UpdateGroup(group.Id, group.Name, " #0033ff ");
-            Assert.Equal("#0033FF", Assert.Single(vault.GetGroups()).AccentColor);
+            Assert.Equal("#0033FF", Assert.Single(vault.GetGroups(), candidate => candidate.Id == group.Id).AccentColor);
         }
 
-        var original = Assert.Single(vault.GetGroups());
+        var original = Assert.Single(vault.GetGroups(), candidate => candidate.Id == group.Id);
         var config = File.ReadAllText(storage.ConfigPath);
         var payload = storage.LoadVaultPayload();
         foreach (var invalid in new[] { "# FFFFF", "#\tFFFFF", "#FFF FF", "#12345G", "#12345", "#1234567", "123456" })
         {
             Assert.Throws<ArgumentException>(() => vault.AddGroup("Invalid", invalid));
             Assert.Throws<ArgumentException>(() => vault.UpdateGroup(group.Id, "Changed", invalid));
-            var unchanged = Assert.Single(vault.GetGroups());
+            var unchanged = Assert.Single(vault.GetGroups(), candidate => candidate.Id == group.Id);
             Assert.Equal(original.Name, unchanged.Name);
             Assert.Equal(original.AccentColor, unchanged.AccentColor);
             Assert.Equal(original.UpdatedAt, unchanged.UpdatedAt);
@@ -52,14 +100,14 @@ public sealed class VaultServiceTests : IDisposable
         vault.ClearSession();
         Assert.True(vault.TryUnlockMasterPassword(password, out var error), error);
         Assert.True(vault.VerifyTotpForSession(ComputeTotp(secret)));
-        Assert.Equal(original.Name, Assert.Single(vault.GetGroups()).Name);
-        Assert.Equal(original.AccentColor, Assert.Single(vault.GetGroups()).AccentColor);
+        Assert.Equal(original.Name, Assert.Single(vault.GetGroups(), candidate => candidate.Id == group.Id).Name);
+        Assert.Equal(original.AccentColor, Assert.Single(vault.GetGroups(), candidate => candidate.Id == group.Id).AccentColor);
 
         Assert.True(new MasterPasswordService(encryption).TryUnlockConfig(password, storage.LoadConfig(), out var key, out _));
         try
         {
             var legacy = encryption.DecryptObject<VaultData>(storage.LoadVaultPayload(), key, MasterPasswordService.VaultContext);
-            Assert.Single(legacy.Groups).AccentColor = "# FFFFF";
+            Assert.Single(legacy.Groups, candidate => candidate.Id == group.Id).AccentColor = "# FFFFF";
             legacy.Groups.Add(new VaultGroup { Name = "Invalid old color", AccentColor = "#GGGGGG" });
             storage.SaveVaultPayload(encryption.EncryptObject(legacy, key, MasterPasswordService.VaultContext));
         }
@@ -67,13 +115,13 @@ public sealed class VaultServiceTests : IDisposable
 
         vault.ClearSession();
         Assert.True(vault.TryUnlockWithGoogleAuthenticator(ComputeTotp(secret), out error), error);
-        Assert.Equal(2, vault.GetGroups().Count);
+        Assert.Equal(3, vault.GetGroups().Count);
         Assert.All(vault.GetGroups(), loaded => Assert.Null(loaded.AccentColor));
         Assert.Equal(item.Id, Assert.Single(vault.GetItems()).Id);
         vault.ClearSession();
         Assert.True(vault.TryUnlockMasterPassword(password, out error), error);
         Assert.True(vault.VerifyTotpForSession(ComputeTotp(secret)));
-        Assert.Equal(2, vault.GetGroups().Count);
+        Assert.Equal(3, vault.GetGroups().Count);
         Assert.All(vault.GetGroups(), loaded => Assert.Null(loaded.AccentColor));
         Assert.Equal(item.Id, Assert.Single(vault.GetItems()).Id);
     }
@@ -92,24 +140,24 @@ public sealed class VaultServiceTests : IDisposable
         vault.DeleteItem(trashed.Id);
 
         Assert.Equal(group.Id, item.GroupId);
-        Assert.Single(vault.GetGroups());
+        Assert.Equal(2, vault.GetGroups().Count);
 
         var confirmation = "Confirm delete all data in \"Database\"";
         Assert.Throws<ArgumentException>(() => vault.DeleteGroup(group.Id, "Delete Database", ComputeTotp(secret)));
         Assert.Equal(2, vault.GetItems().Count);
-        Assert.Single(vault.GetGroups());
+        Assert.Equal(2, vault.GetGroups().Count);
         Assert.Single(vault.GetDeletedItems());
         vault.DeleteGroup(group.Id, confirmation, string.Empty);
 
         Assert.Equal(other.Id, Assert.Single(vault.GetItems()).Id);
         Assert.Empty(vault.GetDeletedItems());
-        Assert.Empty(vault.GetGroups());
+        Assert.Equal("Ungrouped", Assert.Single(vault.GetGroups()).Name);
         vault.ClearSession();
         Assert.True(vault.TryUnlockMasterPassword("correct horse battery staple", out _));
         Assert.True(vault.VerifyTotpForSession(ComputeTotp(secret)));
         Assert.Equal(other.Id, Assert.Single(vault.GetItems()).Id);
         Assert.Empty(vault.GetDeletedItems());
-        Assert.Empty(vault.GetGroups());
+        Assert.Equal("Ungrouped", Assert.Single(vault.GetGroups()).Name);
     }
 
     [Fact]
