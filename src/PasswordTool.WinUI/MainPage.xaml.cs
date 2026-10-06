@@ -571,7 +571,7 @@ public sealed partial class MainPage : Page
             TextWrapping = TextWrapping.Wrap
         });
         panel.Children.Add(saved);
-        var dialog = new ContentDialog { Title = "Save Recovery Key", Content = panel, PrimaryButtonText = "Continue", CloseButtonText = "Cancel", IsPrimaryButtonEnabled = false };
+        var dialog = new AppContentDialog { Title = "Save Recovery Key", Content = panel, PrimaryButtonText = "Continue", CloseButtonText = "Cancel", IsPrimaryButtonEnabled = false };
         saved.Checked += (_, _) => dialog.IsPrimaryButtonEnabled = true;
         saved.Unchecked += (_, _) => dialog.IsPrimaryButtonEnabled = false;
         var confirmed = false;
@@ -625,13 +625,13 @@ public sealed partial class MainPage : Page
         var confirm = new PasswordBox { Header = "Confirm Master Password" };
         var panel = new StackPanel { Spacing = 12 };
         panel.Children.Add(recovery);
-        var dialog = new ContentDialog { Title = "Validate Recovery Key", Content = panel, PrimaryButtonText = "Continue", CloseButtonText = "Cancel" };
+        var dialog = new AppContentDialog { Title = "Validate Recovery Key", Content = panel, PrimaryButtonText = "Continue", CloseButtonText = "Cancel" };
         string? newKey = null;
         long? wizardVersion = null;
         try
         {
             var entryVersion = ViewModel.LifecycleVersion;
-            var explanation = new ContentDialog
+            var explanation = new AppContentDialog
             {
                 Title = "Forgot Master Password?",
                 Content = new TextBlock
@@ -657,7 +657,7 @@ public sealed partial class MainPage : Page
             var passwordPanel = new StackPanel { Spacing = 12 };
             passwordPanel.Children.Add(password);
             passwordPanel.Children.Add(confirm);
-            var passwordDialog = new ContentDialog { Title = "Choose new Master Password", Content = passwordPanel, PrimaryButtonText = "Continue", CloseButtonText = "Cancel" };
+            var passwordDialog = new AppContentDialog { Title = "Choose new Master Password", Content = passwordPanel, PrimaryButtonText = "Continue", CloseButtonText = "Cancel" };
             if (await App.Services.GetRequiredService<DialogLifetime>().ShowAsync(passwordDialog, CancellationToken.None) != ContentDialogResult.Primary
                 || version != ViewModel.LifecycleVersion) return;
             ViewModel.PrepareRecoveryKeyReset(password.Password, confirm.Password);
@@ -671,7 +671,7 @@ public sealed partial class MainPage : Page
             var authPanel = new StackPanel { Spacing = 12 };
             authPanel.Children.Add(qr);
             authPanel.Children.Add(code);
-            var authDialog = new ContentDialog { Title = "Set up new Authenticator", Content = authPanel, PrimaryButtonText = "Reset credentials", CloseButtonText = "Cancel" };
+            var authDialog = new AppContentDialog { Title = "Set up new Authenticator", Content = authPanel, PrimaryButtonText = "Reset credentials", CloseButtonText = "Cancel" };
             try
             {
                 if (version != ViewModel.LifecycleVersion) return;
@@ -967,7 +967,7 @@ public sealed partial class MainPage : Page
         panel.Children.Add(input);
         panel.Children.Add(error);
         panel.Children.Add(picker);
-        var dialog = new ContentDialog
+        var dialog = new AppContentDialog
         {
             Title = $"Color for {tabName}", Content = panel, PrimaryButtonText = "Save",
             SecondaryButtonText = "Reset color", CloseButtonText = "Cancel",
@@ -1015,7 +1015,7 @@ public sealed partial class MainPage : Page
     {
         var input = new TextBox { Header = header, Text = value, MinWidth = 320 };
         if (automationId is not null) Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(input, automationId);
-        var dialog = new ContentDialog { XamlRoot = XamlRoot, Title = title, Content = input, PrimaryButtonText = primaryText, CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
+        var dialog = new AppContentDialog { XamlRoot = XamlRoot, Title = title, Content = input, PrimaryButtonText = primaryText, CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
         if (primaryText == "Confirm")
         {
             input.MaxLength = 100;
@@ -1081,9 +1081,9 @@ public sealed partial class MainPage : Page
         var version = ViewModel.LifecycleVersion;
         var item = await ViewModel.GetItemForEditingAsync(id);
         if (item is null || !ViewModel.IsCurrentUnlock(version)) return;
-        var picker = new ComboBox { Header = "Group", ItemsSource = ViewModel.Vault.GroupOptions.Where(group => !group.CreatesNew).ToList(), DisplayMemberPath = "Label" };
+        var picker = new AppComboBox { Header = "Group", ItemsSource = ViewModel.Vault.GroupOptions.Where(group => !group.CreatesNew).ToList(), DisplayMemberPath = "Label" };
         picker.SelectedItem = ((IEnumerable<VaultGroupOption>)picker.ItemsSource).FirstOrDefault(group => group.GroupId == item.GroupId);
-        var dialog = new ContentDialog { Title = "Move to group", Content = picker, PrimaryButtonText = "Move", CloseButtonText = "Cancel" };
+        var dialog = new AppContentDialog { Title = "Move to group", Content = picker, PrimaryButtonText = "Move", CloseButtonText = "Cancel" };
         if (await App.Services.GetRequiredService<DialogLifetime>().ShowAsync(dialog, CancellationToken.None) != ContentDialogResult.Primary
             || !ViewModel.IsCurrentUnlock(version) || picker.SelectedItem is not VaultGroupOption selected) return;
         await ViewModel.MoveItemToGroupAsync(id, selected.GroupId);
@@ -1097,7 +1097,7 @@ public sealed partial class MainPage : Page
         var panel = new StackPanel { Spacing = 12 };
         panel.Children.Add(new TextBlock { Text = $"Title: {item.Title}\nUsername: {item.Username}\nURL: {item.Url}\nUpdated: {item.UpdatedDisplay}", TextWrapping = TextWrapping.Wrap });
         panel.Children.Add(new TextBlock { Text = "Recovery codes belong to the external account. They do not reset YourSafe.", TextWrapping = TextWrapping.Wrap });
-        var dialog = new ContentDialog { Title = "View details", Content = panel, CloseButtonText = "Close" };
+        var dialog = new AppContentDialog { Title = "View details", Content = panel, CloseButtonText = "Close" };
         void Reveal(string label, Func<Task> action)
         {
             var reveal = new Button { Content = label };
@@ -1323,7 +1323,7 @@ public sealed partial class MainPage : Page
             var version = ViewModel.LifecycleVersion;
             if (await ViewModel.Settings.SaveAsync(SettingsMasterPassword.Password) && ViewModel.IsCurrentUnlock(version))
             {
-                var dialog = new ContentDialog
+                var dialog = new AppContentDialog
                 {
                     Title = "Settings saved",
                     Content = "Your vault table lock duration has been saved. Close and reopen YourSafe to apply it. The current Login and vault timers stay unchanged.",

@@ -32,16 +32,24 @@ function updateMenu() {
 updateMenu();
 mobile.addEventListener("change", updateMenu);
 
-if ("IntersectionObserver" in window && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-  const observer = new IntersectionObserver((entries) => {
-    for (const entry of entries) {
-      if (entry.isIntersecting) {
-        entry.target.classList.add("is-revealed");
-        observer.unobserve(entry.target);
+if (
+  "IntersectionObserver" in window &&
+  !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+) {
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("is-revealed");
+          observer.unobserve(entry.target);
+        }
       }
-    }
-  }, { threshold: 0.2 });
-  document.querySelectorAll("[data-reveal]").forEach((element) => observer.observe(element));
+    },
+    { threshold: 0.2 },
+  );
+  document
+    .querySelectorAll("[data-reveal]")
+    .forEach((element) => observer.observe(element));
 }
 
 const copyButton = document.querySelector(".copy-button");
@@ -50,10 +58,14 @@ if (navigator.clipboard && window.isSecureContext) {
   copyButton.hidden = false;
   copyButton.addEventListener("click", async () => {
     try {
-      await navigator.clipboard.writeText(document.querySelector("#checksum-command").textContent);
-      copyStatus.textContent = "Đã sao chép. Thay tên file trước khi chạy lệnh.";
+      await navigator.clipboard.writeText(
+        document.querySelector("#checksum-command").textContent,
+      );
+      copyStatus.textContent =
+        "Đã sao chép. Thay tên file trước khi chạy lệnh.";
     } catch {
-      copyStatus.textContent = "Không sao chép được. Hãy chọn và sao chép lệnh ở trên.";
+      copyStatus.textContent =
+        "Không sao chép được. Hãy chọn và sao chép lệnh ở trên.";
     }
   });
 }

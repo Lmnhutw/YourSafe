@@ -3,11 +3,14 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Lưu mật khẩu, mã xác thực và mã khôi phục ngay trên máy Windows với YourSafe. Dùng được khi không có internet.">
+    <meta name="description"
+      content="Lưu mật khẩu, mã xác thực và mã khôi phục ngay trên máy Windows với YourSafe. Dùng được khi không có internet.">
     <meta name="theme-color" content="#204bdb">
     <title>YourSafe — Mật khẩu ở lại trên máy bạn.</title>
-    <link rel="icon" href="./assets/app-logo.png" type="image/png" sizes="88x88">
-    <link rel="preload" href="./assets/BeVietnamPro-Bold.ttf" as="font" type="font/ttf" crossorigin>
+    <link rel="icon" href="./assets/app-logo.png" type="image/png"
+      sizes="88x88">
+    <link rel="preload" href="./assets/BeVietnamPro-Bold.ttf" as="font"
+      type="font/ttf" crossorigin>
     <link rel="stylesheet" href="./styles.css">
     <script src="./script.js" defer></script>
   </head>
@@ -15,85 +18,208 @@
     <a class="skip-link" href="#main">Đến nội dung chính</a>
     <header class="site-header">
       <a class="brand" href="#home" aria-label="YourSafe — đầu trang">
-        <img class="brand-logo" src="./assets/app-logo.png" alt="" width="40" height="40">
+        <img class="brand-logo" src="./assets/app-logo.png" alt width="40"
+          height="40">
         <span>YourSafe</span>
       </a>
-      <button class="menu-toggle" type="button" aria-controls="site-nav" aria-expanded="false" hidden>Menu <span aria-hidden="true">+</span></button>
+      <button class="menu-toggle" type="button" aria-controls="site-nav"
+        aria-expanded="false" hidden>Menu <span
+          aria-hidden="true">+</span></button>
       <nav class="site-nav" id="site-nav" aria-label="Điều hướng chính">
         <a href="#features">Tính năng</a>
         <a href="#install">Cài đặt</a>
         <a href="#faq">Hỏi đáp</a>
-        <a class="nav-source" href="https://github.com/Lmnhutw/PasswordTool.Core">Mã nguồn <span aria-hidden="true">↗</span></a>
+        <a class="nav-source"
+          href="https://github.com/Lmnhutw/PasswordTool.Core">Mã nguồn <span
+            aria-hidden="true">↗</span></a>
       </nav>
     </header>
 
     <main id="main">
       <section class="hero" id="home" aria-labelledby="product-title">
         <div class="hero-inner">
-          <h1 id="product-title">Your<span>Safe</span><span class="title-dot" aria-hidden="true">.</span></h1>
+          <h1 id="product-title">Your<span>Safe</span><span class="title-dot"
+              aria-hidden="true">.</span></h1>
           <div class="hero-content">
             <div class="hero-copy">
               <h2>Mật khẩu của bạn<br>lưu ngay trên máy!</h2>
-              <p>Lưu mật khẩu, mã xác thực và recovery code ngay trên máy Windows. Không cần tài khoản, không cần internet để sử dụng.</p>
-              <a class="button button-primary" href="https://github.com/Lmnhutw/PasswordTool.Core/releases">Tải cho Windows <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5"/></svg></a>
-              <p class="download-note">Dành cho Windows 64-bit<br>Xem hướng dẫn bên dưới trước khi cài.</p>
+              <p>Lưu mật khẩu, mã xác thực và recovery code ngay trên máy
+                Windows. Không cần tài khoản, không cần internet để sử dụng.</p>
+              <a class="button button-primary"
+                href="https://github.com/Lmnhutw/PasswordTool.Core/releases">Tải
+                cho Windows <svg viewBox="0 0 24 24" aria-hidden="true"><path
+                    d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5" /></svg></a>
+              <p class="download-note">Dành cho Windows 64-bit<br>Xem hướng dẫn
+                bên dưới trước khi cài.</p>
             </div>
-            <div class="manual" aria-label="Ba loại thông tin được lưu trong kho">
-              <div class="manual-top"><span>Kho lưu trữ của riêng bạn</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM9 4v16M4 9h5M4 15h5"/></svg></div>
+            <div class="manual"
+              aria-label="Ba loại thông tin được lưu trong kho">
+              <div class="manual-top"><span>Kho lưu trữ của riêng bạn</span><svg
+                  viewBox="0 0 24 24" aria-hidden="true"><path
+                    d="M4 4h16v16H4zM9 4v16M4 9h5M4 15h5" /></svg></div>
               <ul class="manual-index">
-                <li><span>Mật khẩu</span><small>Tài khoản &amp; ghi chú</small></li>
-                <li><span>Mã xác thực</span><small>Mã TOTP thay đổi theo thời gian</small></li>
-                <li><span>Mã khôi phục</span><small>Mã dự phòng do website cung cấp</small></li>
+                <li><span>Mật khẩu</span><small>Tài khoản &amp; ghi
+                    chú</small></li>
+                <li><span>Mã xác thực</span><small>Mã TOTP thay đổi theo thời
+                    gian</small></li>
+                <li><span>Mã khôi phục</span><small>Mã dự phòng do website cung
+                    cấp</small></li>
               </ul>
-              <div class="manual-bottom"><span>Dữ liệu được lưu<br>trên máy của bạn.</span><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 24h30M25 11l13 13-13 13"/></svg></div>
+              <div class="manual-bottom"><span>Dữ liệu được lưu<br>trên máy của
+                  bạn.</span><svg viewBox="0 0 48 48" aria-hidden="true"><path
+                    d="M8 24h30M25 11l13 13-13 13" /></svg></div>
             </div>
           </div>
-          <div class="hero-foot"><span>Không cần tài khoản trực tuyến. Không tự đồng bộ lên mạng.</span><a href="#features">Xem tính năng <span aria-hidden="true">↓</span></a></div>
+          <div class="hero-foot"><span>Không cần tài khoản trực tuyến. Không tự
+              đồng bộ lên mạng.</span><a href="#features">Xem tính năng <span
+                aria-hidden="true">↓</span></a></div>
         </div>
       </section>
 
-      <section class="section features" id="features" aria-labelledby="features-title">
-        <div class="section-heading"><h2 id="features-title">Lưu trữ mọi thông tin<br>chỉ bằng YourSafe.</h2><p>Lưu tài khoản, tạo mật khẩu mới và giữ một bản sao dự phòng ngay trong ứng dụng.</p></div>
+      <section class="section features" id="features"
+        aria-labelledby="features-title">
+        <div class="section-heading"><h2 id="features-title">Lưu trữ mọi thông
+            tin<br>chỉ bằng YourSafe.</h2><p>Lưu tài khoản, tạo mật khẩu mới và
+            giữ một bản sao dự phòng ngay trong ứng dụng.</p></div>
         <dl class="feature-list">
-          <div class="feature-row" data-reveal><dt>Tìm nhanh tài khoản đã lưu</dt><dd>Gõ để tìm kiếm, đánh dấu tài khoản hay dùng hoặc chia theo thư mục và nhãn.</dd></div>
-          <div class="feature-row" data-reveal><dt>Tạo mật khẩu khi đăng ký</dt><dd>Tạo mật khẩu ngẫu nhiên hoặc một cụm từ dễ đọc. Ứng dụng cho biết mật khẩu bạn chọn mạnh hay yếu.</dd></div>
-          <div class="feature-row" data-reveal><dt>Xem mã xác thực cùng mật khẩu</dt><dd>Với website hỗ trợ mã xác thực theo thời gian (TOTP), bạn có thể lưu và xem mã ngay bên cạnh tài khoản. Mã khôi phục của website được lưu thành mục riêng.</dd></div>
-          <div class="feature-row" data-reveal><dt>Chuyển tài khoản từ ứng dụng khác</dt><dd>Nhập tệp danh sách tài khoản (CSV) xuất từ trình duyệt hoặc ứng dụng quản lý mật khẩu. Bạn được xem trước; tài khoản trùng sẽ không bị ghi đè.</dd></div>
-          <div class="feature-row" data-reveal><dt>Giữ bản sao để chuyển máy</dt><dd>Tạo bản sao lưu có mật khẩu riêng và kiểm tra xem bản sao có dùng được không. Bạn có thể dùng bản này để lấy lại dữ liệu trên máy Windows mới.</dd></div>
-          <div class="feature-row" data-reveal><dt>Biết mật khẩu nào cần đổi</dt><dd>Xem những mật khẩu yếu, dùng cho nhiều tài khoản hoặc đã lâu chưa đổi. Việc kiểm tra diễn ra trên máy, không gửi mật khẩu lên mạng.</dd></div>
+          <div class="feature-row" data-reveal><dt>Tìm nhanh tài khoản đã
+              lưu</dt><dd>Gõ để tìm kiếm, đánh dấu tài khoản hay dùng hoặc chia
+              theo thư mục và nhãn.</dd></div>
+          <div class="feature-row" data-reveal><dt>Tạo mật khẩu khi đăng
+              ký</dt><dd>Tạo mật khẩu ngẫu nhiên hoặc một cụm từ dễ đọc. Ứng
+              dụng cho biết mật khẩu bạn chọn mạnh hay yếu.</dd></div>
+          <div class="feature-row" data-reveal><dt>Xem mã xác thực cùng mật
+              khẩu</dt><dd>Với website hỗ trợ mã xác thực theo thời gian (TOTP),
+              bạn có thể lưu và xem mã ngay bên cạnh tài khoản. Mã khôi phục của
+              website được lưu thành mục riêng.</dd></div>
+          <div class="feature-row" data-reveal><dt>Chuyển tài khoản từ ứng dụng
+              khác</dt><dd>Nhập tệp danh sách tài khoản (CSV) xuất từ trình
+              duyệt hoặc ứng dụng quản lý mật khẩu. Bạn được xem trước; tài
+              khoản trùng sẽ không bị ghi đè.</dd></div>
+          <div class="feature-row" data-reveal><dt>Giữ bản sao để chuyển
+              máy</dt><dd>Tạo bản sao lưu có mật khẩu riêng và kiểm tra xem bản
+              sao có dùng được không. Bạn có thể dùng bản này để lấy lại dữ liệu
+              trên máy Windows mới.</dd></div>
+          <div class="feature-row" data-reveal><dt>Biết mật khẩu nào cần
+              đổi</dt><dd>Xem những mật khẩu yếu, dùng cho nhiều tài khoản hoặc
+              đã lâu chưa đổi. Việc kiểm tra diễn ra trên máy, không gửi mật
+              khẩu lên mạng.</dd></div>
         </dl>
       </section>
 
       <section class="local-section" aria-labelledby="local-title">
         <div class="section local-layout">
-          <div class="local-copy"><h2 id="local-title">Mở bằng mật khẩu chính.<br>Lưu ngay trên máy.</h2><p>Kho là nơi chứa các tài khoản bạn đã lưu. Dữ liệu trong kho được mã hóa. Khi đăng nhập, bạn dùng mật khẩu chính (Master Password) và mã 6 số từ ứng dụng xác thực như Google Authenticator.</p><p>Nếu kho bị khóa trong lúc phiên đăng nhập vẫn còn hiệu lực, bạn chỉ cần nhập lại mật khẩu chính để mở. Vì dữ liệu không tự đồng bộ lên mạng, hãy giữ bản sao lưu ở nơi khác để phòng khi máy hỏng.</p><a class="text-link" href="https://github.com/Lmnhutw/PasswordTool.Core#security-model-and-limits">Tìm hiểu cách bảo vệ dữ liệu <span aria-hidden="true">↗</span></a></div>
-          <figure class="app-figure"><img src="./assets/unlock-migration.png" alt="Màn hình mở khóa của phiên bản trước khi đổi tên thành YourSafe, với ô mật khẩu chính đang trống." width="1120" height="720" loading="lazy"><figcaption>Màn hình của phiên bản trước khi đổi tên thành YourSafe. Bản bạn tải có thể có giao diện khác.</figcaption></figure>
+          <div class="local-copy"><h2 id="local-title">Mở bằng mật khẩu
+              chính.<br>Lưu ngay trên máy.</h2><p>Kho là nơi chứa các tài khoản
+              bạn đã lưu. Dữ liệu trong kho được mã hóa. Khi đăng nhập, bạn dùng
+              mật khẩu chính (Master Password) và mã 6 số từ ứng dụng xác thực
+              như Google Authenticator.</p><p>Nếu kho bị khóa trong lúc phiên
+              đăng nhập vẫn còn hiệu lực, bạn chỉ cần nhập lại mật khẩu chính để
+              mở. Vì dữ liệu không tự đồng bộ lên mạng, hãy giữ bản sao lưu ở
+              nơi khác để phòng khi máy hỏng.</p><a class="text-link"
+              href="https://github.com/Lmnhutw/PasswordTool.Core#security-model-and-limits">Tìm
+              hiểu cách bảo vệ dữ liệu <span
+                aria-hidden="true">↗</span></a></div>
+          <figure class="app-figure"><img src="./assets/unlock-migration.png"
+              alt="Màn hình mở khóa của phiên bản trước khi đổi tên thành YourSafe, với ô mật khẩu chính đang trống."
+              width="1120" height="720" loading="lazy"><figcaption>Màn hình của
+              phiên bản trước khi đổi tên thành YourSafe. Bản bạn tải có thể có
+              giao diện khác.</figcaption></figure>
         </div>
       </section>
 
-      <section class="section install" id="install" aria-labelledby="install-title">
-        <div class="section-heading"><h2 id="install-title">Cài đặt và<br>tạo kho đầu tiên.</h2><p>Tải bản dành cho Windows 64-bit. Bộ cài đã có các thành phần cần thiết để chạy ứng dụng.</p></div>
+      <section class="section install" id="install"
+        aria-labelledby="install-title">
+        <div class="section-heading"><h2 id="install-title">Cài đặt và<br>tạo
+            kho đầu tiên.</h2><p>Tải bản dành cho Windows 64-bit. Bộ cài đã có
+            các thành phần cần thiết để chạy ứng dụng.</p></div>
         <ol class="install-steps">
-          <li><div><h3>Tải bộ cài từ GitHub</h3><p><strong>Bộ cài (.exe):</strong> phù hợp nếu bạn muốn cài và mở ứng dụng từ Start Menu. Không cần quyền quản trị máy.</p><p><strong>Bản giải nén (.zip):</strong> giải nén toàn bộ vào một thư mục, rồi mở <code>YourSafe.exe</code>. Đừng mở trực tiếp trong tệp ZIP hoặc chỉ lấy riêng tệp .exe. Các gói có sẵn được liệt kê trên trang tải.</p><a class="text-link" href="https://github.com/Lmnhutw/PasswordTool.Core/releases">Xem các bản tải trên GitHub <span aria-hidden="true">↗</span></a></div></li>
-          <li><div><h3>Kiểm tra bản tải trước khi cài</h3><p>Mở <code>release-status.txt</code> trên trang tải. Chọn bản ghi <strong>SIGNED</strong> — đã có chữ ký của nhà phát hành. Bản ghi <strong>UNSIGNED</strong> chưa có chữ ký, chỉ dành cho lập trình viên thử nghiệm.</p><p>Với tệp .exe đã ký, nhấp chuột phải → <strong>Properties → Digital Signatures</strong> để kiểm tra chữ ký còn hợp lệ.</p><details><summary>Cách kiểm tra tệp tải có bị thay đổi không</summary><p>Mở PowerShell và chạy lệnh dưới đây. So sánh mã SHA-256 nhận được với mã của đúng tệp trong <code>checksums.sha256</code> trên trang tải. Hai mã phải giống nhau.</p><div class="code-block"><code id="checksum-command">Get-FileHash .\TEN-GOI-TAI.zip -Algorithm SHA256</code><button type="button" class="copy-button" hidden>Sao chép lệnh</button></div><p class="code-hint">Thay <code>TEN-GOI-TAI.zip</code> bằng tên tệp ZIP hoặc .exe bạn vừa tải. Chạy lệnh trong thư mục chứa tệp đó.</p><span class="copy-status" role="status" aria-live="polite"></span></details></div></li>
-          <li><div><h3>Tạo kho và cất khóa khôi phục</h3><p>Chọn tạo kho mới, đặt mật khẩu chính và làm theo hướng dẫn để thiết lập ứng dụng xác thực. Cất khóa khôi phục (Recovery Key) ở nơi an toàn ngoài máy này; khóa này dùng để đặt lại mật khẩu chính và ứng dụng xác thực khi bạn mất quyền truy cập.</p><p>Thử lưu một tài khoản, khóa rồi mở lại kho. Sau đó tạo bản sao lưu có mật khẩu riêng và giữ trên USB hoặc thiết bị khác trước khi lưu dữ liệu quan trọng. Bản sao trên cùng ổ đĩa cũng có thể mất nếu ổ đĩa hỏng.</p></div></li>
+          <li><div><h3>Tải bộ cài từ GitHub</h3><p><strong>Bộ cài
+                  (.exe):</strong> phù hợp nếu bạn muốn cài và mở ứng dụng từ
+                Start Menu. Không cần quyền quản trị máy.</p><p><strong>Bản giải
+                  nén (.zip):</strong> giải nén toàn bộ vào một thư mục, rồi mở
+                <code>YourSafe.exe</code>. Đừng mở trực tiếp trong tệp ZIP hoặc
+                chỉ lấy riêng tệp .exe. Các gói có sẵn được liệt kê trên trang
+                tải.</p><a class="text-link"
+                href="https://github.com/Lmnhutw/PasswordTool.Core/releases">Xem
+                các bản tải trên GitHub <span
+                  aria-hidden="true">↗</span></a></div></li>
+          <li><div><h3>Kiểm tra bản tải trước khi cài</h3><p>Mở
+                <code>release-status.txt</code> trên trang tải. Chọn bản ghi
+                <strong>SIGNED</strong> — đã có chữ ký của nhà phát hành. Bản
+                ghi <strong>UNSIGNED</strong> chưa có chữ ký, chỉ dành cho lập
+                trình viên thử nghiệm.</p><p>Với tệp .exe đã ký, nhấp chuột phải
+                → <strong>Properties → Digital Signatures</strong> để kiểm tra
+                chữ ký còn hợp lệ.</p><details><summary>Cách kiểm tra tệp tải có
+                  bị thay đổi không</summary><p>Mở PowerShell và chạy lệnh dưới
+                  đây. So sánh mã SHA-256 nhận được với mã của đúng tệp trong
+                  <code>checksums.sha256</code> trên trang tải. Hai mã phải
+                  giống nhau.</p><div class="code-block"><code
+                    id="checksum-command">Get-FileHash .\TEN-GOI-TAI.zip
+                    -Algorithm SHA256</code><button type="button"
+                    class="copy-button" hidden>Sao chép lệnh</button></div><p
+                  class="code-hint">Thay <code>TEN-GOI-TAI.zip</code> bằng tên
+                  tệp ZIP hoặc .exe bạn vừa tải. Chạy lệnh trong thư mục chứa
+                  tệp đó.</p><span class="copy-status" role="status"
+                  aria-live="polite"></span></details></div></li>
+          <li><div><h3>Tạo kho và cất khóa khôi phục</h3><p>Chọn tạo kho mới,
+                đặt mật khẩu chính và làm theo hướng dẫn để thiết lập ứng dụng
+                xác thực. Cất khóa khôi phục (Recovery Key) ở nơi an toàn ngoài
+                máy này; khóa này dùng để đặt lại mật khẩu chính và ứng dụng xác
+                thực khi bạn mất quyền truy cập.</p><p>Thử lưu một tài khoản,
+                khóa rồi mở lại kho. Sau đó tạo bản sao lưu có mật khẩu riêng và
+                giữ trên USB hoặc thiết bị khác trước khi lưu dữ liệu quan
+                trọng. Bản sao trên cùng ổ đĩa cũng có thể mất nếu ổ đĩa
+                hỏng.</p></div></li>
         </ol>
       </section>
 
       <section class="section faq" id="faq" aria-labelledby="faq-title">
         <h2 id="faq-title">Bạn có thể đang thắc mắc</h2>
         <div class="faq-list">
-          <details><summary>Ứng dụng có cần internet không?</summary><p>Không cần internet để lưu, tìm hoặc xem mật khẩu. Bạn chỉ cần kết nối mạng khi tải ứng dụng hoặc tải bản mới. YourSafe không tự đồng bộ dữ liệu, gửi thông tin sử dụng hay tự kiểm tra cập nhật.</p></details>
-          <details><summary>Quên mật khẩu chính thì làm sao?</summary><p>Nếu vẫn còn kho trên máy và khóa khôi phục, bạn có thể đặt lại mật khẩu chính và ứng dụng xác thực. Nếu mất khóa này, bạn cần một bản sao lưu dùng được cùng mật khẩu riêng của bản sao để khôi phục khi cài lại. YourSafe không giữ bản sao trên mạng để lấy lại giúp bạn.</p></details>
-          <details><summary>Chép ứng dụng sang máy khác có mang theo mật khẩu không?</summary><p>Không. Chép thư mục ứng dụng không mang theo kho mật khẩu. Để chuyển dữ liệu sang máy mới, hãy tạo bản sao lưu trong ứng dụng rồi khôi phục từ bản đó trên máy mới.</p><p>Kho mặc định nằm trong thư mục dữ liệu cục bộ của tài khoản Windows đang dùng và được giữ nguyên khi cập nhật YourSafe.</p></details>
-          <details><summary>Máy bị nhiễm phần mềm độc hại thì sao?</summary><p>Mã hóa giúp bảo vệ dữ liệu được lưu trong kho. Nhưng khi kho đang mở, phần mềm độc hại vẫn có thể đọc dữ liệu hoặc chụp màn hình. Hãy bảo vệ máy, dùng mật khẩu chính mạnh và giữ bản sao lưu trên thiết bị khác.</p></details>
-          <details><summary>Gỡ ứng dụng có mất mật khẩu đã lưu không?</summary><p>Gỡ ứng dụng vẫn giữ lại kho trên máy. Nếu muốn xóa cả kho, hãy chắc chắn bạn có bản sao lưu dùng được trước khi tự xóa dữ liệu.</p></details>
+          <details><summary>Ứng dụng có cần internet không?</summary><p>Không
+              cần internet để lưu, tìm hoặc xem mật khẩu. Bạn chỉ cần kết nối
+              mạng khi tải ứng dụng hoặc tải bản mới. YourSafe không tự đồng bộ
+              dữ liệu, gửi thông tin sử dụng hay tự kiểm tra cập
+              nhật.</p></details>
+          <details><summary>Quên mật khẩu chính thì làm sao?</summary><p>Nếu vẫn
+              còn kho trên máy và khóa khôi phục, bạn có thể đặt lại mật khẩu
+              chính và ứng dụng xác thực. Nếu mất khóa này, bạn cần một bản sao
+              lưu dùng được cùng mật khẩu riêng của bản sao để khôi phục khi cài
+              lại. YourSafe không giữ bản sao trên mạng để lấy lại giúp
+              bạn.</p></details>
+          <details><summary>Chép ứng dụng sang máy khác có mang theo mật khẩu
+              không?</summary><p>Không. Chép thư mục ứng dụng không mang theo
+              kho mật khẩu. Để chuyển dữ liệu sang máy mới, hãy tạo bản sao lưu
+              trong ứng dụng rồi khôi phục từ bản đó trên máy mới.</p><p>Kho mặc
+              định nằm trong thư mục dữ liệu cục bộ của tài khoản Windows đang
+              dùng và được giữ nguyên khi cập nhật YourSafe.</p></details>
+          <details><summary>Máy bị nhiễm phần mềm độc hại thì
+              sao?</summary><p>Mã hóa giúp bảo vệ dữ liệu được lưu trong kho.
+              Nhưng khi kho đang mở, phần mềm độc hại vẫn có thể đọc dữ liệu
+              hoặc chụp màn hình. Hãy bảo vệ máy, dùng mật khẩu chính mạnh và
+              giữ bản sao lưu trên thiết bị khác.</p></details>
+          <details><summary>Gỡ ứng dụng có mất mật khẩu đã lưu
+              không?</summary><p>Gỡ ứng dụng vẫn giữ lại kho trên máy. Nếu muốn
+              xóa cả kho, hãy chắc chắn bạn có bản sao lưu dùng được trước khi
+              tự xóa dữ liệu.</p></details>
         </div>
       </section>
 
-      <section class="closing" aria-labelledby="closing-title"><div class="closing-inner"><h2 id="closing-title">Bắt đầu với<br>tài khoản đầu tiên.</h2><div><a class="button button-light" href="https://github.com/Lmnhutw/PasswordTool.Core/releases">Tải cho Windows <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6"/></svg></a><p>Chọn bản đã ký và làm theo hướng dẫn cài đặt ở trên.</p></div></div></section>
+      <section class="closing" aria-labelledby="closing-title"><div
+          class="closing-inner"><h2 id="closing-title">Bắt đầu với<br>tài khoản
+            đầu tiên.</h2><div><a class="button button-light"
+              href="https://github.com/Lmnhutw/PasswordTool.Core/releases">Tải
+              cho Windows <svg viewBox="0 0 24 24" aria-hidden="true"><path
+                  d="M4 12h16m-6-6 6 6-6 6" /></svg></a><p>Chọn bản đã ký và làm
+              theo hướng dẫn cài đặt ở trên.</p></div></div></section>
     </main>
 
-    <footer class="site-footer"><a class="brand" href="#home"><img class="brand-logo" src="./assets/app-logo.png" alt="" width="40" height="40">YourSafe<span class="footer-dot" aria-hidden="true">.</span></a><p>Lưu mật khẩu trên máy Windows của bạn.</p><a href="https://github.com/Lmnhutw/PasswordTool.Core">Xem mã nguồn <span aria-hidden="true">↗</span></a></footer>
+    <footer class="site-footer"><a class="brand" href="#home"><img
+          class="brand-logo" src="./assets/app-logo.png" alt width="40"
+          height="40">YourSafe<span class="footer-dot"
+          aria-hidden="true">.</span></a><p>Lưu mật khẩu trên máy Windows của
+        bạn.</p><a href="https://github.com/Lmnhutw/PasswordTool.Core">Xem mã
+        nguồn <span aria-hidden="true">↗</span></a></footer>
   </body>
 </html>

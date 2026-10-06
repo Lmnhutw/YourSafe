@@ -16,7 +16,7 @@ internal sealed class PasswordGeneratorDialogService(PasswordGeneratorService ge
         string generated = string.Empty;
         try
         {
-            var mode = new ComboBox { Header = "Mode", SelectedIndex = 0 };
+            var mode = new AppComboBox { Header = "Mode", SelectedIndex = 0 };
             mode.Items.Add("Password");
             mode.Items.Add("Passphrase");
 
@@ -98,7 +98,7 @@ internal sealed class PasswordGeneratorDialogService(PasswordGeneratorService ge
             content.Children.Add(strengthText);
             content.Children.Add(errorText);
 
-            var dialog = new ContentDialog
+            var dialog = new AppContentDialog
             {
                 XamlRoot = ((FrameworkElement)App.Window.Content).XamlRoot,
                 Title = "Password generator",

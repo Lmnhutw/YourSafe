@@ -12,7 +12,7 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
         var panel = new StackPanel { Spacing = 12 };
         panel.Children.Add(new TextBlock { Text = "Your Login is still active. Confirm your Master Password for this action, or use Unlock Vault to stop repeated prompts.", TextWrapping = TextWrapping.Wrap });
         panel.Children.Add(password);
-        var dialog = new ContentDialog { Title = "Vault table is locked", Content = panel, PrimaryButtonText = "Confirm", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
+        var dialog = new AppContentDialog { Title = "Vault table is locked", Content = panel, PrimaryButtonText = "Confirm", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
         try { return await lifetime.ShowAsync(dialog, cancellationToken) == ContentDialogResult.Primary ? password.Password : null; }
         finally { password.Password = string.Empty; }
     }
@@ -21,7 +21,7 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
     {
         var expected = $"Confirm delete all data in \"{groupName}\"";
         var confirmation = new TextBox { Header = "Type the exact confirmation below" };
-        var dialog = new ContentDialog
+        var dialog = new AppContentDialog
         {
             Title = "Delete group and all its data",
             Content = new StackPanel
@@ -63,7 +63,7 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
 
     public async Task ShowErrorAsync(string title, string message, CancellationToken cancellationToken = default)
     {
-        await ShowDialogAsync(new ContentDialog
+        await ShowDialogAsync(new AppContentDialog
         {
             Title = title,
             Content = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
@@ -96,7 +96,7 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
             TextWrapping = multiline ? TextWrapping.Wrap : TextWrapping.NoWrap,
             IsTextSelectionEnabled = false
         };
-        var dialog = new ContentDialog
+        var dialog = new AppContentDialog
         {
             Title = title,
             Content = new ScrollViewer { Content = text, MaxHeight = 360 },
@@ -119,7 +119,7 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
         string confirmText,
         CancellationToken cancellationToken)
     {
-        var result = await ShowDialogAsync(new ContentDialog
+        var result = await ShowDialogAsync(new AppContentDialog
         {
             Title = title,
             Content = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
@@ -140,7 +140,7 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
         var content = new StackPanel { Spacing = 12 };
         content.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap });
         content.Children.Add(input);
-        var result = await ShowDialogAsync(new ContentDialog
+        var result = await ShowDialogAsync(new AppContentDialog
         {
             Title = title,
             Content = content,
@@ -156,7 +156,7 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
     private async Task<string?> PromptTotpDialogAsync(string title, string message, CancellationToken cancellationToken)
     {
         var input = new SixDigitCodeInput();
-        var dialog = new ContentDialog
+        var dialog = new AppContentDialog
         {
             Title = title,
             Content = new StackPanel
