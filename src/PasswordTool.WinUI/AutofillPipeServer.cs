@@ -1,6 +1,7 @@
 using System.IO.Pipes;
 using System.Security.Cryptography;
 using System.Text.Json;
+using Microsoft.UI.Windowing;
 using PasswordTool.Autofill;
 using PasswordTool.Autofill.Transport;
 using PasswordTool.Presentation;
@@ -96,6 +97,8 @@ internal sealed class AutofillPipeServer
         {
             try
             {
+                if (App.Window.AppWindow.Presenter is OverlappedPresenter presenter && presenter.State != OverlappedPresenterState.Restored)
+                    presenter.Restore();
                 App.Window.AppWindow.Show();
                 App.Window.Activate();
                 completion.TrySetResult(true);

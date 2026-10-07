@@ -169,6 +169,45 @@ public sealed class AutofillTests
     }
 
     [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task No_URL_items_are_listed_and_selectable_with_site_matches(string? url)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "YourSafe.Autofill.Tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var totp = new TotpService();
+            var secret = totp.GenerateSecret();
+            using var vault = new VaultService(new VaultStorageService(directory), new EncryptionService(), totp);
+            vault.InitializeNewVault("correct horse battery staple", secret, totp.GetCurrentCode(secret).Code, RecoveryKeyService.Generate(), true);
+            using var runner = new VaultOperationRunner();
+            var flow = new AppFlowCoordinator(vault, runner, totp);
+            var noUrl = vault.AddItem(new VaultItem { Title = "No URL", Username = "user", Password = "synthetic", Url = url! });
+            var matching = vault.AddItem(new VaultItem { Title = "Site", Password = "site-secret", Url = "https://example.com/login" });
+            var other = vault.AddItem(new VaultItem { Title = "Other site", Password = "other-secret", Url = "https://other.example" });
+            await flow.AddItemAsync(new VaultItem { Title = "Recovery only", RecoveryCodes = ["code-one", "code-two"], Url = "" });
+
+            var discovered = await flow.FindAutofillCredentialsAsync("https://example.com");
+            Assert.Equal(2, discovered.Count);
+            Assert.Contains(discovered, item => item.Id == noUrl.Id);
+            Assert.Contains(discovered, item => item.Id == matching.Id);
+            Assert.Equal("synthetic", (await flow.GetAutofillCredentialSecretAsync("https://example.com", noUrl.Id)).Password);
+            Assert.Equal("site-secret", (await flow.GetAutofillCredentialSecretAsync("https://example.com", matching.Id)).Password);
+            Assert.Equal(noUrl.Id, Assert.Single(await flow.FindAutofillCredentialsAsync("http://localhost:8222")).Id);
+            Assert.Equal("synthetic", (await flow.GetAutofillCredentialSecretAsync("http://localhost:8222", noUrl.Id)).Password);
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => flow.GetAutofillCredentialSecretAsync("https://example.com", other.Id));
+            await Assert.ThrowsAsync<ArgumentException>(() => flow.GetAutofillCredentialSecretAsync("http://example.com", noUrl.Id));
+
+            var edited = vault.GetItemForEditing(noUrl.Id, "");
+            edited.Url = "https://other.example";
+            await flow.UpdateItemAsync(edited);
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => flow.GetAutofillCredentialSecretAsync("https://example.com", noUrl.Id));
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Pending_secret_is_discarded_when_lock_or_logout_begins(bool logout)

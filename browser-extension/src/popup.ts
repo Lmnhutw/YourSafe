@@ -51,7 +51,7 @@ async function discover(): Promise<void> {
     const token = result.token;
     origin.textContent = result.origin;
     status.textContent = result.truncated ? 'Some accounts could not be listed. Open YourSafe on the desktop to see all accounts.'
-      : result.accounts.length ? 'Choose an account to fill this site.' : 'No accounts for this website. Add one in YourSafe with this exact website address, then refresh.';
+      : result.accounts.length ? 'Choose an account to fill this site.' : 'No accounts available. Add one in YourSafe with this website address or choose No URL, then refresh.';
     status.dataset.state = result.accounts.length ? 'ready' : 'empty';
     for (const account of result.accounts) {
       const button = document.createElement('button');

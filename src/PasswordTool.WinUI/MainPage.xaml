@@ -519,13 +519,13 @@
                             <Border x:Name="EditorCredentials" Style="{StaticResource PasswordToolCardStyle}">
                                 <StackPanel Spacing="12">
                                     <TextBox x:Name="EditorItemTitle" AutomationProperties.AutomationId="TxtEditorTitle" AutomationProperties.Name="Item title" Header="Title" />
-                                    <TextBox x:Name="EditorUsername" AutomationProperties.AutomationId="TxtEditorUsername" AutomationProperties.Name="Username" Header="Username" />
+                                    <TextBox x:Name="EditorUsername" AutomationProperties.AutomationId="TxtEditorUsername" AutomationProperties.Name="Username (required)" Header="Username (required)" />
                                     <Grid ColumnSpacing="8">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <PasswordBox x:Name="EditorPassword" AutomationProperties.AutomationId="TxtEditorPassword" AutomationProperties.Name="Password" Header="Password" />
+                                        <PasswordBox x:Name="EditorPassword" AutomationProperties.AutomationId="TxtEditorPassword" AutomationProperties.Name="Password (required)" Header="Password (required)" />
                                         <Button Grid.Column="1" VerticalAlignment="Bottom" AutomationProperties.AutomationId="BtnGeneratePassword" AutomationProperties.Name="Generate a password or passphrase" Click="GeneratePasswordButton_Click" Content="Generate" />
                                     </Grid>
                                     <TextBox x:Name="EditorRecoveryCodes" AutomationProperties.AutomationId="TxtEditorRecoveryCodes" AcceptsReturn="True" AutomationProperties.Name="Recovery codes" ContextMenuOpening="SensitiveTextBox_ContextMenuOpening" Header="Recovery codes, one per line" Height="140" Tag="SensitiveInput" TextWrapping="Wrap" />
@@ -534,7 +534,14 @@
                             <Border x:Name="EditorDetails" Grid.Row="1" Style="{StaticResource PasswordToolCardStyle}">
                                 <StackPanel Spacing="12">
                                     <TextBlock Text="Details and organization" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                                    <TextBox x:Name="EditorUrl" AutomationProperties.AutomationId="TxtEditorUrl" AutomationProperties.Name="URL" Header="URL" />
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox x:Name="EditorUrl" AutomationProperties.AutomationId="TxtEditorUrl" AutomationProperties.Name="URL (required unless No URL is checked)" Header="URL (required)" />
+                                        <CheckBox x:Name="EditorNoUrl" Grid.Column="1" MinWidth="0" VerticalAlignment="Bottom" AutomationProperties.AutomationId="ChkEditorNoUrl" AutomationProperties.Name="No URL" Checked="EditorNoUrl_Changed" Unchecked="EditorNoUrl_Changed" Content="No URL" />
+                                    </Grid>
                                     <local:AppComboBox x:Name="EditorGroup" AutomationProperties.AutomationId="CmbEditorGroup" AutomationProperties.Name="Group" DisplayMemberPath="Label" Header="Group" ItemsSource="{x:Bind ViewModel.Vault.GroupOptions, Mode=OneWay}" />
                                     <TextBox x:Name="EditorTags" AutomationProperties.AutomationId="TxtEditorTags" AutomationProperties.Name="Tags" Header="Tags, comma separated" />
                                     <TextBox x:Name="EditorNotes" AutomationProperties.AutomationId="TxtEditorNotes" AcceptsReturn="True" AutomationProperties.Name="Notes" ContextMenuOpening="SensitiveTextBox_ContextMenuOpening" Header="Notes" Height="96" Tag="SensitiveInput" TextWrapping="Wrap" />

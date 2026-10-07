@@ -9,11 +9,16 @@ public static class CanonicalOrigin
     {
         origin = "";
         if (string.IsNullOrWhiteSpace(value) || value.Length > 4096 || value.Contains('\\')
-            || !value.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            || !(value.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+                || value.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
             || value.Any(c => char.IsWhiteSpace(c) || char.IsControl(c))
-            || !Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme != "https"
+            || !Uri.TryCreate(value, UriKind.Absolute, out var uri)
             || uri.UserInfo.Length != 0 || string.IsNullOrEmpty(uri.Host)) return false;
-        if (value[8..].Split('/', '?', '#')[0].Contains('%')) return false;
+        var localHttp = uri.Scheme == "http" && (uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+            || uri.Host is "127.0.0.1" or "::1" or "[::1]");
+        if (uri.Scheme != "https" && !localHttp) return false;
+        var authority = value[(value.IndexOf("//", StringComparison.Ordinal) + 2)..].Split('/', '?', '#')[0];
+        if (authority.Contains('%')) return false;
         string host;
         try { host = uri.IdnHost.ToLowerInvariant(); }
         catch (UriFormatException) { return false; }
@@ -21,15 +26,19 @@ public static class CanonicalOrigin
         // Reject nonstandard numeric IPv4 forms, which browsers and System.Uri can interpret differently.
         if (uri.HostNameType == UriHostNameType.IPv4 && System.Net.IPAddress.TryParse(host, out var address))
         {
-            var authority = value[8..].Split('/', '?', '#')[0].Split(':')[0];
-            if (authority != address.ToString()) return false;
+            var addressAuthority = authority.Split(':')[0];
+            if (addressAuthority != address.ToString()) return false;
             host = address.ToString();
         }
-        origin = "https://" + host + (uri.Port == 443 ? "" : ":" + uri.Port);
+        var defaultPort = uri.Scheme == "https" ? 443 : 80;
+        origin = uri.Scheme + "://" + host + (uri.Port == defaultPort ? "" : ":" + uri.Port);
         return true;
     }
 
     public static bool IsCanonical(string? value) => TryParse(value, out var origin) && origin == value;
+
+    public static bool IsCanonicalLocalHttp(string? value) => TryParse(value, out var origin) && origin == value
+        && value.StartsWith("http://", StringComparison.OrdinalIgnoreCase);
 }
 
 public sealed record AutofillPayload(string? Origin = null, Guid? CredentialId = null);

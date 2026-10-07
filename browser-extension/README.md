@@ -25,6 +25,8 @@ Save a password item with a complete HTTPS URL in the desktop. Unlock the deskto
 
 When locked, use **Open YourSafe**, unlock on the desktop, then refresh and choose the account again. YourSafe must already be running; the host never launches a second desktop or unlocks a vault.
 
+Items with **No URL** (a null, empty or whitespace-only stored URL) appear alongside accounts matching the current website on every supported page. Selecting one authorizes filling that page. Discovery and secret retrieval use the same rule and recheck the stored URL, so assigning a different website after discovery prevents filling the old page.
+
 ```powershell
 pwsh .\scripts\Register-BrowserAutofill.ps1 -Unregister
 ```

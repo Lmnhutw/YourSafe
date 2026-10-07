@@ -25,6 +25,9 @@
     { "value": "https:/example.com", "canonical": null },
     { "value": "https://%65xample.com", "canonical": null },
     { "value": "HTTPS://EXAMPLE.com/login", "canonical": "https://example.com" },
+    { "value": "http://localhost:8222/Account/Login", "canonical": "http://localhost:8222" },
+    { "value": "http://127.0.0.1:8222/login", "canonical": "http://127.0.0.1:8222" },
+    { "value": "http://[::1]:8222/login", "canonical": "http://[::1]:8222" },
     { "value": "https://EXAMPLE.com/login?q=x#y", "canonical": "https://example.com" },
     { "value": "https://example.com:443/", "canonical": "https://example.com" },
     { "value": "https://example.com:8443/path", "canonical": "https://example.com:8443" },
@@ -35,6 +38,7 @@
     { "value": "https://127.1/login", "canonical": null },
     { "value": "https://user:password@example.com", "canonical": null },
     { "value": "http://example.com", "canonical": null },
+    { "value": "http://192.168.1.10", "canonical": null },
     { "value": "example.com", "canonical": null },
     { "value": "https://example.com\\@evil.example", "canonical": null },
     { "value": " https://example.com", "canonical": null }

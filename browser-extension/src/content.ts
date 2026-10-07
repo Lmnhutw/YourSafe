@@ -34,7 +34,8 @@ updateHint();
 window.addEventListener('pagehide', () => { prepared = undefined; });
 chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id || !record(message) || typeof message.token !== 'string'
-    || message.url !== location.href || location.protocol !== 'https:' || document.visibilityState !== 'visible') { sendResponse({ ok: false }); return; }
+    || message.url !== location.href || location.protocol !== 'https:' && !(location.protocol === 'http:' && ['localhost', '127.0.0.1', '::1'].includes(location.hostname))
+    || document.visibilityState !== 'visible') { sendResponse({ ok: false }); return; }
   if (message.action === 'prepare') {
     prepared = undefined;
     const fields = findFields(focused);

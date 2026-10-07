@@ -5,6 +5,7 @@ export type Action = 'ping' | 'getStatus' | 'findCredentials' | 'getCredentialSe
 export type Request = { version: 1; requestId: string; action: Action; payload: { origin?: string; credentialId?: string } };
 export type Response = { version: 1; requestId: string; ok: boolean; result?: unknown; error?: string };
 export const maxFrameBytes = 65536;
+// ponytail: autofill supports public HTTPS and loopback HTTP only; add other origins only with an explicit trust policy.
 const guid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -13,14 +14,15 @@ function only(value: Record<string, unknown>, keys: string[]): boolean {
   return Object.keys(value).every(key => keys.includes(key));
 }
 export function canonicalOrigin(value: string): string | undefined {
-  if (value.length > 4096 || /[\\\s\p{Cc}]/u.test(value) || !/^https:\/\//i.test(value)
-    || value.slice(8).split(/[/?#]/)[0]?.includes('%')) return;
+  if (value.length > 4096 || /[\\\s\p{Cc}]/u.test(value) || !/^https?:\/\//i.test(value)) return;
   try {
     const url = new URL(value);
-    if (url.protocol !== 'https:' || url.username || url.password || !url.hostname) return;
+    const localHttp = url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+    if ((url.protocol !== 'https:' && !localHttp) || url.username || url.password || !url.hostname) return;
+    if (value.slice(value.indexOf('//') + 2).split(/[/?#]/)[0]?.includes('%')) return;
     // Do not accept shortened/hex/octal numeric IP spellings.
     if (/^\d+\.\d+\.\d+\.\d+$/.test(url.hostname)) {
-      const authority = value.slice(8).split(/[/?#]/)[0]?.split(':')[0];
+      const authority = value.slice(value.indexOf('//') + 2).split(/[/?#]/)[0]?.split(':')[0];
       if (authority !== url.hostname) return;
     }
     return url.origin;

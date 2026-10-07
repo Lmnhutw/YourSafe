@@ -1079,6 +1079,8 @@ public sealed partial class MainPage : Page
         EditorRecoveryCodes.Text = string.Join(Environment.NewLine, item.RecoveryCodes);
         preservedTotpSecret = item.TotpSecretBase32;
         EditorUrl.Text = item.Url;
+        EditorNoUrl.IsChecked = string.IsNullOrWhiteSpace(item.Url);
+        EditorUrl.IsEnabled = EditorNoUrl.IsChecked != true;
         EditorGroup.SelectedItem = ViewModel.Vault.GroupOptions.FirstOrDefault(option => option.GroupId == item.GroupId && !option.CreatesNew) ?? ViewModel.Vault.GroupOptions[0];
         EditorTags.Text = string.Join(", ", item.Tags);
         EditorNotes.Text = item.Notes;
@@ -1155,6 +1157,19 @@ public sealed partial class MainPage : Page
         {
             var version = ViewModel.LifecycleVersion;
             if (!ViewModel.IsCurrentUnlock(version) || ViewModel.CurrentRoute != AppRoute.ItemEditor) return;
+            if (string.IsNullOrWhiteSpace(EditorItemTitle.Text) || string.IsNullOrWhiteSpace(EditorUsername.Text)
+                || string.IsNullOrWhiteSpace(EditorPassword.Password)
+                || EditorNoUrl.IsChecked != true && string.IsNullOrWhiteSpace(EditorUrl.Text))
+            {
+                var dialog = new AppContentDialog
+                {
+                    Title = "Required fields",
+                    Content = "Enter a title, username, password, and URL, or check No URL.",
+                    CloseButtonText = "OK"
+                };
+                await App.Services.GetRequiredService<DialogLifetime>().ShowAsync(dialog, CancellationToken.None);
+                return;
+            }
             var groupOption = EditorGroup.SelectedItem as VaultGroupOption ?? ViewModel.Vault.GroupOptions[0];
             if (groupOption.CreatesNew)
             {
@@ -1219,12 +1234,21 @@ public sealed partial class MainPage : Page
         EditorPassword.Password = string.Empty;
         EditorRecoveryCodes.Text = string.Empty;
         EditorUrl.Text = string.Empty;
+        EditorNoUrl.IsChecked = false;
+        EditorUrl.IsEnabled = true;
         EditorGroup.SelectedIndex = 0;
         EditorTags.Text = string.Empty;
         EditorNotes.Text = string.Empty;
         EditorFavorite.IsChecked = false;
         EditorHideUrl.IsChecked = false;
         EditorHideNotes.IsChecked = false;
+    }
+
+    private void EditorNoUrl_Changed(object sender, RoutedEventArgs e)
+    {
+        var noUrl = EditorNoUrl.IsChecked == true;
+        EditorUrl.IsEnabled = !noUrl;
+        if (noUrl) EditorUrl.Text = string.Empty;
     }
 
     private void ClearSettingsInputs()
