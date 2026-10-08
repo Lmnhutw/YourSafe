@@ -3,9 +3,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Markup;
 using Microsoft.UI.Xaml.Media;
 using PasswordTool.Core.Models;
 using PasswordTool.Presentation;
+using Windows.Foundation;
+using Path = Microsoft.UI.Xaml.Shapes.Path;
 
 namespace PasswordTool_WinUI;
 
@@ -19,17 +22,23 @@ internal sealed class TotpPanel : UserControl, IDisposable
     private readonly bool compact;
     private readonly CancellationTokenSource lifetime = new();
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(1) };
-    private readonly TextBlock code = new() { FontSize = 32, FontFamily = new FontFamily("Consolas") };
+    private readonly Grid code = new() { ColumnSpacing = 4, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center };
+    private readonly TextBlock firstHalf = new() { FontSize = 32, FontFamily = new FontFamily("Consolas") };
+    private readonly TextBlock secondHalf = new() { FontSize = 32, FontFamily = new FontFamily("Consolas") };
     private readonly TextBlock identity = new() { TextWrapping = TextWrapping.Wrap };
-    private readonly TextBlock countdown = new();
     private readonly TextBlock status = new() { TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
-    private readonly ProgressBar progress = new() { Minimum = 0, Maximum = 1 };
+    private readonly Path progress = (Path)XamlReader.Load("""
+        <Path xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+              Width="24" Height="24" Fill="{ThemeResource AccentFillColorDefaultBrush}" />
+        """);
+    private readonly Grid timeIndicator = new() { Width = 24, Height = 24, VerticalAlignment = VerticalAlignment.Center };
     private readonly Button copy = new() { Content = "Copy", IsEnabled = false };
     private TotpCodeResult? current;
     private bool busy;
     private bool stopped;
+    private int remainingSlices = -1;
 
-    public TotpPanel(Guid credentialId, string title, string username, bool compact = false)
+    public TotpPanel(Guid credentialId, string title, string username, bool compact = false, HyperlinkButton? manage = null)
     {
         this.credentialId = credentialId;
         this.compact = compact;
@@ -45,25 +54,33 @@ internal sealed class TotpPanel : UserControl, IDisposable
         var row = new Grid { ColumnSpacing = 12 };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        code.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        code.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        code.Children.Add(firstHalf);
+        Grid.SetColumn(secondHalf, 1);
+        code.Children.Add(secondHalf);
         row.Children.Add(code);
-        Grid.SetColumn(copy, 1);
-        row.Children.Add(copy);
+        timeIndicator.Children.Add(progress);
+        Grid.SetColumn(timeIndicator, 1);
+        row.Children.Add(timeIndicator);
         body.Children.Add(row);
-        var remaining = new Grid { ColumnSpacing = 12 };
-        remaining.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        remaining.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        progress.VerticalAlignment = countdown.VerticalAlignment = VerticalAlignment.Center;
-        remaining.Children.Add(progress);
-        Grid.SetColumn(countdown, 1);
-        remaining.Children.Add(countdown);
-        body.Children.Add(remaining);
+        var actions = new Grid { ColumnSpacing = 12 };
+        actions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        actions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        if (manage is not null) actions.Children.Add(manage);
+        Grid.SetColumn(copy, 1);
+        actions.Children.Add(copy);
+        body.Children.Add(actions);
         body.Children.Add(status);
         Content = body;
         AutomationProperties.SetHelpText(code, "Current verification code");
         AutomationProperties.SetAutomationId(code, "TxtTotpCode");
+        AutomationProperties.SetAutomationId(firstHalf, "TxtTotpCodeFirstHalf");
+        AutomationProperties.SetAutomationId(secondHalf, "TxtTotpCodeSecondHalf");
         AutomationProperties.SetName(copy, "Copy current verification code securely");
         AutomationProperties.SetAutomationId(copy, "BtnCopyTotp");
-        AutomationProperties.SetName(progress, "Verification code time remaining");
+        AutomationProperties.SetName(timeIndicator, "Verification code time remaining");
+        AutomationProperties.SetAutomationId(timeIndicator, "TotpTimeRemaining");
         copy.Click += Copy_Click;
         timer.Tick += Tick;
         Loaded += async (_, _) =>
@@ -110,7 +127,9 @@ internal sealed class TotpPanel : UserControl, IDisposable
             current = value;
             copy.Content = "Copy";
             var half = value.Code.Length / 2;
-            code.Text = value.Code[..half] + " " + value.Code[half..];
+            firstHalf.Text = value.Code[..half];
+            secondHalf.Text = value.Code[half..];
+            AutomationProperties.SetName(code, firstHalf.Text + "\u2009" + secondHalf.Text);
             identity.Text = string.Join(" · ", new[] { value.Issuer, value.AccountName }.Where(text => !string.IsNullOrWhiteSpace(text)));
             copy.IsEnabled = true;
             UpdateCountdown(now);
@@ -126,8 +145,24 @@ internal sealed class TotpPanel : UserControl, IDisposable
     {
         if (current is null) return;
         var seconds = Math.Clamp((current.ExpiresAtUtc - now).TotalSeconds, 0, current.PeriodSeconds);
-        countdown.Text = $"{Math.Ceiling(seconds):0}s";
-        progress.Value = seconds / current.PeriodSeconds;
+        var slices = (int)Math.Ceiling(8 * seconds / current.PeriodSeconds);
+        timer.Interval = TimeSpan.FromSeconds(slices == 0 ? 0.05 : Math.Max(0.05, seconds - (slices - 1) * current.PeriodSeconds / 8d));
+        if (remainingSlices == slices) return;
+        remainingSlices = slices;
+        if (slices == 8)
+            progress.Data = new EllipseGeometry { Center = new Point(12, 12), RadiusX = 12, RadiusY = 12 };
+        else if (slices == 0) progress.Data = null;
+        else
+        {
+            var angle = (8 - slices) * Math.PI / 4;
+            var figure = new PathFigure { StartPoint = new Point(12, 12), IsClosed = true, IsFilled = true };
+            figure.Segments.Add(new LineSegment { Point = new Point(12 + 12 * Math.Sin(angle), 12 - 12 * Math.Cos(angle)) });
+            figure.Segments.Add(new ArcSegment { Point = new Point(12, 0), Size = new Size(12, 12), IsLargeArc = slices > 4, SweepDirection = SweepDirection.Clockwise });
+            var geometry = new PathGeometry();
+            geometry.Figures.Add(figure);
+            progress.Data = geometry;
+        }
+        AutomationProperties.SetHelpText(timeIndicator, $"{slices}/8 remaining. Code expires in {Math.Ceiling(seconds):0} seconds.");
     }
 
     private async void Copy_Click(object sender, RoutedEventArgs e)
@@ -155,8 +190,11 @@ internal sealed class TotpPanel : UserControl, IDisposable
     private void ClearCode()
     {
         current = null;
-        code.Text = countdown.Text = string.Empty;
-        progress.Value = 0;
+        firstHalf.Text = secondHalf.Text = string.Empty;
+        AutomationProperties.SetName(code, string.Empty);
+        progress.Data = null;
+        remainingSlices = -1;
+        AutomationProperties.SetHelpText(timeIndicator, string.Empty);
         copy.IsEnabled = false;
     }
 

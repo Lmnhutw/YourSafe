@@ -133,20 +133,25 @@ public sealed class TotpServiceTests
         Assert.DoesNotContain(eightDigits.Code, eightDigits.ToString());
     }
 
-    [Fact]
-    public void Generator_rotates_by_utc_window_with_nondefault_period_and_clock_jumps()
+    [Theory]
+    [InlineData(20)]
+    [InlineData(30)]
+    [InlineData(60)]
+    public void Generator_rotates_by_utc_window_with_nondefault_period_and_clock_jumps(int period)
     {
         var service = new TotpService();
-        var configuration = new TotpConfiguration("JBSWY3DPEHPK3PXP", Period: 60);
-        var before = service.GetCurrentCode(configuration, DateTimeOffset.FromUnixTimeMilliseconds(59_999));
-        var after = service.GetCurrentCode(configuration, DateTimeOffset.FromUnixTimeSeconds(60));
+        Assert.True(service.TryParseWebsiteConfiguration($"otpauth://totp/Account?secret=JBSWY3DPEHPK3PXP&period={period}", out var configuration, out var error), error);
+        var beforeTime = DateTimeOffset.FromUnixTimeMilliseconds(period * 1000 - 1);
+        var afterTime = DateTimeOffset.FromUnixTimeSeconds(period);
+        var before = service.GetCurrentCode(configuration!, beforeTime);
+        var after = service.GetCurrentCode(configuration!, afterTime);
         Assert.Equal(1, before.SecondsRemaining);
-        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(60), before.ExpiresAtUtc);
-        Assert.Equal(60, after.SecondsRemaining);
-        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(120), after.ExpiresAtUtc);
-        Assert.Equal(60, after.PeriodSeconds);
+        Assert.Equal(afterTime, before.ExpiresAtUtc);
+        Assert.Equal(period, after.SecondsRemaining);
+        Assert.Equal(afterTime.AddSeconds(period), after.ExpiresAtUtc);
+        Assert.Equal(period, after.PeriodSeconds);
         Assert.NotEqual(before.Code, after.Code);
-        Assert.Equal(before, service.GetCurrentCode(configuration, DateTimeOffset.FromUnixTimeMilliseconds(59_999)));
-        Assert.Equal(after, service.GetCurrentCode(configuration, DateTimeOffset.FromUnixTimeSeconds(60).ToOffset(TimeSpan.FromHours(7))));
+        Assert.Equal(before, service.GetCurrentCode(configuration!, beforeTime));
+        Assert.Equal(after, service.GetCurrentCode(configuration!, afterTime.ToOffset(TimeSpan.FromHours(7))));
     }
 }
