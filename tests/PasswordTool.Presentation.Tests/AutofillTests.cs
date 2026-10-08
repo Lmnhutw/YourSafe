@@ -280,7 +280,11 @@ public sealed class AutofillTests
     public async Task Windows_pipe_peers_use_OS_PID_session_and_exact_executable_path()
     {
         if (!OperatingSystem.IsWindows()) return;
+#if DEBUG
         Assert.Contains(".dev.", PipePeer.PipeName);
+#else
+        Assert.Contains(".prod.", PipePeer.PipeName);
+#endif
         var name = "YourSafe.Peer.Tests." + Guid.NewGuid().ToString("N");
         using var server = new NamedPipeServerStream(name, PipeDirection.InOut, 1, PipeTransmissionMode.Byte,
             PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
