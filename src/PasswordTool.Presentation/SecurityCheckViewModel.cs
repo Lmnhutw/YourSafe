@@ -11,7 +11,7 @@ public sealed partial class SecurityCheckViewModel(
     public ObservableCollection<VaultSecurityFinding> Findings { get; } = [];
 
     [ObservableProperty] public partial VaultSecurityFinding? SelectedFinding { get; set; }
-    [ObservableProperty] public partial string Summary { get; set; } = "Run a local scan to find weak, reused, and old passwords.";
+    [ObservableProperty] public partial string Summary { get; set; } = "Check for weak, reused, or old passwords on this device.";
     [ObservableProperty] public partial string ErrorMessage { get; set; } = string.Empty;
     [ObservableProperty] public partial bool IsErrorOpen { get; set; }
     [ObservableProperty] public partial bool IsBusy { get; set; }
@@ -29,8 +29,8 @@ public sealed partial class SecurityCheckViewModel(
             foreach (var finding in findings) Findings.Add(finding);
             var affected = findings.Select(finding => finding.ItemId).Distinct().Count();
             Summary = findings.Count == 0
-                ? "No weak, reused, or one-year-old passwords found."
-                : $"{findings.Count:N0} findings across {affected:N0} affected items. Password values are never shown.";
+                ? "No weak or reused passwords found, and none are a year old or older."
+                : $"Found {findings.Count:N0} password issues in {affected:N0} saved items. Passwords are never shown in these results.";
         }
         catch (Exception exception)
         {
@@ -50,7 +50,7 @@ public sealed partial class SecurityCheckViewModel(
     {
         Findings.Clear();
         SelectedFinding = null;
-        Summary = "Run a local scan to find weak, reused, and old passwords.";
+        Summary = "Check for weak, reused, or old passwords on this device.";
         ErrorMessage = string.Empty;
         IsErrorOpen = false;
         IsBusy = false;

@@ -46,7 +46,7 @@ public sealed partial class SettingsViewModel(AppFlowCoordinator flow, IUserErro
     {
         if (!string.Equals(newPassword, confirmation, StringComparison.Ordinal))
         {
-            ShowError("The new Master Password values do not match.");
+            ShowError("The new Master Passwords do not match.");
             return false;
         }
 
@@ -55,7 +55,7 @@ public sealed partial class SettingsViewModel(AppFlowCoordinator flow, IUserErro
 
     public async Task<bool> UpgradeKdfAsync(string masterPassword)
     {
-        var success = await CompleteAsync(flow.UpgradeKdfAsync(masterPassword), "The Master Password KDF is current.");
+        var success = await CompleteAsync(flow.UpgradeKdfAsync(masterPassword), "Your password protection is up to date.");
         if (success) NeedsKdfUpgrade = false;
         return success;
     }
@@ -64,7 +64,7 @@ public sealed partial class SettingsViewModel(AppFlowCoordinator flow, IUserErro
 
     public async Task<bool> ResetAuthenticatorAsync(string masterPassword, AuthenticatorSetup setup, string code)
     {
-        return await CompleteAsync(flow.ResetAuthenticatorAsync(masterPassword, setup, code), "Authenticator reset.");
+        return await CompleteAsync(flow.ResetAuthenticatorAsync(masterPassword, setup, code), "New Authenticator verified and saved.");
     }
 
     private async Task<bool> CompleteAsync(Task<OperationResult> operation, string successMessage)

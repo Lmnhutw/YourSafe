@@ -12,11 +12,11 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
         var panel = new StackPanel { Spacing = 12 };
         panel.Children.Add(new TextBlock
         {
-            Text = "Your vault is locked. Enter your Master Password to continue. If you were adding an item, everything will be lost if you cancel.",
+            Text = "Enter your Master Password to continue. Unsaved changes to an item may be lost if you cancel.",
             TextWrapping = TextWrapping.Wrap
         });
         panel.Children.Add(password);
-        var dialog = new AppContentDialog { Title = "YourSafe's vault is locked", Content = panel, PrimaryButtonText = "Confirm", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
+        var dialog = new AppContentDialog { Title = "Unlock vault", Content = panel, PrimaryButtonText = "Unlock vault", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
         try { return await lifetime.ShowAsync(dialog, cancellationToken) == ContentDialogResult.Primary ? password.Password : null; }
         finally { password.Password = string.Empty; }
     }
@@ -35,7 +35,7 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
                 {
                     new TextBlock
                     {
-                        Text = $"Permanently delete \"{groupName}\" and ALL its passwords, recovery codes, notes, and other saved data, including items in Trash? Review this group carefully. This cannot be undone once it is confirmed. This data will be permanently deleted!",
+                        Text = $"Permanently delete \"{groupName}\" and all its saved items, including passwords, verification codes, recovery codes, notes, and items in Trash? This cannot be undone.",
                         TextWrapping = TextWrapping.Wrap
                     },
                     new TextBlock { Text = expected, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true },

@@ -33,8 +33,8 @@ public sealed partial class MainPage
         if (!await EnsureTotpUnlockedAsync()) return;
         var item = ViewModel.Vault.Items.FirstOrDefault(item => item.Id == id && item.HasTotp);
         if (item is null) return;
-        var manage = new HyperlinkButton { Content = "Manage TOTP →", Padding = new Thickness(0, 4, 0, 4), HorizontalAlignment = HorizontalAlignment.Left };
-        AutomationProperties.SetName(manage, "Manage TOTP");
+        var manage = new HyperlinkButton { Content = "Manage verification code →", Padding = new Thickness(0, 4, 0, 4), HorizontalAlignment = HorizontalAlignment.Left };
+        AutomationProperties.SetName(manage, "Manage verification code");
         var livePanel = activeTotpPanel = new TotpPanel(id, item.Title, item.Username, compact: true, manage: manage);
         var presenterStyle = new Style(typeof(FlyoutPresenter));
         presenterStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(12)));
@@ -66,8 +66,8 @@ public sealed partial class MainPage
 
     private void UpdateTotpEditorStatus()
     {
-        EditorTotpStatus.Text = draftTotp is null ? "No TOTP configured" : "TOTP configured";
-        EditorTotpButton.Content = draftTotp is null ? "Add TOTP" : "Edit TOTP";
+        EditorTotpStatus.Text = draftTotp is null ? "No verification code added" : "Verification code added";
+        EditorTotpButton.Content = draftTotp is null ? "Add verification code" : "Edit verification code";
         EditorRemoveTotpButton.Visibility = draftTotp is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
@@ -85,7 +85,7 @@ public sealed partial class MainPage
     {
         var version = ViewModel.LifecycleVersion;
         if (draftTotp is null || !ViewModel.IsCurrentNormalUnlock(version)) return;
-        if (!await dialogs.ConfirmAsync("Remove TOTP?", $"Remove TOTP from '{EditorItemTitle.Text}'? This change is applied when you Save item.", "Remove")
+        if (!await dialogs.ConfirmAsync("Remove verification code?", $"Remove the verification code from '{EditorItemTitle.Text}'? Select Save item to keep this change.", "Remove")
             || !ViewModel.IsCurrentNormalUnlock(version) || ViewModel.CurrentRoute != AppRoute.ItemEditor) return;
         draftTotp = null;
         UpdateTotpEditorStatus();

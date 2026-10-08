@@ -104,7 +104,7 @@ public sealed partial class BackupViewModel(
             SelectedBackupPath = path;
             Summary = $"{plan.NewItemCount:N0} new · {plan.DuplicateCount:N0} duplicate · {plan.ConflictCount:N0} conflict";
             CanImportBackup = plan.NewItemCount > 0;
-            ShowStatus("Backup import preview is ready. Only new IDs will be added.");
+            ShowStatus("Backup preview is ready. Only new items will be added; existing items will stay unchanged.");
         });
     }
 
@@ -134,7 +134,7 @@ public sealed partial class BackupViewModel(
             SelectedCsvPath = path;
             Summary = $"{plan.NewItemCount:N0} new · {plan.DuplicateCount:N0} duplicate";
             CanImportCsv = plan.NewItemCount > 0;
-            ShowStatus("CSV preview is ready. Plaintext source files are never copied into YourSafe storage.");
+            ShowStatus("CSV preview is ready. YourSafe imports the items without keeping a copy of the CSV file. Delete the file when you're done.");
         });
     }
 
@@ -158,7 +158,7 @@ public sealed partial class BackupViewModel(
         var restored = false;
         await RunAsync(async version =>
         {
-            if (!await dialogs.ConfirmAsync("Restore snapshot", "Restore the selected config/vault pair and return to Unlock?", "Restore")) return;
+            if (!await dialogs.ConfirmAsync("Restore snapshot", "Replace your current vault and security settings with the selected snapshot and return to sign in?", "Restore")) return;
             EnsureCurrent(version);
             var result = await flow.RestoreSnapshotAsync(snapshot.Id, masterPassword);
             if (!result.Success) ShowStatus(result.Message);

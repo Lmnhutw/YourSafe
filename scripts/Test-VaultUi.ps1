@@ -186,7 +186,7 @@ try {
         Ui invoke 'NavTrash' | Out-Null
         Ui wait-for $copyTitle -t 5000 | Out-Null
         SelectTrashItem
-        Button 'Restore selected'
+        Button 'Restore selected item'
         Ui wait-for $copyTitle --gone -t 5000 | Out-Null
         Ui invoke 'NavVault' | Out-Null
         Ui wait-for $script:copyMore -t 5000 | Out-Null

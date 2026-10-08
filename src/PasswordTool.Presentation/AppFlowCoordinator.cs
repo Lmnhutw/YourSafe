@@ -162,7 +162,7 @@ public sealed class AppFlowCoordinator
             {
                 verified = signedIn ? vaultService.IsSignInSessionActive : vaultService.VerifyTotpForSession(totpCode);
                 verified &= version == Volatile.Read(ref lifecycleVersion);
-                return verified ? unlocked : new VaultUnlockResult(VaultUnlockStatus.Failed, "Invalid Google Authenticator code.");
+                return verified ? unlocked : new VaultUnlockResult(VaultUnlockStatus.Failed, "The Authenticator code is incorrect or has expired. Enter the current 6-digit code and try again.");
             }
             finally
             {

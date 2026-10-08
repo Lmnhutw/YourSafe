@@ -59,7 +59,7 @@ OpenTotp 'TOTP password account'
 $codeElement = Element 'TxtTotpCode'
 $indicator = Element 'TotpTimeRemaining'
 $copy = Element 'BtnCopyTotp'
-$manage = Element 'Manage TOTP'
+$manage = Element 'Manage verification code'
 Ui screenshot -o (Join-Path $directory 'totp-flyout.png') | Out-Null
 if ($codeElement.name -notmatch '^\d{3}\u2009\d{3}$') { throw 'Expected six digits with a thin grouping space.' }
 $firstHalf = Element 'TxtTotpCodeFirstHalf'

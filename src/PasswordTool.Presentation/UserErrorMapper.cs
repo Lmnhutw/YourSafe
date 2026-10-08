@@ -18,10 +18,10 @@ public sealed class UserErrorMapper : IUserErrorMapper
         UnauthorizedAccessException => "YourSafe does not have permission to access the selected location.",
         FileNotFoundException => "The selected file could not be found.",
         IOException => "YourSafe could not complete the file operation.",
-        InvalidDataException or FormatException => "The selected data is not a supported YourSafe format.",
-        CryptographicException => "YourSafe could not authenticate or decrypt the protected data.",
-        ArgumentException => "One or more values are invalid.",
-        InvalidOperationException => "The operation is not available in the current vault state.",
-        _ => "YourSafe could not complete the operation. No vault data was changed."
+        InvalidDataException or FormatException => "The selected file's format or contents are not supported.",
+        CryptographicException => "YourSafe could not verify or open the encrypted data.",
+        ArgumentException => "Check the details you entered and try again.",
+        InvalidOperationException => "This action is unavailable right now. Check that your vault is unlocked and try again.",
+        _ => "YourSafe could not complete this action. Check your saved items before trying again."
     };
 }

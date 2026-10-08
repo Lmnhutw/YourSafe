@@ -16,12 +16,12 @@ internal sealed class PasswordGeneratorDialogService(PasswordGeneratorService ge
         string generated = string.Empty;
         try
         {
-            var mode = new AppComboBox { Header = "Mode", SelectedIndex = 0 };
+            var mode = new AppComboBox { Header = "Password type", SelectedIndex = 0 };
             mode.Items.Add("Password");
             mode.Items.Add("Passphrase");
 
-            var length = new NumberBox { Header = "Length", Minimum = 8, Maximum = 128, Value = 24, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline };
-            var chunks = new NumberBox { Header = "Word-pair chunks", Minimum = 4, Maximum = 12, Value = 6, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline, Visibility = Visibility.Collapsed };
+            var length = new NumberBox { Header = "Number of characters", Minimum = 8, Maximum = 128, Value = 24, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline };
+            var chunks = new NumberBox { Header = "Number of word pairs", Minimum = 4, Maximum = 12, Value = 6, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline, Visibility = Visibility.Collapsed };
             var uppercase = new CheckBox { Content = "Uppercase", IsChecked = true };
             var lowercase = new CheckBox { Content = "Lowercase", IsChecked = true };
             var digits = new CheckBox { Content = "Digits", IsChecked = true };
@@ -93,7 +93,7 @@ internal sealed class PasswordGeneratorDialogService(PasswordGeneratorService ge
             content.Children.Add(chunks);
             content.Children.Add(characterOptions);
             content.Children.Add(generateButton);
-            content.Children.Add(new TextBlock { Text = "Generated value", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+            content.Children.Add(new TextBlock { Text = "Generated password", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
             content.Children.Add(generatedText);
             content.Children.Add(strengthText);
             content.Children.Add(errorText);
@@ -103,7 +103,7 @@ internal sealed class PasswordGeneratorDialogService(PasswordGeneratorService ge
                 XamlRoot = ((FrameworkElement)App.Window.Content).XamlRoot,
                 Title = "Password generator",
                 Content = content,
-                PrimaryButtonText = "Use this value",
+                PrimaryButtonText = "Use password",
                 CloseButtonText = "Cancel",
                 DefaultButton = ContentDialogButton.Primary
             };

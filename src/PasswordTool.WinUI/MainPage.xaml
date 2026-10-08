@@ -105,23 +105,23 @@
 
                         <StackPanel x:Name="PartialStoragePanel" Spacing="16" Visibility="Collapsed">
                             <FontIcon HorizontalAlignment="Left" FontSize="36" Glyph="&#xE7BA;" />
-                            <TextBlock Style="{StaticResource PasswordToolPageTitleStyle}" Text="Storage needs attention" />
-                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="YourSafe found an incomplete config/vault pair. It will not overwrite or recover over these files. Restore the missing file or inspect this app's local storage folder before continuing." TextWrapping="Wrap" />
+                            <TextBlock Style="{StaticResource PasswordToolPageTitleStyle}" Text="Some files are missing!" />
+                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Some files needed to open your vault are missing. YourSafe will keep the remaining files unchanged. Restore the missing files or check YourSafe's local storage folder before continuing." TextWrapping="Wrap" />
                             <Button HorizontalAlignment="Left" Click="ExitButton_Click" Content="Exit YourSafe" />
                         </StackPanel>
 
                         <StackPanel x:Name="FirstLaunchPanel" Spacing="16" Visibility="Collapsed">
                             <FontIcon HorizontalAlignment="Left" FontSize="36" Glyph="&#xE72E;" />
                             <TextBlock Style="{StaticResource PasswordToolPageTitleStyle}" Text="Welcome to YourSafe" />
-                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Create an empty encrypted vault, or recover items from a YourSafe backup. Recovery creates a new Master Password and Authenticator for this installation." TextWrapping="Wrap" />
-                            <Button Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="BtnCreateVault" HorizontalAlignment="Stretch" Click="CreateVaultButton_Click" Content="Create a new empty vault" />
-                            <Button AutomationProperties.AutomationId="BtnRecoverVault" HorizontalAlignment="Stretch" Click="RecoverVaultButton_Click" Content="Recover from encrypted backup" />
+                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Create a vault to store your passwords, or restore one from a backup." TextWrapping="Wrap" />
+                            <Button Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="BtnCreateVault" HorizontalAlignment="Stretch" Click="CreateVaultButton_Click" Content="Create a vault" />
+                            <Button AutomationProperties.AutomationId="BtnRecoverVault" HorizontalAlignment="Stretch" Click="RecoverVaultButton_Click" Content="Restore from backup" />
                             <Button HorizontalAlignment="Stretch" Click="ExitButton_Click" Content="Cancel" />
                         </StackPanel>
 
                         <StackPanel x:Name="RecoveryPanel" Spacing="16" Visibility="Collapsed">
-                            <TextBlock Style="{StaticResource PasswordToolPageTitleStyle}" Text="Recover encrypted backup" />
-                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Choose a YourSafe JSON backup and enter its backup password. The file is authenticated before recovery can continue." TextWrapping="Wrap" />
+                            <TextBlock Style="{StaticResource PasswordToolPageTitleStyle}" Text="Restore from backup" />
+                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Choose a YourSafe backup and enter its backup password. We'll check it before continuing. You'll then create a new Master Password and set up an Authenticator for YourSafe on this device." TextWrapping="Wrap" />
                             <Button AutomationProperties.AutomationId="BtnChooseRecovery" HorizontalAlignment="Left" Click="ChooseRecoveryButton_Click" Content="Choose backup file" />
                             <TextBlock AutomationProperties.AutomationId="TxtRecoveryPath" Text="{x:Bind ViewModel.RecoveryPath, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                             <PasswordBox x:Name="RecoveryPassphraseInput" AutomationProperties.Name="Backup password" Header="Backup password" />
@@ -138,12 +138,10 @@
                         </StackPanel>
 
                         <StackPanel x:Name="CreateMasterPasswordPanel" Spacing="16" Visibility="Collapsed">
-                            <TextBlock Style="{StaticResource PasswordToolPageTitleStyle}" Text="Create Master Password" />
-                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Use at least 12 characters." TextWrapping="Wrap" />
-                            <TextBlock Text="Save the Recovery Key shown after Authenticator verification. It can reset your Master Password and Authenticator." TextWrapping="Wrap" />
-                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Add your first item, then create an encrypted backup." TextWrapping="Wrap" />
-                            <PasswordBox x:Name="NewMasterPasswordInput" AutomationProperties.Name="New Master Password" Header="Master Password" />
-                            <PasswordBox x:Name="ConfirmMasterPasswordInput" AutomationProperties.Name="Confirm Master Password" Header="Confirm Master Password" />
+                            <TextBlock Style="{StaticResource PasswordToolPageTitleStyle}" Text="Create your Master Password" />
+                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Use at least 12 characters. You'll need this password to unlock your vault." TextWrapping="Wrap" />
+                            <PasswordBox x:Name="NewMasterPasswordInput" AutomationProperties.Name="New Master Password" Header="Master Password" PlaceholderText="Enter your password" />
+                            <PasswordBox x:Name="ConfirmMasterPasswordInput" AutomationProperties.Name="Confirm Master Password" Header="Confirm Master Password" PlaceholderText="Enter your password again" />
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button Click="BackToWelcomeButton_Click" Content="Back" />
                                 <Button Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="BtnContinueMasterPassword" Click="ContinueMasterPasswordButton_Click" Content="Continue" />
@@ -152,10 +150,10 @@
 
                         <StackPanel x:Name="SetupAuthenticatorPanel" Spacing="16" Visibility="Collapsed">
                             <TextBlock Style="{StaticResource PasswordToolPageTitleStyle}" Text="Set up Authenticator" />
-                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Scan this QR code with a compatible 6-digit TOTP app, then enter the current code to verify setup." TextWrapping="Wrap" />
+                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Scan this QR code with your Authenticator app, then enter the 6-digit code to finish setup." TextWrapping="Wrap" />
                             <Image x:Name="AuthenticatorQrImage" Width="240" Height="240" AutomationProperties.Name="Authenticator QR code" />
                             <TextBlock x:Name="AuthenticatorSecretText" AutomationProperties.AutomationId="TxtAuthenticatorSetupSecret" FontFamily="Consolas" TextWrapping="Wrap" />
-                            <Button HorizontalAlignment="Left" Click="CopyAuthenticatorSecretButton_Click" Content="Copy setup secret securely" />
+                            <Button HorizontalAlignment="Left" Click="CopyAuthenticatorSecretButton_Click" Content="Copy setup key" />
                             <local:SixDigitCodeInput x:Name="AuthenticatorConfirmationInput" />
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button Click="ExitButton_Click" Content="Cancel" />
@@ -166,7 +164,7 @@
                         <StackPanel x:Name="UnlockPanel" Spacing="16" Visibility="Collapsed">
                             <FontIcon HorizontalAlignment="Left" FontSize="36" Glyph="&#xE72E;" />
                             <TextBlock x:Name="UnlockHeading" Text="Sign in" FontSize="32" Style="{StaticResource PasswordToolPageTitleStyle}" />
-                            <TextBlock x:Name="UnlockDescription" FontSize="16" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Enter your Master Password and Google Authenticator code to sign in." TextWrapping="Wrap" />
+                            <TextBlock x:Name="UnlockDescription" FontSize="16" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Enter your Master Password and Authenticator code to sign in." TextWrapping="Wrap" />
                             <PasswordBox x:Name="MasterPasswordInput" FontSize="18" MinHeight="44" AutomationProperties.AutomationId="TxtMasterPassword" Header="Master Password" AutomationProperties.Name="Master Password" KeyDown="MasterPasswordInput_KeyDown">
                                 <PasswordBox.HeaderTemplate>
                                     <DataTemplate>
@@ -174,7 +172,7 @@
                                     </DataTemplate>
                                 </PasswordBox.HeaderTemplate>
                             </PasswordBox>
-                            <Button x:Name="UnlockButton" FontSize="16" MinHeight="44" Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="BtnUnlock" HorizontalAlignment="Stretch" AutomationProperties.Name="Unlock vault" Click="UnlockButton_Click" Content="Unlock" />
+                            <Button x:Name="UnlockButton" FontSize="16" MinHeight="44" Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="BtnUnlock" HorizontalAlignment="Stretch" AutomationProperties.Name="Sign in" Click="UnlockButton_Click" Content="Sign in" />
                             <Button FontSize="16" MinHeight="40" Content="Forgot Master Password?" Click="ForgotMasterPasswordButton_Click" />
                         </StackPanel>
 
@@ -230,9 +228,9 @@
                             <TextBlock Text="Vault" Style="{StaticResource PasswordToolPageTitleStyle}" />
                             <TextBlock
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Text="Search and manage your saved credentials."
+                                Text="Search and manage your saved items."
                                 TextWrapping="Wrap" />
-                            <InfoBar IsOpen="{x:Bind ViewModel.IsBackupReminderOpen, Mode=TwoWay}" IsClosable="False" Title="Keep a recovery copy" Message="Create an encrypted backup of your first item." Severity="Informational">
+                            <InfoBar IsOpen="{x:Bind ViewModel.IsBackupReminderOpen, Mode=TwoWay}" IsClosable="False" Title="Back up your vault" Message="Create an encrypted backup of your first item and keep a copy outside this device." Severity="Informational">
                                 <InfoBar.Content>
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <Button Content="Create backup" Click="BackupReminderCreate_Click" />
@@ -261,7 +259,7 @@
                         <TextBlock AutomationProperties.AutomationId="TxtVaultLockHint"
                             Visibility="{x:Bind local:MainPage.BoolToVisibility(ViewModel.IsTableLocked), Mode=OneWay}"
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextAlignment="Right" TextWrapping="Wrap"
-                            Text="YourSafe's vault is locked. Unlock to avoid re-entering your password." />
+                            Text="Your vault is locked. Enter your Master Password to view or edit saved items." />
                         </StackPanel>
                     </Grid>
 
@@ -366,7 +364,7 @@
                                     <Grid Grid.Column="4" VerticalAlignment="Center" ColumnSpacing="4">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="32" /></Grid.ColumnDefinitions>
                                         <TextBlock VerticalAlignment="Center" Text="—" Visibility="{x:Bind local:MainPage.BoolToVisibility(HasTotp), Mode=OneTime}" />
-                                        <Button Grid.Column="1" Style="{StaticResource VaultRowIconButtonStyle}" HorizontalAlignment="Right" AutomationProperties.AutomationId="{x:Bind local:MainPage.ItemAutomationId('ViewTotp', Id)}" AutomationProperties.Name="View verification code" ToolTipService.ToolTip="TOTP enabled" Tag="{x:Bind Id}" Click="ViewTotpRowButton_Click" Visibility="{x:Bind local:MainPage.BoolToVisibility(HasTotp), Mode=OneTime}">
+                                        <Button Grid.Column="1" Style="{StaticResource VaultRowIconButtonStyle}" HorizontalAlignment="Right" AutomationProperties.AutomationId="{x:Bind local:MainPage.ItemAutomationId('ViewTotp', Id)}" AutomationProperties.Name="View verification code" ToolTipService.ToolTip="View verification code" Tag="{x:Bind Id}" Click="ViewTotpRowButton_Click" Visibility="{x:Bind local:MainPage.BoolToVisibility(HasTotp), Mode=OneTime}">
                                             <!-- Microsoft Fluent System Icons: Clock20Regular. See Assets/Icons/NOTICE.md. -->
                                             <Viewbox Width="14" Height="14">
                                                 <PathIcon Width="20" Height="20" Data="M10 2C14.4183 2 18 5.58172 18 10C18 14.4183 14.4183 18 10 18C5.58172 18 2 14.4183 2 10C2 5.58172 5.58172 2 10 2ZM10 3C6.13401 3 3 6.13401 3 10C3 13.866 6.13401 17 10 17C13.866 17 17 13.866 17 10C17 6.13401 13.866 3 10 3ZM9.5 5C9.74546 5 9.94961 5.17688 9.99194 5.41012L10 5.5V10H12.5C12.7761 10 13 10.2239 13 10.5C13 10.7455 12.8231 10.9496 12.5899 10.9919L12.5 11H9.5C9.25454 11 9.05039 10.8231 9.00806 10.5899L9 10.5V5.5C9 5.22386 9.22386 5 9.5 5Z" />
@@ -384,7 +382,7 @@
                                                     </DataTemplate>
                                             </ListView.ItemTemplate>
                                         </ListView>
-                                        <TextBlock Grid.Row="1" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" Text="No credentials to display" Visibility="{x:Bind local:MainPage.BoolToVisibility(ViewModel.Vault.IsEmpty), Mode=OneWay}" />
+                                        <TextBlock Grid.Row="1" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" Text="No items to show" Visibility="{x:Bind local:MainPage.BoolToVisibility(ViewModel.Vault.IsEmpty), Mode=OneWay}" />
                                     </Grid>
                                 </ScrollViewer>
                             </Border>
@@ -448,7 +446,7 @@
                             </Button>
                         </Grid>
                         <StackPanel x:Name="VaultActions" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Top" Orientation="Horizontal" Spacing="8" Margin="12,0,0,0">
-                            <Button AutomationProperties.AutomationId="BtnAddGroup" AutomationProperties.Name="Create group" Click="AddGroupButton_Click" Content="New Group" />
+                            <Button AutomationProperties.AutomationId="BtnAddGroup" AutomationProperties.Name="Create group" Click="AddGroupButton_Click" Content="Create group" />
                             <Button Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="BtnAddItem" AutomationProperties.Name="Add vault item" Click="AddItemButton_Click" Content="Add item" />
                         </StackPanel>
                     </Grid>
@@ -493,10 +491,10 @@
                         <TextBlock Text="Items you delete from the vault will appear here." Style="{StaticResource PasswordToolDescriptionStyle}" />
                     </StackPanel>
                     <StackPanel Grid.Row="2" HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
-                        <Button Style="{StaticResource AccentButtonStyle}" IsEnabled="{x:Bind local:MainPage.HasSelection(ViewModel.Trash.SelectedItem), Mode=OneWay}" Click="RestoreTrashButton_Click" Content="Restore selected" />
+                        <Button Style="{StaticResource AccentButtonStyle}" IsEnabled="{x:Bind local:MainPage.HasSelection(ViewModel.Trash.SelectedItem), Mode=OneWay}" Click="RestoreTrashButton_Click" Content="Restore selected item" />
                         <Button IsEnabled="{x:Bind local:MainPage.HasSelection(ViewModel.Trash.SelectedItem), Mode=OneWay}" Click="DeleteTrashPermanentlyButton_Click" Content="Delete permanently" />
                     </StackPanel>
-                    <InfoBar Grid.Row="3" IsClosable="True" IsOpen="{x:Bind ViewModel.Trash.IsErrorOpen, Mode=TwoWay}" Message="{x:Bind ViewModel.Trash.ErrorMessage, Mode=OneWay}" Severity="Error" Title="Trash operation could not continue" />
+                    <InfoBar Grid.Row="3" IsClosable="True" IsOpen="{x:Bind ViewModel.Trash.IsErrorOpen, Mode=TwoWay}" Message="{x:Bind ViewModel.Trash.ErrorMessage, Mode=OneWay}" Severity="Error" Title="Could not update Trash" />
                 </Grid>
 
                 <ScrollViewer x:Name="EditorPage" Grid.Row="1" MaxWidth="1024" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled" Visibility="Collapsed" IsEnabled="{x:Bind local:MainPage.CanEditItem(ViewModel.IsSavingItem, ViewModel.IsTableLocked), Mode=OneWay}">
@@ -508,7 +506,7 @@
                         </Grid.RowDefinitions>
                         <StackPanel Spacing="4">
                             <TextBlock x:Name="EditorTitle" Style="{StaticResource PasswordToolPageTitleStyle}" Text="Add item" />
-                            <TextBlock Style="{StaticResource PasswordToolDescriptionStyle}" Text="Save a password, recovery codes, and the details you need to find them later." />
+                            <TextBlock Style="{StaticResource PasswordToolDescriptionStyle}" Text="Save a password, verification codes, recovery codes, and account details." />
                         </StackPanel>
                         <Grid x:Name="EditorSections" Grid.Row="1" RowSpacing="24">
                             <Grid.RowDefinitions>
@@ -544,7 +542,7 @@
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBox x:Name="EditorUrl" AutomationProperties.AutomationId="TxtEditorUrl" AutomationProperties.Name="URL (required unless No URL is checked)" Header="URL (required)" />
+                                    <TextBox x:Name="EditorUrl" AutomationProperties.AutomationId="TxtEditorUrl" AutomationProperties.Name="URL (required unless No URL is checked)" Header="URL (or select No URL)" />
                                         <CheckBox x:Name="EditorNoUrl" Grid.Column="1" MinWidth="0" VerticalAlignment="Bottom" AutomationProperties.AutomationId="ChkEditorNoUrl" AutomationProperties.Name="No URL" Checked="EditorNoUrl_Changed" Unchecked="EditorNoUrl_Changed" Content="No URL" />
                                     </Grid>
                                     <local:AppComboBox x:Name="EditorGroup" AutomationProperties.AutomationId="CmbEditorGroup" AutomationProperties.Name="Group" DisplayMemberPath="Label" Header="Group" ItemsSource="{x:Bind ViewModel.Vault.GroupOptions, Mode=OneWay}" />
@@ -571,12 +569,12 @@
                             <Border x:Name="EditorTotpSection" Grid.Row="2" Style="{StaticResource PasswordToolCardStyle}">
                                 <StackPanel Spacing="12">
                                     <TextBlock Text="Authentication codes - TOTP" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                                    <TextBlock x:Name="EditorTotpStatus" Text="No TOTP configured" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="EditorTotpStatus" Text="No TOTP added" TextWrapping="Wrap" />
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <Button x:Name="EditorTotpButton" AutomationProperties.AutomationId="BtnEditorTotp" Click="EditTotpButton_Click" Content="Add TOTP" />
                                         <Button x:Name="EditorRemoveTotpButton" AutomationProperties.AutomationId="BtnRemoveTotp" Click="RemoveTotpButton_Click" Content="Remove" Visibility="Collapsed" />
                                     </StackPanel>
-                                    <TextBlock Text="Changes are saved with Save item." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Text="Click 'Save item' to keep your changes." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </StackPanel>
                             </Border>
                         </Grid>
@@ -644,14 +642,14 @@
                         Grid.Row="3"
                         Message="{x:Bind ViewModel.HashTool.ErrorMessage, Mode=OneWay}"
                         Severity="Error"
-                        Title="Hash operation could not continue" />
+                        Title="Could not complete hash operation" />
                 </Grid>
 
                 <ScrollViewer x:Name="BackupPage" Grid.Row="1" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled" Visibility="Collapsed" IsEnabled="{x:Bind local:MainPage.Not(ViewModel.Backup.IsBusy), Mode=OneWay}">
                     <StackPanel Style="{StaticResource PasswordToolFormStyle}">
                         <StackPanel Spacing="4">
                             <TextBlock Style="{StaticResource PasswordToolPageTitleStyle}" Text="Backup &amp; Recovery" />
-                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Encrypted backups include items in Trash. Keep a copy outside this device. Plaintext CSV is import-only." TextWrapping="Wrap" />
+                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Keep an encrypted copy of your vault so you can restore your saved items when needed. Remember to store a copy outside this device." TextWrapping="Wrap" />
                             <ProgressBar IsIndeterminate="True" Visibility="{x:Bind local:MainPage.BoolToVisibility(ViewModel.Backup.IsBusy), Mode=OneWay}" AutomationProperties.Name="Processing backup operation" />
                             <InfoBar IsClosable="True" IsOpen="{x:Bind ViewModel.Backup.IsStatusOpen, Mode=TwoWay}" Message="{x:Bind ViewModel.Backup.StatusMessage, Mode=OneWay}" Severity="Informational" Title="Backup &amp; Recovery" />
                             <TextBlock Text="{x:Bind ViewModel.Backup.Summary, Mode=OneWay}" TextWrapping="Wrap" />
@@ -664,9 +662,10 @@
                             <Border Style="{StaticResource PasswordToolCardStyle}" VerticalAlignment="Top">
                                 <StackPanel Spacing="12">
                                     <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Encrypted backup" />
+                                    <TextBlock Text="Your backup also includes items in Trash." TextWrapping="Wrap" />
                                     <TextBlock Text="Use at least 12 characters for your backup password." TextWrapping="Wrap" />
                                     <PasswordBox x:Name="BackupPassphrase" Password="{x:Bind ViewModel.Backup.BackupPassword, Mode=TwoWay}" AutomationProperties.Name="Backup password" Header="Backup password" />
-                                    <TextBlock Text="This password protects your backup independently of your Master Password. Keep it somewhere safe—you’ll need it to restore." TextWrapping="Wrap" />
+                                    <TextBlock Text="Your backup password is separate from your Master Password. Keep it safe—you'll need it to restore your saved items." TextWrapping="Wrap" />
                                     <PasswordBox x:Name="BackupPassphraseConfirmation" Password="{x:Bind ViewModel.Backup.ConfirmBackupPassword, Mode=TwoWay}" AutomationProperties.Name="Confirm backup password" Header="Confirm backup password for creation" />
                                     <Button Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Right" Click="ExportBackupButton_Click" Content="Create backup" />
                                     <Button HorizontalAlignment="Right" Click="VerifyBackupButton_Click" Content="Verify backup file" />
@@ -678,7 +677,7 @@
                             <Border x:Name="CsvImportSection" Grid.Column="1" Style="{StaticResource PasswordToolCardStyle}" VerticalAlignment="Top">
                                 <StackPanel Spacing="12">
                                     <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="CSV import" />
-                                    <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Review a bounded browser/password-manager CSV, then add only accounts that do not already match." TextWrapping="Wrap" />
+                                    <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Preview passwords from a browser or password manager, then import new accounts. Matching accounts will be skipped. CSV files are not encrypted; keep them safe and delete them when you're done." TextWrapping="Wrap" />
                                     <Button HorizontalAlignment="Right" Click="PreviewCsvButton_Click" Content="Preview CSV" />
                                     <Button HorizontalAlignment="Right" Click="ImportCsvButton_Click" Content="Import previewed new items" IsEnabled="{x:Bind ViewModel.Backup.CanImportCsv, Mode=OneWay}" />
                                 </StackPanel>
@@ -687,7 +686,7 @@
                         <Border Style="{StaticResource PasswordToolCardStyle}">
                             <StackPanel Spacing="12">
                                 <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Local snapshots" />
-                                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Snapshots are prior encrypted config/vault pairs on this device. Restoring returns YourSafe to Unlock." TextWrapping="Wrap" />
+                                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Snapshots are earlier encrypted copies of your vault and security settings saved on this device. Restoring a snapshot returns you to sign in." TextWrapping="Wrap" />
                                 <ListView Height="180" ItemsSource="{x:Bind ViewModel.Backup.Snapshots}" SelectedItem="{x:Bind ViewModel.Backup.SelectedSnapshot, Mode=TwoWay}">
                                     <ListView.ItemTemplate>
                                         <DataTemplate x:DataType="models:VaultSnapshotInfo">
@@ -722,7 +721,7 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Spacing="4">
                             <TextBlock Style="{StaticResource PasswordToolPageTitleStyle}" Text="Local Security Check" />
-                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Passwords are compared only inside this process and are never included in findings." TextWrapping="Wrap" />
+                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Passwords are checked on your device and never shown in the results." TextWrapping="Wrap" />
                         </StackPanel>
                         <Button Grid.Column="1" Style="{StaticResource AccentButtonStyle}" VerticalAlignment="Top" IsEnabled="{x:Bind local:MainPage.Not(ViewModel.SecurityCheck.IsBusy), Mode=OneWay}" Click="RunSecurityCheckButton_Click" Content="Run check" />
                     </Grid>
@@ -732,7 +731,7 @@
                             <RowDefinition Height="*" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
-                        <ListView AutomationProperties.Name="Security Check findings" ItemsSource="{x:Bind ViewModel.SecurityCheck.Findings}" SelectedItem="{x:Bind ViewModel.SecurityCheck.SelectedFinding, Mode=TwoWay}">
+                        <ListView AutomationProperties.Name="Security Check results" ItemsSource="{x:Bind ViewModel.SecurityCheck.Findings}" SelectedItem="{x:Bind ViewModel.SecurityCheck.SelectedFinding, Mode=TwoWay}">
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="models:VaultSecurityFinding">
                                     <Grid Padding="12" ColumnSpacing="12" AutomationProperties.Name="{x:Bind DisplayLabel}">
@@ -757,7 +756,7 @@
                     <StackPanel Style="{StaticResource PasswordToolFormStyle}">
                         <StackPanel Spacing="4">
                             <TextBlock Style="{StaticResource PasswordToolPageTitleStyle}" Text="Settings" />
-                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Security-sensitive changes require the current Master Password." TextWrapping="Wrap" />
+                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Enter your current Master Password to change security settings." TextWrapping="Wrap" />
                         </StackPanel>
 
                         <Border Style="{StaticResource PasswordToolCardStyle}">
@@ -775,20 +774,20 @@
 
                         <Border Style="{StaticResource PasswordToolCardStyle}">
                             <StackPanel Spacing="12">
-                                <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Login and timeouts" />
-                                <TextBlock Text="Application Login Session — fixed 5 hours" />
+                                <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Sign-in and vault lock" />
+                                <TextBlock Text="YourSafe session: 5 hours" />
                                 <local:AppComboBox x:Name="VaultDurationInput" Header="Keep vault unlocked for" SelectedIndex="0">
                                     <ComboBoxItem Content="1 minute" /><ComboBoxItem Content="2 minutes" />
                                     <ComboBoxItem Content="5 minutes" /><ComboBoxItem Content="10 minutes" />
                                     <ComboBoxItem Content="30 minutes" /><ComboBoxItem Content="1 hour" />
                                     <ComboBoxItem Content="2 hours" /><ComboBoxItem Content="5 hours" />
                                 </local:AppComboBox>
-                                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="The timer starts when you unlock YourSafe's vault. Restart YourSafe to apply changes." TextWrapping="Wrap" />
+                                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Your vault locks after this time, starting when you unlock it. Restart YourSafe to apply changes." TextWrapping="Wrap" />
                                 <PasswordBox x:Name="SettingsMasterPassword" AutomationProperties.Name="Master Password for settings" Header="Current Master Password" />
                                 <Button Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Right" Click="SaveSettingsButton_Click" Content="Save security settings" />
-                                <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Recovery code" />
-                                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Use this code if you forget your Master Password. Create a new code if you need to replace the one you saved." TextWrapping="Wrap" />
-                                <Button HorizontalAlignment="Right" Click="RotateRecoveryKeyButton_Click" Content="Create a new recovery code" />
+                                <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Recovery Key" />
+                                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Use your Recovery Key to reset your Master Password and Authenticator. Create a new key if you need to replace the one you saved." TextWrapping="Wrap" />
+                                <Button HorizontalAlignment="Right" Click="RotateRecoveryKeyButton_Click" Content="Create a new Recovery Key" />
                                 <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.Settings.BackupHealthText, Mode=OneWay}" TextWrapping="Wrap" />
                             </StackPanel>
                         </Border>
@@ -817,7 +816,7 @@
                                 <TextBlock Style="{StaticResource PasswordToolDescriptionStyle}" Text="Your password protection is up to date." Visibility="{x:Bind local:MainPage.InvertBoolToVisibility(ViewModel.Settings.NeedsKdfUpgrade), Mode=OneWay}" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Top" Orientation="Horizontal" Spacing="8">
-                                <Button AutomationProperties.AutomationId="BtnUpgradePasswordProtection" HorizontalAlignment="Right" Click="UpgradeKdfButton_Click" Content="Upgrade password protection (KDF)" IsEnabled="{x:Bind ViewModel.Settings.NeedsKdfUpgrade, Mode=OneWay}" />
+                                <Button AutomationProperties.AutomationId="BtnUpgradePasswordProtection" HorizontalAlignment="Right" Click="UpgradeKdfButton_Click" Content="Upgrade password protection" IsEnabled="{x:Bind ViewModel.Settings.NeedsKdfUpgrade, Mode=OneWay}" />
                                         <Button Style="{StaticResource AccentButtonStyle}" Click="ChangeMasterPasswordButton_Click" Content="Change Master Password" />
                                     </StackPanel>
                                 </Grid>
@@ -827,13 +826,13 @@
                         <Border Style="{StaticResource PasswordToolCardStyle}">
                             <StackPanel Spacing="12">
                                 <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Authenticator" />
-                                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Generate a replacement setup, scan it, and confirm the new 6-digit code. Existing trusted tokens are replaced only after successful verification." TextWrapping="Wrap" />
-                                <Button HorizontalAlignment="Right" Click="PrepareAuthenticatorResetButton_Click" Content="Prepare replacement Authenticator" />
+                                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Set up a new Authenticator by scanning the QR code and entering its 6-digit code. Your current Authenticator stays active until you verify the new one." TextWrapping="Wrap" />
+                                <Button HorizontalAlignment="Right" Click="PrepareAuthenticatorResetButton_Click" Content="Change Authenticator" />
                                 <Image x:Name="SettingsAuthenticatorQr" Width="220" Height="220" Visibility="Collapsed" />
                                 <TextBlock x:Name="SettingsAuthenticatorSecret" FontFamily="Consolas" TextWrapping="Wrap" />
                                 <PasswordBox x:Name="AuthenticatorResetMasterPassword" AutomationProperties.Name="Master Password for Authenticator reset" Header="Current Master Password" />
                                 <local:SixDigitCodeInput x:Name="AuthenticatorResetCode" />
-                                <Button HorizontalAlignment="Right" Click="ResetAuthenticatorButton_Click" Content="Reset Authenticator" />
+                                <Button HorizontalAlignment="Right" Click="ResetAuthenticatorButton_Click" Content="Verify new Authenticator" />
                             </StackPanel>
                         </Border>
 

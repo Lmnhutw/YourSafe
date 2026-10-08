@@ -70,15 +70,15 @@ internal static class TotpConfigurationDialog
         var body = new StackPanel { Spacing = 12, MinWidth = 320, MaxWidth = 420, Children = { method, secretField, uriField, manual, review, error } };
         var dialog = new AppContentDialog
         {
-            Title = existing is null ? "Add TOTP" : "Edit TOTP",
+            Title = existing is null ? "Add verification code" : "Edit verification code",
             Content = new ScrollViewer { Content = body, MaxHeight = 520, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled },
             PrimaryButtonText = "Apply", CloseButtonText = "Cancel",
             DefaultButton = ContentDialogButton.Primary
         };
         AutomationProperties.SetAutomationId(secret, "TxtTotpSecret");
         AutomationProperties.SetAutomationId(uri, "TxtTotpUri");
-        AutomationProperties.SetName(secret, "TOTP secret key");
-        AutomationProperties.SetName(uri, "TOTP setup link");
+        AutomationProperties.SetName(secret, "Verification code secret key");
+        AutomationProperties.SetName(uri, "Verification code setup link");
         AutomationProperties.SetAutomationId(method, "TotpInputMethod");
         AutomationProperties.SetAutomationId(period, "TxtTotpPeriod");
         AutomationProperties.SetAutomationId(issuer, "TxtTotpIssuer");

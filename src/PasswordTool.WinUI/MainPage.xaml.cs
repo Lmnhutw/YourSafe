@@ -356,7 +356,7 @@ public sealed partial class MainPage : Page
             var password = MasterPasswordInput.Password;
             if (!await ViewModel.ValidateMasterPasswordAsync(password)) return;
             var code = ViewModel.IsSignedIn ? string.Empty : await dialogs.PromptTotpAsync(
-                "Sign in", "Enter the current 6-digit code from Google Authenticator.");
+                "Sign in", "Enter the current 6-digit code from your Authenticator app.");
             if (code is null) return;
 
             await ViewModel.UnlockAsync(password, code);
@@ -601,7 +601,7 @@ public sealed partial class MainPage : Page
         };
         var saved = new CheckBox { Content = "I saved this key in a safe place outside this device." };
         var panel = new StackPanel { Spacing = 16 };
-        panel.Children.Add(new TextBlock { Text = "This recovery code lets you create a new Master Password if you forget it. Save the new code somewhere safe outside this device. After you confirm it is saved, your previous recovery code will stop working. Exported backups keep the credentials they had when they were created.", TextWrapping = TextWrapping.Wrap });
+        panel.Children.Add(new TextBlock { Text = "This Recovery Key lets you reset your Master Password and Authenticator. Save it somewhere safe outside this device. After you confirm it is saved, your previous Recovery Key will stop working. Existing backups still use their original backup passwords.", TextWrapping = TextWrapping.Wrap });
         panel.Children.Add(text);
         var copyRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
         copyRow.Children.Add(copy);
@@ -613,7 +613,7 @@ public sealed partial class MainPage : Page
             TextWrapping = TextWrapping.Wrap
         });
         panel.Children.Add(saved);
-        var dialog = new AppContentDialog { Title = "Save new recovery code", Content = panel, PrimaryButtonText = "I've saved it", CloseButtonText = "Cancel", IsPrimaryButtonEnabled = false };
+        var dialog = new AppContentDialog { Title = "Save your Recovery Key", Content = panel, PrimaryButtonText = "I've saved it", CloseButtonText = "Cancel", IsPrimaryButtonEnabled = false };
         saved.Checked += (_, _) => dialog.IsPrimaryButtonEnabled = true;
         saved.Unchecked += (_, _) => dialog.IsPrimaryButtonEnabled = false;
         var confirmed = false;
@@ -682,10 +682,10 @@ public sealed partial class MainPage : Page
                     TextWrapping = TextWrapping.Wrap,
                     Text = "YourSafe cannot show or retrieve your Master Password.\n\n"
                         + "If you saved your Recovery Key, you can use it to create a new Master Password and set up a new Authenticator. Your saved vault items are kept.\n\n"
-                        + "You will also receive a replacement Recovery Key. Save it before finishing; you will then return to Login. Without your current Recovery Key, these credentials cannot be reset."
+                        + "You will also receive a replacement Recovery Key. Save it before finishing; you will then return to sign in. Without your current Recovery Key, your Master Password and Authenticator cannot be reset."
                 },
                 PrimaryButtonText = "Enter Recovery Key",
-                CloseButtonText = "Back to Login",
+                CloseButtonText = "Back to sign in",
                 DefaultButton = ContentDialogButton.Close
             };
             if (await App.Services.GetRequiredService<DialogLifetime>().ShowAsync(explanation, CancellationToken.None) != ContentDialogResult.Primary
@@ -806,11 +806,11 @@ public sealed partial class MainPage : Page
         CreateMasterPasswordPanel.Visibility = Visibility.Collapsed;
         SetupAuthenticatorPanel.Visibility = Visibility.Collapsed;
         UnlockPanel.Visibility = Visibility.Collapsed;
-        UnlockHeading.Text = ViewModel.IsSignedIn ? "Unlock Vault" : "Login";
+        UnlockHeading.Text = ViewModel.IsSignedIn ? "Unlock vault" : "Sign in";
         UnlockDescription.Text = ViewModel.IsSignedIn
             ? "Enter your Master Password to unlock the vault."
-            : "Enter your Master Password and Google Authenticator code to sign in.";
-        UnlockButton.Content = ViewModel.IsSignedIn ? "Unlock" : "Sign in";
+            : "Enter your Master Password and Authenticator code to sign in.";
+        UnlockButton.Content = ViewModel.IsSignedIn ? "Unlock vault" : "Sign in";
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(UnlockButton, ViewModel.IsSignedIn ? "Unlock vault" : "Sign in");
 
         if (!ViewModel.IsUnlocked)
@@ -1170,7 +1170,7 @@ public sealed partial class MainPage : Page
             panel.Children.Add(new TextBlock { Text = $"{item.RecoveryCodeCount} recovery codes saved" });
             panel.Children.Add(new TextBlock
             {
-                Text = "Use these recovery codes to regain access to this website or app account. To recover your YourSafe vault, use your YourSafe recovery code.",
+                Text = "Use these recovery codes to regain access to this website or app account. To reset your YourSafe Master Password and Authenticator, use your Recovery Key.",
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.7
             });
@@ -1194,7 +1194,7 @@ public sealed partial class MainPage : Page
             CloseTotpPanel();
             totpPanel = activeTotpPanel = new TotpPanel(id, item.Title, item.Username);
             panel.Children.Add(totpPanel);
-            View("Manage TOTP", () => ManageTotpAsync(id));
+            View("Manage verification code", () => ManageTotpAsync(id));
         }
         if (item.HasPassword) View("View password", () => ViewModel.RevealPasswordAsync(id));
         if (item.HasRecoveryCodes) View("View recovery codes", () => ViewModel.RevealRecoveryCodesAsync(id));
@@ -1224,7 +1224,7 @@ public sealed partial class MainPage : Page
                 var dialog = new AppContentDialog
                 {
                     Title = "Required fields",
-                    Content = "Enter a title, username, and a password, TOTP, or recovery codes. Enter a URL or check No URL.",
+                    Content = "Enter a title, username, and a password, verification code, or recovery codes. Enter a URL or check No URL.",
                     CloseButtonText = "OK"
                 };
                 await App.Services.GetRequiredService<DialogLifetime>().ShowAsync(dialog, CancellationToken.None);
