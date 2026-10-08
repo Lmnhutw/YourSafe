@@ -591,5 +591,51 @@ public sealed class RecoveryKeyAndDeadlineTests : IDisposable
         Assert.True(vault.TryUpdateSettings(Password, VaultLoginMode.Hybrid, new VaultSecuritySettings(1, 5, 30), out _));
     }
 
+    [Fact]
+    public void Create_opt_in_disposable_landing_vault()
+    {
+        var target = Environment.GetEnvironmentVariable("PASSWORDTOOL_LANDING_TEST_DIRECTORY");
+        if (string.IsNullOrEmpty(target)) return;
+        var storage = new VaultStorageService(target);
+        Assert.False(storage.HasConfig || storage.HasVault);
+        using var vault = new VaultService(storage, new EncryptionService(), totp);
+        const string secret = "JBSWY3DPEHPK3PXP"; // Public synthetic secret, never used by a real account.
+        vault.InitializeNewVault(Password, secret, totp.GetCurrentCode(secret).Code, RecoveryKeyService.Generate(), true);
+        var personal = vault.AddGroup("Personal", "#204BDB");
+        var work = vault.AddGroup("Work", "#336699");
+        var services = new[]
+        {
+            ("YouTube", "https://www.youtube.com", "video"),
+            ("Google", "https://accounts.google.com", "email"),
+            ("GitHub", "https://github.com", "development"),
+            ("Facebook", "https://www.facebook.com", "social"),
+            ("Netflix", "https://www.netflix.com", "streaming"),
+            ("Spotify", "https://www.spotify.com", "music"),
+            ("Microsoft", "https://login.microsoftonline.com", "work"),
+            ("Discord", "https://discord.com", "social")
+        };
+        foreach (var (title, url, tag) in services)
+        {
+            var item = new VaultItem
+            {
+                Title = title, Username = "alex.demo@example.test", Url = url,
+                Password = title == "Netflix" ? "demo123" : $"Demo-Only!{title}-2026#",
+                Notes = "Demo account for product screenshots. All credentials are fake.",
+                GroupId = title is "GitHub" or "Microsoft" ? work.Id : personal.Id,
+                Tags = [tag], IsFavorite = title is "Google" or "GitHub"
+            };
+            if (title is "Google" or "GitHub")
+            {
+                item.SetTotpConfiguration(new TotpConfiguration(secret, title, item.Username));
+                item.RecoveryCodes = ["DEMO-RECOVERY-0001", "DEMO-RECOVERY-0002"];
+            }
+            vault.AddItem(item);
+        }
+        Assert.Equal(services.Length, vault.GetItems().Count);
+        Assert.All(vault.GetItems(), item => Assert.Equal("alex.demo@example.test", item.Username));
+        Assert.True(storage.HasConfig && storage.HasVault);
+        Assert.True(vault.TryUpdateSettings(Password, VaultLoginMode.Hybrid, new VaultSecuritySettings(15, 5, 30), out _));
+    }
+
     public void Dispose() { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
 }

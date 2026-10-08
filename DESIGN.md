@@ -51,7 +51,7 @@ This system describes the static YourSafe download website only, not the WinUI a
 
 ## Colors
 
-Cobalt marks actions, the manual's contents panel and the final download section. Cool paper is the reading surface. Ink is the primary text; muted ink is used for supporting prose. A pale green neutral separates the historical application image from the surrounding sections.
+Cobalt marks actions, the manual's contents panel and the final download section. Cool paper is the reading surface. Ink is the primary text; muted ink is used for supporting prose. A pale green neutral groups feature workflows and separates the local-storage explanation from the surrounding sections.
 
 **The One Action Color Rule.** Cobalt leads action; the app logo retains its original colors.
 
@@ -61,7 +61,7 @@ Self-hosted Be Vietnam Pro uses regular and bold weights. The product name is th
 
 ## Layout
 
-Full-width section grounds contain generous inner gutters. The desktop cover, feature rows and introductory headings use two columns. Feature lists are divided by rules instead of cards. At 680px they stack; at 960px the image layout becomes more compact. Sequential installation instructions retain their numbered left rail on mobile.
+Full-width section grounds contain generous inner gutters. The desktop cover and introductory headings use two columns. Features use four asymmetrical groups: a large vault overview, account editing, local tools and a wide browser-extension workflow. Static images remain visible for visitors who do not change hero slides. At 680px they stack; at 960px feature groups use two columns. Sequential installation instructions retain their numbered left rail on mobile.
 
 **The Numbered Steps Rule.** Numbers belong to the installation sequence, not decorative section labels.
 
@@ -71,18 +71,18 @@ The interface is mostly flat. Only the real application image receives a soft, o
 
 ## Shapes
 
-The manual is rectangular. Small 4px corners soften buttons and the command sample. The actual eye logo is not redrawn or recolored.
+The cobalt showcase has 16px corners; product images have 12px corners on their own native rectangles. Full aspect ratio is preserved, including taller extension popups, without square crops or cover fitting. Small 4px corners soften buttons and the command sample. The actual eye logo is not redrawn or recolored.
 
 ## Components
 
 Buttons use clear action text with a small stroke SVG. Desktop navigation is inline; mobile navigation collapses only after JavaScript loads. Focus uses a 3px cobalt outline with a 5px offset, white on the cobalt CTA. Native details/summary provides the FAQ without JavaScript. The clipboard button appears only when the browser supports the secure Clipboard API and reports both success and failure.
 
-The cover enters with a slight vertical move and a restrained clip reveal of the manual panel. Feature rows move gently once when entering view. Content is never hidden waiting for JavaScript. Reduced motion disables animation, transitions and smooth scroll.
+The hero keeps the cobalt vault contents first, followed by Desktop and extension UI. It changes only on user input: labeled pagination, arrows, keyboard and horizontal touch swipes. Its 350ms fade and slight move respect reduced motion; stage height stays fixed. Without JavaScript all articles remain visible. Feature panels move gently once when entering view. Installation has three concise steps and a native disclosure for verification details. Local storage uses accessible SVG to show manual external backup. Content is never hidden waiting for JavaScript. Reduced motion disables animation, transitions and smooth scroll.
 
 ## Do's and Don'ts
 
 - Do keep download guidance factual and link to the repository's actual release list.
-- Do preserve the packaged logo and label the screenshot as a historical pre-rename capture.
+- Do preserve the packaged logo and identify Debug/demo captures and manual extension availability.
 - Do keep navigation, FAQ and download actions usable with JavaScript disabled.
 - Don't portray the manual panel as a screenshot or fabricate a current application UI.
 - Don't add ratings, security certifications, cloud features or signing claims without evidence.

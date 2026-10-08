@@ -1,6 +1,6 @@
 # YourSafe landing page
 
-Static Vietnamese landing page: HTML, CSS, JavaScript, local fonts and a captioned repository screenshot. No build step, framework, package installation or backend.
+Static Vietnamese landing page: HTML, CSS, JavaScript, local fonts and captioned product screenshots. No build step, framework, package installation or backend.
 
 ## Preview
 
@@ -10,7 +10,7 @@ Open `website/index.html` from the repository root (or `index.html` from this fo
 python -m http.server 4173 --bind 127.0.0.1 --directory website
 ```
 
-Open [the local preview](http://127.0.0.1:4173). Clipboard enhancement requires localhost or HTTPS; the visible command remains selectable everywhere. Navigation, FAQ, content and release links work without JavaScript.
+Open [the local preview](http://127.0.0.1:4173). Clipboard enhancement requires localhost or HTTPS; the visible command remains selectable everywhere. Navigation, FAQ, content and release links work without JavaScript. All three hero articles are visible without JavaScript; enhancement enables manual arrows, labeled pagination, arrow/Home/End keys and horizontal touch swipes. No autoplay. Reduced motion disables transitions; the enhanced stage keeps the same height across slides.
 
 ## Publish on GitHub Pages
 
@@ -27,9 +27,13 @@ Reference: [GitHub publishing-source documentation](https://docs.github.com/en/p
 
 ## Content and releases
 
-The public website and desktop use **YourSafe**; the desktop executable is `YourSafe.exe`, while repository/project names and `%LocalAppData%\PasswordTool` retain `PasswordTool`. The root [README](../README.md) and [release operations](../docs/release-operations.md) describe current behavior. Download buttons lead to the release list, without inventing a current version, available installer or signing status. The historical screenshot is explicitly labeled as predating the rename. Asset origins and font license are in [PROVENANCE.md](assets/PROVENANCE.md) and [OFL.txt](assets/OFL.txt).
+The public website and desktop use **YourSafe**; the desktop executable is `YourSafe.exe`, while repository/project names and `%LocalAppData%\PasswordTool` retain `PasswordTool`. The root [README](../README.md) and [release operations](../docs/release-operations.md) describe current behavior. Download buttons lead to the release list, without inventing a current version, available installer or signing status. Asset origins and font license are in [PROVENANCE.md](assets/PROVENANCE.md) and [OFL.txt](assets/OFL.txt).
 
-Before the next publication, update `index.html` feature copy: it still advertises website TOTP display and separate recovery-code entries. The current desktop hides website TOTP editing/display and lets a credential contain both a password and account recovery codes. The page also omits optional Chrome/Edge autofill. These content changes are pending; updating this README does not publish the site.
+Features include credentials with recovery codes, local password generation/review, encrypted external backup and optional Chrome/Edge/Brave extension password fill and TOTP viewing. Extension availability is clearly labeled as manual development installation; app-only `-test` packages omit registration. Screenshots use demo data. Extension captures run actual popup source with synthetic transport responses and do not prove live integration. Images keep full aspect ratio, corners rounded on their own edges, and full-size links. The older `unlock-migration.png` is retained but no longer displayed.
+
+Replacement screenshot requirements and filenames: [captures-inbox/README.md](assets/captures-inbox/README.md). Visible copy before and after: [CONTENT-CHANGES.md](CONTENT-CHANGES.md).
+
+Native Desktop images are now fresh `winapp ui screenshot` captures of an isolated Debug vault with YouTube, Google, GitHub, Facebook, Netflix, Spotify, Microsoft and Discord. Service URLs are real; all credential values are fake. The opt-in seed test is `Create_opt_in_disposable_landing_vault` (`PASSWORDTOOL_LANDING_TEST_DIRECTORY`); Debug must launch with the same directory as `PASSWORDTOOL_UI_TEST_DIRECTORY`. `scripts/Capture-WebsiteDesktop.ps1` verifies the Debug marker before sign-in/navigation/capture. The inbox records which images are native captures, which extension images use synthetic transport, and the remaining real-browser context image.
 
 ## Verification
 
