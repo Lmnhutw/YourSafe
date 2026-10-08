@@ -28,6 +28,12 @@ public interface IFilePickerService
 public interface ISensitiveClipboardService
 {
     Task CopyAsync(string value, CancellationToken cancellationToken = default);
+    Task CopyAsync(string value, Func<bool> canCopy, CancellationToken cancellationToken = default, bool clearAutomatically = true)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!canCopy()) throw new OperationCanceledException();
+        return CopyAsync(value, cancellationToken);
+    }
     Task ClearOwnedValueAsync(CancellationToken cancellationToken = default);
 }
 

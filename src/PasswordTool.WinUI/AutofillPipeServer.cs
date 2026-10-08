@@ -41,17 +41,23 @@ internal sealed class AutofillPipeServer
                 {
                     var request = WireProtocol.ParseRequest(bytes);
                     var version = flow.LifecycleVersion;
-                    var response = await DispatchAsync(request, timeout.Token).ConfigureAwait(false);
-                    responseBytes = JsonSerializer.SerializeToUtf8Bytes(response, WireProtocol.Json);
-                    if (request.Action is "findCredentials" or "getCredentialSecret" && !flow.IsCurrentUnlock(version))
+                    using var requestLifetime = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token);
+                    var disconnect = CancelOnDisconnectAsync(pipe, requestLifetime);
+                    try
                     {
-                        CryptographicOperations.ZeroMemory(responseBytes);
-                        response = WireProtocol.Failure(request.RequestId, "locked");
+                        var response = await DispatchAsync(request, requestLifetime.Token).ConfigureAwait(false);
+                        var protectedAction = request.Action is "findCredentials" or "getCredentialSecret" or "getCredentialTotp" or "copyCredentialTotp";
+                        if (protectedAction && !flow.IsCurrentNormalUnlock(version))
+                            response = WireProtocol.Failure(request.RequestId, "locked");
                         responseBytes = JsonSerializer.SerializeToUtf8Bytes(response, WireProtocol.Json);
+                        await Framing.WriteAsync(pipe, responseBytes, requestLifetime.Token,
+                            () => !response.Ok || !protectedAction || flow.IsCurrentNormalUnlock(version)).ConfigureAwait(false);
                     }
-                    var needsUnlock = response.Ok && request.Action is "findCredentials" or "getCredentialSecret";
-                    await Framing.WriteAsync(pipe, responseBytes, timeout.Token,
-                        () => !needsUnlock || flow.IsCurrentUnlock(version)).ConfigureAwait(false);
+                    finally
+                    {
+                        requestLifetime.Cancel();
+                        await disconnect.ConfigureAwait(false);
+                    }
                 }
                 finally
                 {
@@ -75,19 +81,43 @@ internal sealed class AutofillPipeServer
             return request.Action switch
             {
                 "ping" => WireProtocol.Success(request.RequestId, new PingResult("YourSafe")),
-                "getStatus" => WireProtocol.Success(request.RequestId, new StatusResult(flow.IsCurrentUnlock(flow.LifecycleVersion))),
+                "getStatus" => WireProtocol.Success(request.RequestId, new StatusResult(flow.IsCurrentNormalUnlock(flow.LifecycleVersion))),
                 "findCredentials" => WireProtocol.DiscoverySuccess(request.RequestId,
                     await flow.FindAutofillCredentialsAsync(request.Payload.Origin!, cancellationToken).ConfigureAwait(false)),
                 "getCredentialSecret" => WireProtocol.Success(request.RequestId,
                     await flow.GetAutofillCredentialSecretAsync(request.Payload.Origin!, request.Payload.CredentialId!.Value, cancellationToken).ConfigureAwait(false)),
+                "getCredentialTotp" => WireProtocol.Success(request.RequestId,
+                    ToWireTotp(await flow.GetAutofillCredentialTotpAsync(request.Payload.Origin!, request.Payload.CredentialId!.Value, cancellationToken).ConfigureAwait(false))),
+                "copyCredentialTotp" => await CopyTotpAsync(request, cancellationToken).ConfigureAwait(false),
                 "showApp" => WireProtocol.Success(request.RequestId, new ShowAppResult(await ShowAppAsync().WaitAsync(cancellationToken).ConfigureAwait(false))),
                 _ => WireProtocol.Failure(request.RequestId, "invalidRequest")
             };
         }
-        catch (Exception error) when (error is OperationCanceledException or InvalidOperationException or UnauthorizedAccessException or ArgumentException)
+        catch (Exception error) when (error is OperationCanceledException or InvalidOperationException or UnauthorizedAccessException or ArgumentException
+            or System.Runtime.InteropServices.COMException)
         {
-            return WireProtocol.Failure(request.RequestId, flow.IsCurrentUnlock(flow.LifecycleVersion) ? "unavailable" : "locked");
+            return WireProtocol.Failure(request.RequestId, flow.IsCurrentNormalUnlock(flow.LifecycleVersion) ? "unavailable" : "locked");
         }
+    }
+
+    private async Task<AutofillResponse> CopyTotpAsync(AutofillRequest request, CancellationToken cancellationToken)
+    {
+        await flow.CopyAutofillCredentialTotpAsync(request.Payload.Origin!, request.Payload.CredentialId!.Value, cancellationToken).ConfigureAwait(false);
+        return WireProtocol.Success(request.RequestId, new CopyTotpResult(true));
+    }
+
+    private static CredentialTotp ToWireTotp(PasswordTool.Core.Models.TotpCodeResult result) =>
+        new(result.Code, result.PeriodSeconds, result.ExpiresAtUtc.ToUnixTimeMilliseconds());
+
+    private static async Task CancelOnDisconnectAsync(Stream pipe, CancellationTokenSource lifetime)
+    {
+        try
+        {
+            // This pipe accepts one request. EOF or an unexpected second frame invalidates the pending operation.
+            await pipe.ReadAsync(new byte[1], lifetime.Token).ConfigureAwait(false);
+        }
+        catch (Exception error) when (error is IOException or OperationCanceledException or ObjectDisposedException) { }
+        finally { lifetime.Cancel(); }
     }
 
     private static Task<bool> ShowAppAsync()

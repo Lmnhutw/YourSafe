@@ -23,7 +23,7 @@ public sealed partial class MainPage : Page
     private readonly PasswordGeneratorDialogService passwordGeneratorDialog = App.Services.GetRequiredService<PasswordGeneratorDialogService>();
     private int lifecycleLockInProgress;
     private Guid? editingItemId;
-    private string preservedTotpSecret = string.Empty;
+    private TotpConfiguration? draftTotp;
     private AuthenticatorSetup? settingsAuthenticatorSetup;
     private bool recoveryWizardInProgress;
     private bool setupCompletionInProgress;
@@ -48,7 +48,8 @@ public sealed partial class MainPage : Page
                 if (Interlocked.Exchange(ref lifecycleLockInProgress, 1) != 0) return;
                 try
                 {
-                    preservingEditorDuringTimeoutUnlock = ViewModel.CurrentRoute == AppRoute.ItemEditor;
+                    preservingEditorDuringTimeoutUnlock = ViewModel.CurrentRoute == AppRoute.ItemEditor
+                        && draftTotp is null && editorBaseline?.TotpConfiguration is null;
                     await ViewModel.LockTableAsync(preserveCurrentRoute: preservingEditorDuringTimeoutUnlock);
                     if (preservingEditorDuringTimeoutUnlock && ViewModel.IsTableLocked)
                         await ViewModel.UnlockTableAsync();
@@ -92,6 +93,8 @@ public sealed partial class MainPage : Page
             appearance.Changed -= Appearance_Changed;
             systemLockMonitor.Stop();
             signInTimer.Stop();
+            CloseTotpPanel();
+            ClearEditor();
         };
     }
 
@@ -140,7 +143,7 @@ public sealed partial class MainPage : Page
             var child = VisualTreeHelper.GetChild(parent, i);
             if (child is Button button)
             {
-                button.Style = (Style)Resources["VaultRowIconButtonStyle"];
+                if (button.Content is IconElement) button.Style = (Style)Resources["VaultRowIconButtonStyle"];
                 continue;
             }
 
@@ -787,6 +790,7 @@ public sealed partial class MainPage : Page
     private void ApplyShellState()
     {
         UpdateVaultLockButton();
+        if (ViewModel.FlowState != AppFlowState.Unlocked) CloseTotpPanel();
         if (ViewModel.IsTableLocked)
         {
             if (!preservingEditorDuringTimeoutUnlock) ClearEditor();
@@ -898,6 +902,7 @@ public sealed partial class MainPage : Page
 
     private void ApplyRoute(AppRoute route)
     {
+        if (route != AppRoute.Vault) CloseTotpPanel();
         WorkspaceContent.MaxWidth = double.PositiveInfinity;
         updatingNavigation = true;
         try
@@ -1077,7 +1082,8 @@ public sealed partial class MainPage : Page
         EditorUsername.Text = item.Username;
         EditorPassword.Password = item.Password;
         EditorRecoveryCodes.Text = string.Join(Environment.NewLine, item.RecoveryCodes);
-        preservedTotpSecret = item.TotpSecretBase32;
+        draftTotp = item.GetTotpConfiguration();
+        UpdateTotpEditorStatus();
         EditorUrl.Text = item.Url;
         EditorNoUrl.IsChecked = string.IsNullOrWhiteSpace(item.Url);
         EditorUrl.IsEnabled = EditorNoUrl.IsChecked != true;
@@ -1134,19 +1140,73 @@ public sealed partial class MainPage : Page
         var item = ViewModel.Vault.Items.FirstOrDefault(item => item.Id == id);
         if (item is null || !ViewModel.IsCurrentUnlock(version)) return;
         var panel = new StackPanel { Spacing = 12 };
-        panel.Children.Add(new TextBlock { Text = $"Title: {item.Title}\nUsername: {item.Username}\nURL: {item.Url}\nUpdated: {item.UpdatedDisplay}", TextWrapping = TextWrapping.Wrap });
-        panel.Children.Add(new TextBlock { Text = "Recovery codes belong to the external account. They do not reset YourSafe.", TextWrapping = TextWrapping.Wrap });
-        var dialog = new AppContentDialog { Title = "View details", Content = panel, CloseButtonText = "Close" };
-        void Reveal(string label, Func<Task> action)
+        var details = new Grid { ColumnSpacing = 16, RowSpacing = 8 };
+        details.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        details.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        foreach (var (label, value) in new[]
         {
-            var reveal = new Button { Content = label };
-            reveal.Click += async (_, _) => { dialog.Hide(); await action(); };
-            panel.Children.Add(reveal);
+            ("Title", item.Title), ("Username", item.Username),
+            ("URL", item.Url), ("Updated", item.UpdatedDisplay)
+        })
+        {
+            var row = details.RowDefinitions.Count;
+            details.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            var heading = new TextBlock { Text = label, Opacity = 0.7 };
+            var text = new TextBlock
+            {
+                Text = string.IsNullOrWhiteSpace(value) ? "—" : value,
+                TextWrapping = TextWrapping.Wrap,
+                IsTextSelectionEnabled = true
+            };
+            Grid.SetRow(heading, row);
+            Grid.SetRow(text, row);
+            Grid.SetColumn(text, 1);
+            details.Children.Add(heading);
+            details.Children.Add(text);
         }
-        if (item.HasPassword) Reveal("Reveal password", () => ViewModel.RevealPasswordAsync(id));
-        if (item.HasRecoveryCodes) Reveal("Reveal account recovery codes", () => ViewModel.RevealRecoveryCodesAsync(id));
-        if (item.HasNotes) Reveal("View notes", () => ViewModel.RevealNotesAsync(id));
-        await App.Services.GetRequiredService<DialogLifetime>().ShowAsync(dialog, CancellationToken.None);
+        panel.Children.Add(details);
+        if (item.HasRecoveryCodes)
+        {
+            panel.Children.Add(new TextBlock { Text = $"{item.RecoveryCodeCount} recovery codes saved" });
+            panel.Children.Add(new TextBlock
+            {
+                Text = "Use these recovery codes to regain access to this website or app account. To recover your YourSafe vault, use your YourSafe recovery code.",
+                TextWrapping = TextWrapping.Wrap,
+                Opacity = 0.7
+            });
+        }
+        var dialog = new AppContentDialog
+        {
+            Title = "View details", Content = panel, CloseButtonText = "Close", CompactFooter = true,
+            DefaultButton = ContentDialogButton.Close
+        };
+        dialog.Resources["ContentDialogPadding"] = new Thickness(20, 16, 20, 16);
+        void View(string label, Func<Task> action)
+        {
+            var button = new Button { Content = label };
+            button.Click += async (_, _) => { dialog.Hide(); await action(); };
+            panel.Children.Add(button);
+        }
+        TotpPanel? totpPanel = null;
+        if (item.HasTotp)
+        {
+            if (!await EnsureTotpUnlockedAsync()) return;
+            CloseTotpPanel();
+            totpPanel = activeTotpPanel = new TotpPanel(id, item.Title, item.Username);
+            panel.Children.Add(totpPanel);
+            View("Manage TOTP", () => ManageTotpAsync(id));
+        }
+        if (item.HasPassword) View("View password", () => ViewModel.RevealPasswordAsync(id));
+        if (item.HasRecoveryCodes) View("View recovery codes", () => ViewModel.RevealRecoveryCodesAsync(id));
+        if (item.HasRecoveryCodes) View("Copy recovery codes", () => CopyRecoveryCodesAsync(id));
+        if (item.HasNotes) View("View notes", () => ViewModel.RevealNotesAsync(id));
+        try { await App.Services.GetRequiredService<DialogLifetime>().ShowAsync(dialog, CancellationToken.None); }
+        finally
+        {
+            totpPanel?.Dispose();
+            if (activeTotpPanel == totpPanel) activeTotpPanel = null;
+            panel.Children.Clear();
+        }
     }
 
     private async void SaveEditorButton_Click(object sender, RoutedEventArgs e)
@@ -1158,13 +1218,13 @@ public sealed partial class MainPage : Page
             var version = ViewModel.LifecycleVersion;
             if (!ViewModel.IsCurrentUnlock(version) || ViewModel.CurrentRoute != AppRoute.ItemEditor) return;
             if (string.IsNullOrWhiteSpace(EditorItemTitle.Text) || string.IsNullOrWhiteSpace(EditorUsername.Text)
-                || string.IsNullOrWhiteSpace(EditorPassword.Password)
+                || string.IsNullOrWhiteSpace(EditorPassword.Password) && draftTotp is null && string.IsNullOrWhiteSpace(EditorRecoveryCodes.Text)
                 || EditorNoUrl.IsChecked != true && string.IsNullOrWhiteSpace(EditorUrl.Text))
             {
                 var dialog = new AppContentDialog
                 {
                     Title = "Required fields",
-                    Content = "Enter a title, username, password, and URL, or check No URL.",
+                    Content = "Enter a title, username, and a password, TOTP, or recovery codes. Enter a URL or check No URL.",
                     CloseButtonText = "OK"
                 };
                 await App.Services.GetRequiredService<DialogLifetime>().ShowAsync(dialog, CancellationToken.None);
@@ -1197,9 +1257,9 @@ public sealed partial class MainPage : Page
 
     private VaultItemEditorInput ReadEditorInput() => new(
         editingItemId, EditorItemTitle.Text, EditorUsername.Text, EditorPassword.Password,
-        EditorRecoveryCodes.Text, preservedTotpSecret, EditorUrl.Text, EditorNotes.Text,
+        EditorRecoveryCodes.Text, string.Empty, EditorUrl.Text, EditorNotes.Text,
         (EditorGroup.SelectedItem as VaultGroupOption)?.GroupId, EditorTags.Text,
-        EditorFavorite.IsChecked == true, EditorHideUrl.IsChecked == true, EditorHideNotes.IsChecked == true);
+        EditorFavorite.IsChecked == true, EditorHideUrl.IsChecked == true, EditorHideNotes.IsChecked == true, draftTotp);
 
     private async Task<bool> CanLeaveEditorAsync()
     {
@@ -1227,7 +1287,8 @@ public sealed partial class MainPage : Page
     {
         editorBaseline = null;
         editingItemId = null;
-        preservedTotpSecret = string.Empty;
+        draftTotp = null;
+        UpdateTotpEditorStatus();
         EditorTitle.Text = "Add item";
         EditorItemTitle.Text = string.Empty;
         EditorUsername.Text = string.Empty;

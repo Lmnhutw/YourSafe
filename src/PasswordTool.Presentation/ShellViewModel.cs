@@ -112,6 +112,7 @@ public sealed partial class ShellViewModel : ObservableObject
     }
     public long LifecycleVersion => flow.LifecycleVersion;
     public bool IsCurrentUnlock(long version) => flow.IsCurrentUnlock(version) && IsUnlocked;
+    public bool IsCurrentNormalUnlock(long version) => flow.IsCurrentNormalUnlock(version);
     public bool HasPartialStorage => flow.HasPartialStorage;
     public bool IsVaultRoute => CurrentRoute == AppRoute.Vault;
     public bool IsHashToolRoute => CurrentRoute == AppRoute.HashTool;

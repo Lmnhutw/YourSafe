@@ -15,7 +15,7 @@ YourSafe is the desktop product name; repository/project names and the vault dir
 | **Backup & recovery** | Creates and verifies encrypted external backups and can recover a vault on a new Windows installation. |
 | **Everyday organization** | Searches locally and organizes entries with favorites, groups displayed as tabs, and tags. |
 | **Password generation** | Generates cryptographically random passwords and readable passphrases with strength feedback. |
-| **Website TOTP compatibility** | Core supports stored website TOTP secrets; the current desktop UI hides website TOTP editing and code display while preserving existing secrets. |
+| **Website TOTP** | Add or edit TOTP in a credential draft, then Save item. View current codes from the vault's 2FA action, Details, or the browser popup while the desktop vault is unlocked. |
 | **Browser autofill** | Optional Chrome/Edge extension and local NativeHost fill a selected account on a matching HTTPS origin after popup consent. |
 | **Migration** | Reviews and imports common browser or password-manager CSV exports without overwriting matching accounts. |
 | **Safety lifecycle** | Keeps password history, a 30-day Trash, paired encrypted snapshots, timed vault lock, and a local weak/reused/old-password check. |
@@ -164,7 +164,7 @@ Core still maintains a one-day DPAPI-protected compatibility token with separate
 2. The vault must already be unlocked with both factors. The Master Password derives the KEK and unwraps the DEK; the Authenticator code verifies the sign-in session.
 3. PasswordTool uses the DEK to authenticate and decrypt the vault into the running process's session memory.
 4. The successful sign-in authorizes vault actions for at most five hours. Actions do not request another Authenticator code during that session.
-5. Only after that check does the UI display or explicitly copy the requested value. Copying exposes the value to the Windows clipboard temporarily; PasswordTool clears it after 30 seconds if it has not changed.
+5. Only after that check does the UI display or explicitly copy the requested value. Passwords and recovery codes use unchanged-value clipboard cleanup after 30 seconds. Copied credential TOTP remains until replaced.
 6. Locking or ending the session clears application-held key material where the runtime permits. The on-disk vault remains encrypted throughout.
 
 Possession of a current 6-digit code alone is insufficient to open a copied vault on another computer: the current desktop requires the Master Password as well. Legacy trusted tokens are tied to the original Windows user. TOTP does not protect against malware already controlling that same unlocked Windows account or reading the process while the vault is open.
@@ -184,11 +184,11 @@ Forgot Master Password verifies the Recovery Key, collects a new Master Password
 
 ### Vault use and backups
 
-- New credentials can contain a password, account recovery codes, or both. Recovery-code lists require at least two valid unique codes. Legacy `RecoveryCodes`-type entries remain supported and cannot contain password or website TOTP data.
-- Existing website TOTP secrets remain encrypted and are preserved when editing. Core supports code generation, but the current desktop UI hides this feature. The vault sign-in Authenticator remains available.
+- New credentials can contain a password, website TOTP, account recovery codes, or a combination. Recovery-code lists require at least two valid unique codes. Legacy `RecoveryCodes`-type entries remain supported and cannot contain password or website TOTP data.
+- Website TOTP configuration remains encrypted and supports SHA1/SHA256/SHA512, 6/8 digits, and custom periods. Older secrets default to SHA1/6 digits/30 seconds. Add/Edit/Remove changes stay in the editor draft until Save item; Cancel discards them. Live panels require an unlocked vault and stop on closure or lock. Copy regenerates the current code and leaves its numeric value in the clipboard until replaced, including after vault lock. The separate vault sign-in Authenticator remains unchanged.
 - Favorites, groups, tags, and local search help organize entries without a server or online account. Legacy folders migrate to groups.
 - URL and Notes may be hidden in the list; the encrypted stored value is unchanged and can be accessed only through the protected edit workflow.
-- General copy/cut shortcuts remain disabled in sensitive fields. Explicit sensitive copy actions clear an unchanged clipboard value after 30 seconds. Windows and other applications may read it first.
+- General copy/cut shortcuts remain disabled in sensitive fields. Explicit sensitive copy actions clear an unchanged clipboard value after 30 seconds, except copied credential TOTP, which remains until replaced. Windows and other applications may read it first.
 - Export uses a separate backup passphrase of at least 12 characters. The encrypted envelope contains vault entries, including any stored website TOTP secrets; it excludes the Master Password configuration, vault sign-in Authenticator secret, and trusted token.
 - The **Backup & Recovery Center** records the last successful external backup and authenticated verification time and warns when no external backup is recorded or the latest is older than 30 days.
 - On a new PC, choose **Recover from encrypted backup**, enter the backup passphrase, review safe item counts, then create a new Master Password and Authenticator. Recovery preserves supported item data but deliberately creates a fresh Argon2id salt, trusted token, and application Authenticator secret.
@@ -210,7 +210,7 @@ PasswordTool protects data at rest and requires a local second factor to open th
 | Every new vault uses an independent random DEK and KDF salt; cryptographic key buffers are cleared when sessions end where the runtime permits. | Loss of all credentials, Recovery Key, and usable backups; there is no server or cloud copy. |
 | Initial sign-in requires the Master Password and a valid six-digit Authenticator code; re-unlock within that session requires the Master Password. | Malware or another process already acting as the same Windows user; TOTP does not protect an already-unlocked session. |
 | The in-memory sign-in session authorizes vault actions for up to five hours. | A weak Master Password or an unlocked device left accessible to another person. |
-| Sensitive clipboard values are cleared after 30 seconds when unchanged. | Another process reading the clipboard, clipboard history, remote-control software, or malware. |
+| Passwords, recovery codes, and other sensitive clipboard values are cleared after 30 seconds when unchanged; copied credential TOTP remains until replaced. | Another process reading the clipboard, clipboard history, remote-control software, or malware. |
 
 Keep Windows patched, use a strong unique Master Password, lock the PC when away, protect the authenticator and backup passphrase separately, and keep encrypted backups in a location you control. Hidden/System file attributes are only concealment; encryption and Windows account security are the actual boundaries.
 

@@ -5,9 +5,20 @@ namespace PasswordTool_WinUI;
 
 internal sealed class AppContentDialog : ContentDialog
 {
+    public bool CompactFooter { get; init; }
+
     protected override void OnApplyTemplate()
     {
         base.OnApplyTemplate();
+        if (CompactFooter && GetTemplateChild("CommandSpace") is Grid footer)
+        {
+            footer.Padding = new Thickness(20, 10, 20, 10);
+            if (GetTemplateChild("CloseButton") is Button close)
+            {
+                close.HorizontalAlignment = HorizontalAlignment.Right;
+                close.MinWidth = 96;
+            }
+        }
         if (string.IsNullOrEmpty(PrimaryButtonText) || string.IsNullOrEmpty(CloseButtonText)
             || GetTemplateChild("CommandSpace") is not Grid commands) return;
 

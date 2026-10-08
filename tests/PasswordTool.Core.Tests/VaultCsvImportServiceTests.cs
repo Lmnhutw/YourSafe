@@ -49,4 +49,18 @@ public sealed class VaultCsvImportServiceTests
     {
         Assert.Throws<InvalidDataException>(() => new VaultCsvImportService().Parse("name,password\n\"broken,password"));
     }
+
+    [Fact]
+    public void Csv_preserves_uri_parameters_and_totp_only_credentials_and_duplicate_comparison()
+    {
+        var service = new VaultCsvImportService();
+        var item = Assert.Single(service.Parse("title,totp\nExample,otpauth://totp/Example%3Auser?secret=JBSWY3DPEHPK3PXP&issuer=Example&algorithm=SHA256&digits=8&period=60"));
+        Assert.Empty(item.Password);
+        Assert.Equal(new TotpConfiguration("JBSWY3DPEHPK3PXP", "Example", "user", TotpAlgorithm.Sha256, 8, 60), item.GetTotpConfiguration());
+        var same = new VaultItem { Title = item.Title };
+        same.SetTotpConfiguration(item.GetTotpConfiguration());
+        Assert.Equal(1, service.CreateImportPlan([item], [same]).DuplicateCount);
+        same.TotpPeriod = 30;
+        Assert.Equal(1, service.CreateImportPlan([item], [same]).NewItemCount);
+    }
 }

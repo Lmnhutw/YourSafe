@@ -307,18 +307,18 @@
                                                 <ColumnDefinition Width="1.2*" />
                                                 <ColumnDefinition Width="1.2*" />
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock FontWeight="SemiBold" Text="Actions" />
-                                            <TextBlock Grid.Column="1" FontWeight="SemiBold" Text="Title" />
-                                            <TextBlock Grid.Column="2" FontWeight="SemiBold" Text="Username" />
-                                            <TextBlock Grid.Column="3" FontWeight="SemiBold" Text="Password" />
-                                            <TextBlock Grid.Column="4" FontWeight="SemiBold" Text="Codes" />
-                                            <TextBlock Grid.Column="5" FontWeight="SemiBold" Text="Notes" />
-                                            <TextBlock Grid.Column="6" FontWeight="SemiBold" Text="Updated" />
+                                            <TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" Text="Actions" />
+                                            <TextBlock Grid.Column="1" HorizontalAlignment="Center" FontWeight="SemiBold" Text="Title" />
+                                            <TextBlock Grid.Column="2" HorizontalAlignment="Center" FontWeight="SemiBold" Text="Username" />
+                                            <TextBlock Grid.Column="3" HorizontalAlignment="Center" FontWeight="SemiBold" Text="Password" />
+                                            <TextBlock Grid.Column="4" HorizontalAlignment="Center" FontWeight="SemiBold" Text="2FA" />
+                                            <TextBlock Grid.Column="5" HorizontalAlignment="Center" FontWeight="SemiBold" Text="Notes" />
+                                            <TextBlock Grid.Column="6" HorizontalAlignment="Center" FontWeight="SemiBold" Text="Updated" />
                                         </Grid>
                                         <ListView x:Name="CredentialList" Grid.Row="1" Margin="0,0,0,4" AutomationProperties.Name="Vault items" ItemContainerStyle="{StaticResource VaultDataRowContainerStyle}" ItemsSource="{x:Bind ViewModel.Vault.Items, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.Vault.SelectedItem, Mode=TwoWay}" SelectionMode="Single" DoubleTapped="VaultItems_DoubleTapped" KeyDown="VaultItems_KeyDown">
                                             <ListView.ItemTemplate>
                                                     <DataTemplate x:DataType="presentation:VaultItemListItem">
-                                    <Grid Loaded="VaultRow_Loaded" Padding="12,10" AutomationProperties.Name="{x:Bind Title}" ColumnSpacing="20">
+                                    <Grid Loaded="VaultRow_Loaded" Padding="12,6" AutomationProperties.Name="{x:Bind Title}" ColumnSpacing="20">
                                         <Grid.Resources>
                                             <Style BasedOn="{StaticResource VaultRowIconButtonStyle}" TargetType="Button" />
                                             <Style BasedOn="{StaticResource VaultRowSymbolStyle}" TargetType="FontIcon" />
@@ -362,20 +362,21 @@
                                         <Button Grid.Column="1" AutomationProperties.AutomationId="{x:Bind local:MainPage.ItemAutomationId('ViewPassword', Id)}" AutomationProperties.Name="View password" Padding="0" Tag="{x:Bind Id}" Click="RevealPasswordRowButton_Click" Visibility="{x:Bind local:MainPage.BoolToVisibility(HasPassword), Mode=OneTime}"><FontIcon Glyph="&#xE890;" /></Button>
                                         <Button Grid.Column="2" AutomationProperties.AutomationId="{x:Bind local:MainPage.ItemAutomationId('CopyPassword', Id)}" AutomationProperties.Name="Copy password" Padding="0" Tag="{x:Bind Id}" Click="CopyPasswordRowButton_Click" Visibility="{x:Bind local:MainPage.BoolToVisibility(HasPassword), Mode=OneTime}"><FontIcon Glyph="&#xE8C8;" /></Button>
                                     </Grid>
-                                    <Grid Grid.Column="4" ColumnSpacing="4" VerticalAlignment="Center">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock VerticalAlignment="Center" Text="{x:Bind RecoveryCodesDisplay}" />
-                                        <Button Grid.Column="1" AutomationProperties.AutomationId="{x:Bind local:MainPage.ItemAutomationId('ViewRecoveryCodes', Id)}" AutomationProperties.Name="View recovery codes" Padding="0" Tag="{x:Bind Id}" Click="RevealRecoveryCodesRowButton_Click" Visibility="{x:Bind local:MainPage.BoolToVisibility(HasRecoveryCodes), Mode=OneTime}"><FontIcon Glyph="&#xE890;" /></Button>
+                                    <Grid Grid.Column="4" VerticalAlignment="Center">
+                                        <TextBlock VerticalAlignment="Center" Text="—" Visibility="{x:Bind local:MainPage.InvertBoolToVisibility(HasTotp), Mode=OneTime}" />
+                                        <Button Style="{StaticResource VaultRowIconButtonStyle}" HorizontalAlignment="Left" AutomationProperties.AutomationId="{x:Bind local:MainPage.ItemAutomationId('ViewTotp', Id)}" AutomationProperties.Name="View verification code" ToolTipService.ToolTip="TOTP enabled" Tag="{x:Bind Id}" Click="ViewTotpRowButton_Click" Visibility="{x:Bind local:MainPage.BoolToVisibility(HasTotp), Mode=OneTime}">
+                                            <!-- Microsoft Fluent System Icons: Clock20Regular. See Assets/Icons/NOTICE.md. -->
+                                            <Viewbox Width="14" Height="14">
+                                                <PathIcon Width="20" Height="20" Data="M10 2C14.4183 2 18 5.58172 18 10C18 14.4183 14.4183 18 10 18C5.58172 18 2 14.4183 2 10C2 5.58172 5.58172 2 10 2ZM10 3C6.13401 3 3 6.13401 3 10C3 13.866 6.13401 17 10 17C13.866 17 17 13.866 17 10C17 6.13401 13.866 3 10 3ZM9.5 5C9.74546 5 9.94961 5.17688 9.99194 5.41012L10 5.5V10H12.5C12.7761 10 13 10.2239 13 10.5C13 10.7455 12.8231 10.9496 12.5899 10.9919L12.5 11H9.5C9.25454 11 9.05039 10.8231 9.00806 10.5899L9 10.5V5.5C9 5.22386 9.22386 5 9.5 5Z" />
+                                            </Viewbox>
+                                        </Button>
                                     </Grid>
                                     <Grid Grid.Column="5" VerticalAlignment="Center" ColumnSpacing="4">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="32" /></Grid.ColumnDefinitions>
                                         <TextBlock VerticalAlignment="Center" Text="{x:Bind Notes}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
                                         <Button Grid.Column="1" AutomationProperties.AutomationId="{x:Bind local:MainPage.ItemAutomationId('ViewNotes', Id)}" AutomationProperties.Name="View notes" Click="RevealNotesRowButton_Click" Padding="0" Tag="{x:Bind Id}" ToolTipService.ToolTip="View notes" Visibility="{x:Bind local:MainPage.BoolToVisibility(HasNotes), Mode=OneTime}"><FontIcon Glyph="&#xE890;" /></Button>
                                     </Grid>
-                                    <Border Grid.ColumnSpan="7" Height="1" Margin="-12,0,-12,-10" VerticalAlignment="Bottom" Background="{ThemeResource PasswordToolDividerBrush}" IsHitTestVisible="False" Visibility="{x:Bind local:MainPage.InvertBoolToVisibility(IsLastInGroup), Mode=OneTime}" />
+                                    <Border Grid.ColumnSpan="7" Height="1" Margin="-12,0,-12,-6" VerticalAlignment="Bottom" Background="{ThemeResource PasswordToolDividerBrush}" IsHitTestVisible="False" Visibility="{x:Bind local:MainPage.InvertBoolToVisibility(IsLastInGroup), Mode=OneTime}" />
                                     <TextBlock Grid.Column="6" VerticalAlignment="Center" Text="{x:Bind UpdatedDisplay}" TextTrimming="CharacterEllipsis" />
                                     </Grid>
                                                     </DataTemplate>
@@ -525,9 +526,18 @@
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <PasswordBox x:Name="EditorPassword" AutomationProperties.AutomationId="TxtEditorPassword" AutomationProperties.Name="Password (required)" Header="Password (required)" />
+                                        <PasswordBox x:Name="EditorPassword" AutomationProperties.AutomationId="TxtEditorPassword" AutomationProperties.Name="Password" Header="Password" />
                                         <Button Grid.Column="1" VerticalAlignment="Bottom" AutomationProperties.AutomationId="BtnGeneratePassword" AutomationProperties.Name="Generate a password or passphrase" Click="GeneratePasswordButton_Click" Content="Generate" />
                                     </Grid>
+                                    <StackPanel x:Name="EditorTotpSection" Spacing="8">
+                                        <TextBlock Text="TOTP verification codes" FontWeight="SemiBold" />
+                                        <TextBlock x:Name="EditorTotpStatus" Text="No TOTP configured" TextWrapping="Wrap" />
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <Button x:Name="EditorTotpButton" AutomationProperties.AutomationId="BtnEditorTotp" Click="EditTotpButton_Click" Content="Add TOTP" />
+                                            <Button x:Name="EditorRemoveTotpButton" AutomationProperties.AutomationId="BtnRemoveTotp" Click="RemoveTotpButton_Click" Content="Remove" Visibility="Collapsed" />
+                                        </StackPanel>
+                                        <TextBlock Text="Changes are saved with Save item." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
                                     <TextBox x:Name="EditorRecoveryCodes" AutomationProperties.AutomationId="TxtEditorRecoveryCodes" AcceptsReturn="True" AutomationProperties.Name="Recovery codes" ContextMenuOpening="SensitiveTextBox_ContextMenuOpening" Header="Recovery codes, one per line" Height="140" Tag="SensitiveInput" TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>

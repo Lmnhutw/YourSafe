@@ -16,9 +16,31 @@ public sealed class VaultItem
 
     public List<PasswordHistoryEntry> PasswordHistory { get; set; } = [];
 
-    // TODO: TOTP support is intentionally hidden from the UI for now.
-    // Review later whether PasswordTool should expose built-in authenticator/TOTP functionality.
     public string TotpSecretBase32 { get; set; } = string.Empty;
+
+    public string TotpIssuer { get; set; } = string.Empty;
+
+    public string TotpAccountName { get; set; } = string.Empty;
+
+    public TotpAlgorithm TotpAlgorithm { get; set; } = TotpAlgorithm.Sha1;
+
+    public int TotpDigits { get; set; } = 6;
+
+    public int TotpPeriod { get; set; } = 30;
+
+    public TotpConfiguration? GetTotpConfiguration() => string.IsNullOrWhiteSpace(TotpSecretBase32)
+        ? null
+        : new(TotpSecretBase32, TotpIssuer, TotpAccountName, TotpAlgorithm, TotpDigits, TotpPeriod);
+
+    public void SetTotpConfiguration(TotpConfiguration? configuration)
+    {
+        TotpSecretBase32 = configuration?.Secret ?? string.Empty;
+        TotpIssuer = configuration?.Issuer ?? string.Empty;
+        TotpAccountName = configuration?.AccountName ?? string.Empty;
+        TotpAlgorithm = configuration?.Algorithm ?? TotpAlgorithm.Sha1;
+        TotpDigits = configuration?.Digits ?? 6;
+        TotpPeriod = configuration?.Period ?? 30;
+    }
 
     public List<string> RecoveryCodes { get; set; } = [];
 

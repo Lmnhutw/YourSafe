@@ -207,9 +207,10 @@ public sealed class VaultBackupService
             if (item.Type == VaultItemType.Password)
             {
                 ValidateLength(item.Password, MaxPasswordLength, "password");
-                if (string.IsNullOrWhiteSpace(item.Password) && item.RecoveryCodes.Count < 2)
+                if (string.IsNullOrWhiteSpace(item.Password) && item.RecoveryCodes.Count < 2
+                    && string.IsNullOrWhiteSpace(item.TotpSecretBase32))
                 {
-                    throw new InvalidDataException($"Item '{item.Title}' requires a password or at least two recovery codes.");
+                    throw new InvalidDataException($"Item '{item.Title}' requires a password, TOTP configuration, or at least two recovery codes.");
                 }
                 if (item.PasswordHistory.Count > MaxPasswordHistoryEntries
                     || item.PasswordHistory.Any(entry => entry is null || string.IsNullOrEmpty(entry.Password)
@@ -223,10 +224,13 @@ public sealed class VaultBackupService
                     throw new InvalidDataException($"Item '{item.Title}' contains password metadata without a password.");
                 }
 
-                if (!string.IsNullOrEmpty(item.TotpSecretBase32)
-                    && !TotpService.TryNormalizeWebsiteSecret(item.TotpSecretBase32, out _))
+                if (!string.IsNullOrEmpty(item.TotpSecretBase32))
                 {
-                    throw new InvalidDataException($"Password item '{item.Title}' contains an invalid TOTP secret.");
+                    try { _ = TotpService.NormalizeConfiguration(item.GetTotpConfiguration()!); }
+                    catch (Exception ex) when (ex is ArgumentException or FormatException)
+                    {
+                        throw new InvalidDataException("A backup item contains an invalid TOTP configuration.");
+                    }
                 }
                 ValidateRecoveryCodes(item);
             }
@@ -335,6 +339,7 @@ public sealed class VaultBackupService
             && left.PasswordHistory.Zip(right.PasswordHistory).All(pair =>
                 pair.First.Password == pair.Second.Password && pair.First.ChangedAt == pair.Second.ChangedAt)
             && left.TotpSecretBase32 == right.TotpSecretBase32
+            && left.GetTotpConfiguration() == right.GetTotpConfiguration()
             && left.Url == right.Url
             && left.HideUrl == right.HideUrl
             && left.Notes == right.Notes
@@ -365,6 +370,11 @@ public sealed class VaultBackupService
                 ChangedAt = entry.ChangedAt
             }).ToList(),
             TotpSecretBase32 = item.TotpSecretBase32,
+            TotpIssuer = item.TotpIssuer,
+            TotpAccountName = item.TotpAccountName,
+            TotpAlgorithm = item.TotpAlgorithm,
+            TotpDigits = item.TotpDigits,
+            TotpPeriod = item.TotpPeriod,
             RecoveryCodes = [.. item.RecoveryCodes],
             Url = item.Url,
             HideUrl = item.HideUrl,

@@ -11,6 +11,7 @@ public sealed class AppFlowCoordinator
     private readonly VaultService vaultService;
     private readonly IVaultOperationRunner operations;
     private readonly TotpService totpService;
+    private readonly ISensitiveClipboardService? clipboard;
     private readonly bool hasPartialStorage;
     private IReadOnlyList<VaultItemListItem> tableItems = [];
     private IReadOnlyList<VaultGroup> tableGroups = [];
@@ -19,11 +20,13 @@ public sealed class AppFlowCoordinator
     private SettingsSnapshot tableSettings = new(VaultSecuritySettings.DefaultVaultOpenDurationMinutes, false, null, null);
     public Func<CancellationToken, Task<string?>>? RequestActionPasswordAsync { get; set; }
 
-    public AppFlowCoordinator(VaultService vaultService, IVaultOperationRunner operations, TotpService totpService)
+    public AppFlowCoordinator(VaultService vaultService, IVaultOperationRunner operations, TotpService totpService,
+        ISensitiveClipboardService? clipboard = null)
     {
         this.vaultService = vaultService;
         this.operations = operations;
         this.totpService = totpService;
+        this.clipboard = clipboard;
         hasPartialStorage = vaultService.HasPartialStorage;
         FlowState = vaultService.HasActiveVaultSession
             ? vaultService.NeedsRecoveryKey ? AppFlowState.SaveRecoveryKey : AppFlowState.Unlocked
@@ -122,6 +125,8 @@ public sealed class AppFlowCoordinator
     public long LifecycleVersion => Volatile.Read(ref lifecycleVersion);
     public bool IsCurrentUnlock(long version) => version == LifecycleVersion &&
         (FlowState == AppFlowState.Unlocked && vaultService.IsVaultUnlocked || FlowState == AppFlowState.TableLocked && IsSignedIn);
+    public bool IsCurrentNormalUnlock(long version) => version == LifecycleVersion
+        && FlowState == AppFlowState.Unlocked && vaultService.IsVaultUnlocked;
 
     public static AppFlowState ResolveInitialState(bool isInitialized, bool hasPartialStorage) =>
         hasPartialStorage ? AppFlowState.Recover : isInitialized ? AppFlowState.Unlock : AppFlowState.FirstLaunch;
@@ -319,22 +324,37 @@ public sealed class AppFlowCoordinator
     public Task<IReadOnlyList<CredentialMetadata>> FindAutofillCredentialsAsync(string origin, CancellationToken cancellationToken = default)
     {
         AutofillPolicy.RequireOrigin(origin);
-        return RunVaultAsync(() => (IReadOnlyList<CredentialMetadata>)vaultService.GetAutofillCredentials()
+        return RunUnlockedVaultAsync(() => (IReadOnlyList<CredentialMetadata>)vaultService.GetAutofillCredentials()
             .Where(item => AutofillPolicy.Matches(item, origin))
-            .Select(item => new CredentialMetadata(item.Id, item.Title, item.Username)).ToList(), cancellationToken, allowTableLocked: false);
+            .Select(item => new CredentialMetadata(item.Id, item.Title, item.Username, item.HasPassword, item.HasTotp)).ToList(), cancellationToken);
     }
 
     public Task<CredentialSecret> GetAutofillCredentialSecretAsync(string origin, Guid id, CancellationToken cancellationToken = default)
     {
         AutofillPolicy.RequireOrigin(origin);
-        return RunVaultAsync(() =>
+        return RunUnlockedVaultAsync(() =>
         {
-            var candidate = vaultService.GetAutofillCredentials().FirstOrDefault(item => item.Id == id && AutofillPolicy.Matches(item, origin))
+            var candidate = vaultService.GetAutofillCredentials().FirstOrDefault(item => item.Id == id && item.HasPassword && AutofillPolicy.Matches(item, origin))
                 ?? throw new UnauthorizedAccessException("The credential is unavailable for this origin.");
             var secret = vaultService.GetAutofillSecret(id, candidate.Url);
             return new CredentialSecret(secret.Username, secret.Password);
-        }, cancellationToken, allowTableLocked: false);
+        }, cancellationToken);
     }
+
+    public Task<TotpCodeResult> GetAutofillCredentialTotpAsync(string origin, Guid id, CancellationToken cancellationToken = default)
+    {
+        AutofillPolicy.RequireOrigin(origin);
+        if (id == Guid.Empty) throw new ArgumentException("A credential is required.", nameof(id));
+        return RunUnlockedVaultAsync(() =>
+        {
+            var candidate = vaultService.GetAutofillCredentials().FirstOrDefault(item => item.Id == id && item.HasTotp && AutofillPolicy.Matches(item, origin))
+                ?? throw new UnauthorizedAccessException("The credential is unavailable for this origin.");
+            return vaultService.GetAutofillTotp(id, candidate.Url);
+        }, cancellationToken);
+    }
+
+    public Task CopyAutofillCredentialTotpAsync(string origin, Guid id, CancellationToken cancellationToken = default) =>
+        CopyTotpAsync(() => GetAutofillCredentialTotpAsync(origin, id, cancellationToken), cancellationToken);
 
     public Task<IReadOnlyList<VaultGroup>> GetGroupsAsync(CancellationToken cancellationToken = default) =>
         FlowState == AppFlowState.TableLocked && IsSignedIn ? Task.FromResult(tableGroups) :
@@ -389,9 +409,34 @@ public sealed class AppFlowCoordinator
 
     public Task<TotpCodeResult> GetWebsiteTotpCodeAsync(
         Guid id,
+        CancellationToken cancellationToken = default) =>
+        RunUnlockedVaultAsync(() => vaultService.GetWebsiteTotpCode(id), cancellationToken);
+
+    public Task CopyWebsiteTotpAsync(Guid id, CancellationToken cancellationToken = default) =>
+        CopyTotpAsync(() => GetWebsiteTotpCodeAsync(id, cancellationToken), cancellationToken);
+
+    public Task<TotpCodeResult> GetWebsiteTotpCodeAsync(
+        Guid id,
         string totpCode,
         CancellationToken cancellationToken = default) =>
-        RunVaultAsync(() => vaultService.GetWebsiteTotpCode(id, totpCode), cancellationToken);
+        GetWebsiteTotpCodeAsync(id, cancellationToken);
+
+    private async Task CopyTotpAsync(Func<Task<TotpCodeResult>> getCode, CancellationToken cancellationToken)
+    {
+        var version = LifecycleVersion;
+        var target = clipboard ?? throw new InvalidOperationException("The clipboard is unavailable.");
+        var result = await getCode().ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsCurrentNormalUnlock(version)) throw new OperationCanceledException();
+        await target.CopyAsync(result.Code, () =>
+        {
+            var now = DateTimeOffset.UtcNow;
+            return IsCurrentNormalUnlock(version) && now < result.ExpiresAtUtc
+                && now >= result.ExpiresAtUtc.AddSeconds(-result.PeriodSeconds);
+        }, cancellationToken, clearAutomatically: false).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsCurrentNormalUnlock(version)) throw new OperationCanceledException();
+    }
 
     public Task<IReadOnlyList<PasswordHistoryEntry>> GetPasswordHistoryAsync(
         Guid id,
@@ -620,6 +665,30 @@ public sealed class AppFlowCoordinator
             throw new OperationCanceledException("The vault was locked or the sign-in session expired.");
         }
         if (!IsCurrentUnlock(version)) throw new OperationCanceledException("The vault was locked or the sign-in session expired.");
+        return result;
+    }
+
+    private async Task<T> RunUnlockedVaultAsync<T>(Func<T> operation, CancellationToken cancellationToken)
+    {
+        var version = LifecycleVersion;
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsCurrentNormalUnlock(version)) throw new OperationCanceledException("Unlock the vault on the desktop first.");
+        T result;
+        try
+        {
+            result = await operations.RunAsync(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!IsCurrentNormalUnlock(version)) throw new OperationCanceledException();
+                return operation();
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception) when (!IsCurrentNormalUnlock(version))
+        {
+            throw new OperationCanceledException("The vault was locked or the sign-in session expired.");
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsCurrentNormalUnlock(version)) throw new OperationCanceledException();
         return result;
     }
 

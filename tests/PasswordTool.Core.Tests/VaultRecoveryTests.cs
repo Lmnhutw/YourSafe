@@ -79,6 +79,7 @@ public sealed class VaultRecoveryTests : IDisposable
         Assert.Single(vault.GetPasswordHistory(item.Id, code));
         Assert.Equal(item.PasswordHistory[0].Password, vault.GetPasswordHistory(item.Id, code)[0].Password);
         Assert.Equal(item.TotpSecretBase32, restored.TotpSecretBase32);
+        Assert.Equal(item.GetTotpConfiguration(), restored.GetTotpConfiguration());
         var deleted = Assert.Single(vault.GetDeletedItems());
         Assert.Equal(recoveryCodes.Id, deleted.Id);
         Assert.Equal(recoveryCodes.DeletedAt, deleted.DeletedAt);
@@ -357,6 +358,11 @@ public sealed class VaultRecoveryTests : IDisposable
         Password = "current-password",
         PasswordHistory = [new PasswordHistoryEntry { Password = "previous-password", ChangedAt = now.AddMonths(-1) }],
         TotpSecretBase32 = "JBSWY3DPEHPK3PXP",
+        TotpIssuer = "Example",
+        TotpAccountName = "person@example.com",
+        TotpAlgorithm = TotpAlgorithm.Sha256,
+        TotpDigits = 8,
+        TotpPeriod = 60,
         Url = "https://example.com",
         HideUrl = true,
         Notes = "private note",

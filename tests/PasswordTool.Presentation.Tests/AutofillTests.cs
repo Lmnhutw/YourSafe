@@ -30,7 +30,17 @@ public sealed class AutofillTests
             if (valid) Assert.Equal(expected, origin);
         }
         Assert.Throws<JsonException>(() => WireProtocol.ParseRequest(Encoding.UTF8.GetBytes(
-            "{\"version\":1,\"version\":1,\"requestId\":\"12345678-1234-1234-1234-123456789abc\",\"action\":\"ping\",\"payload\":{}}")));
+            "{\"version\":2,\"version\":2,\"requestId\":\"12345678-1234-1234-1234-123456789abc\",\"action\":\"ping\",\"payload\":{}}")));
+        if (fixtures.RootElement.TryGetProperty("responses", out var responses))
+        {
+            foreach (var fixture in responses.EnumerateArray())
+            {
+                var request = WireProtocol.ParseRequest(Encoding.UTF8.GetBytes(fixture.GetProperty("request").GetRawText()));
+                var bytes = Encoding.UTF8.GetBytes(fixture.GetProperty("value").GetRawText());
+                if (fixture.GetProperty("valid").GetBoolean()) WireProtocol.ParseResponse(bytes, request);
+                else Assert.ThrowsAny<Exception>(() => WireProtocol.ParseResponse(bytes, request));
+            }
+        }
     }
 
     [Fact]
@@ -62,9 +72,9 @@ public sealed class AutofillTests
     [Fact]
     public void Discovery_fits_the_frame_budget_and_reports_truncation()
     {
-        var request = new AutofillRequest(1, Guid.NewGuid().ToString(), "findCredentials", new AutofillPayload("https://example.com"));
+        var request = new AutofillRequest(WireProtocol.Version, Guid.NewGuid().ToString(), "findCredentials", new AutofillPayload("https://example.com"));
         var credentials = Enumerable.Range(0, 100)
-            .Select(_ => new CredentialMetadata(Guid.NewGuid(), new string('\u00e9', 200), new string('\u00e9', 500))).ToArray();
+            .Select(_ => new CredentialMetadata(Guid.NewGuid(), new string('\u00e9', 200), new string('\u00e9', 500), true, false)).ToArray();
         var response = WireProtocol.DiscoverySuccess(request.RequestId, credentials);
         var bytes = JsonSerializer.SerializeToUtf8Bytes(response, WireProtocol.Json);
         Assert.True(bytes.Length <= WireProtocol.MaxFrameBytes);
@@ -79,7 +89,7 @@ public sealed class AutofillTests
         Assert.False(small.Truncated);
         Assert.Single(small.Credentials);
         var huge = WireProtocol.DiscoverySuccess(request.RequestId,
-            [new CredentialMetadata(Guid.NewGuid(), new string('x', WireProtocol.MaxFrameBytes), "")]);
+            [new CredentialMetadata(Guid.NewGuid(), new string('x', WireProtocol.MaxFrameBytes), "", true, false)]);
         var empty = huge.Result!.Value.Deserialize<DiscoveryResult>(WireProtocol.Json)!;
         Assert.True(empty.Truncated);
         Assert.Empty(empty.Credentials);
@@ -107,7 +117,7 @@ public sealed class AutofillTests
             var retrieved = await flow.GetAutofillCredentialSecretAsync("https://example.com", metadata.Id);
             Assert.Equal("", retrieved.Username);
             Assert.Equal("synthetic", retrieved.Password);
-            var request = new AutofillRequest(1, Guid.NewGuid().ToString(), "findCredentials", new AutofillPayload("https://example.com"));
+            var request = new AutofillRequest(WireProtocol.Version, Guid.NewGuid().ToString(), "findCredentials", new AutofillPayload("https://example.com"));
             Assert.True(WireProtocol.ParseResponse(JsonSerializer.SerializeToUtf8Bytes(
                 WireProtocol.DiscoverySuccess(request.RequestId, [metadata]), WireProtocol.Json), request).Ok);
             request = request with { Action = "getCredentialSecret", Payload = new AutofillPayload("https://example.com", metadata.Id) };
@@ -120,7 +130,7 @@ public sealed class AutofillTests
     [Fact]
     public void NativeHost_validates_typed_results_before_forwarding()
     {
-        var request = new AutofillRequest(1, "12345678-1234-1234-1234-123456789abc", "getCredentialSecret",
+        var request = new AutofillRequest(WireProtocol.Version, "12345678-1234-1234-1234-123456789abc", "getCredentialSecret",
             new AutofillPayload("https://example.com", Guid.NewGuid()));
         var response = WireProtocol.Success(request.RequestId, new CredentialSecret("test", "synthetic"));
         Assert.True(WireProtocol.ParseResponse(JsonSerializer.SerializeToUtf8Bytes(response, WireProtocol.Json), request).Ok);
@@ -130,7 +140,7 @@ public sealed class AutofillTests
             WireProtocol.Success(request.RequestId, new { username = "test" }), WireProtocol.Json), request));
         Assert.Throws<JsonException>(() => WireProtocol.ParseResponse(JsonSerializer.SerializeToUtf8Bytes(response, WireProtocol.Json), request with { RequestId = Guid.NewGuid().ToString() }));
         Assert.False(WireProtocol.ParseResponse(JsonSerializer.SerializeToUtf8Bytes(WireProtocol.Failure(request.RequestId, "locked"), WireProtocol.Json), request).Ok);
-        var explicitNull = Encoding.UTF8.GetBytes("{\"version\":1,\"requestId\":\"12345678-1234-1234-1234-123456789abc\",\"ok\":false,\"error\":\"locked\",\"result\":null}");
+        var explicitNull = Encoding.UTF8.GetBytes("{\"version\":2,\"requestId\":\"12345678-1234-1234-1234-123456789abc\",\"ok\":false,\"error\":\"locked\",\"result\":null}");
         Assert.Throws<JsonException>(() => WireProtocol.ParseResponse(explicitNull, request));
     }
 
@@ -157,7 +167,7 @@ public sealed class AutofillTests
             await flow.DeleteItemAsync(deleted.Id);
             var discovered = await flow.FindAutofillCredentialsAsync("https://example.com");
             Assert.Equal(matching.Id, Assert.Single(discovered).Id);
-            Assert.DoesNotContain("password", JsonSerializer.Serialize(discovered, WireProtocol.Json), StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("\"password\":", JsonSerializer.Serialize(discovered, WireProtocol.Json), StringComparison.OrdinalIgnoreCase);
             Assert.Equal("test-secret", (await flow.GetAutofillCredentialSecretAsync("https://example.com", matching.Id)).Password);
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() => flow.GetAutofillCredentialSecretAsync("https://evil.example", matching.Id));
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() => flow.GetAutofillCredentialSecretAsync("https://example.com", deleted.Id));

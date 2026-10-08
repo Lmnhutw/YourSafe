@@ -1,31 +1,46 @@
 :root { color-scheme: light dark; font: 13px/1.5 "Segoe UI", system-ui, sans-serif; --bg: #f7f9fc; --surface: #fff; --text: #15243c; --muted: #627087; --border: #dfe6ee; --accent: #204BDB; --tint: #edf1ff; }
 * { box-sizing: border-box; }
-body { width: 360px; margin: 0; background: var(--bg); color: var(--text); }
+body { width: 360px; max-height: 600px; display: flex; flex-direction: column; margin: 0; background: var(--bg); color: var(--text); }
 header { display: flex; align-items: center; gap: 11px; padding: 20px; background: var(--surface); border-bottom: 1px solid var(--border); }
 .mark { display: block; width: 40px; height: 40px; border-radius: 12px; object-fit: cover; }
 h1 { margin: 0; font-size: 19px; line-height: 1.3; letter-spacing: -.5px; }
 .caption { font-size: 11px; color: var(--muted); }
 .badge { margin-left: auto; color: var(--accent); background: var(--tint); border-radius: 5px; padding: 3px 6px; font-size: 9px; font-weight: 700; letter-spacing: .8px; }
-main { padding: 18px 20px 22px; }
+header, footer { flex-shrink: 0; }
+main { padding: 18px 20px 22px; min-height: 0; overflow-y: auto; }
 .site { padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
 .eyebrow { font-size: 9px; font-weight: 700; letter-spacing: 1.2px; color: var(--muted); }
 .origin { margin: 4px 0 0; font-weight: 600; overflow-wrap: anywhere; }
 .origin:empty::before { content: "Checking this tab…"; color: var(--muted); font-weight: 400; }
 #status { margin: 16px 0 12px; color: var(--muted); overflow-wrap: anywhere; }
 #accounts { display: grid; gap: 8px; max-height: 260px; overflow-y: auto; padding: 3px; margin: -3px; }
+#accounts[hidden] { display: none; }
 button { font: inherit; color: var(--text); border: 1px solid var(--border); border-radius: 9px; background: var(--surface); cursor: pointer; min-height: 40px; padding: 9px 13px; overflow-wrap: anywhere; }
 button:hover { border-color: var(--accent); background: var(--tint); }
 button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 button:disabled { cursor: wait; opacity: .6; }
-#accounts button { display: flex; align-items: center; gap: 12px; padding: 14px; text-align: left; font-weight: 600; }
-.account-label { display: grid; min-width: 0; text-align: start; }
+.account { padding: 13px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); }
+.account-actions { display: flex; gap: 8px; margin-top: 10px; }
+.account-actions button { flex: 1; font-weight: 600; }
+.account-label { display: grid; min-width: 0; text-align: start; overflow-wrap: anywhere; }
 .account-label strong { font-weight: 600; }
 .account-label > span { font-weight: 400; font-size: 12px; color: var(--muted); }
 #status[data-state="error"] { color: #a12b25; }
 #status[data-state="success"] { color: #24664b; }
 @media (prefers-color-scheme: dark) { #status[data-state="error"] { color: #ffb4ab; } #status[data-state="success"] { color: #8bdbb4; } }
 @media (forced-colors: active) { button:focus-visible { outline-color: Highlight; } #status[data-state] { color: CanvasText; } }
-#accounts button::before { content: "↳"; flex-shrink: 0; display: grid; place-items: center; width: 30px; height: 30px; background: var(--tint); color: var(--accent); border-radius: 8px; font-size: 19px; }
+.totp-panel { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+.totp-panel[hidden] { display: none; }
+.totp-heading, .totp-value, .totp-timing { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.totp-heading strong { overflow-wrap: anywhere; min-width: 0; }
+#totp-close { padding: 4px 8px; min-height: 32px; color: var(--muted); flex-shrink: 0; }
+.totp-username { margin: 2px 0 16px; color: var(--muted); overflow-wrap: anywhere; }
+.totp-label { margin: 0 0 6px; color: var(--muted); }
+#totp-code { font-size: 29px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: .04em; white-space: nowrap; }
+.totp-timing { margin-top: 12px; }
+#totp-progress { width: 100%; height: 8px; accent-color: var(--accent); }
+#totp-countdown { min-width: 58px; text-align: end; color: var(--muted); font-variant-numeric: tabular-nums; }
+::selection { background: var(--accent); color: var(--surface); }
 footer { padding: 16px 20px 12px; background: var(--surface); border-top: 1px solid var(--border); }
 .actions { display: flex; gap: 9px; }
 #refresh { color: var(--muted); }

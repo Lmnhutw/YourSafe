@@ -16,7 +16,8 @@ public sealed record VaultItemEditorInput(
     string TagsText,
     bool IsFavorite,
     bool HideUrl,
-    bool HideNotes)
+    bool HideNotes,
+    TotpConfiguration? TotpConfiguration = null)
 {
     public override string ToString() => nameof(VaultItemEditorInput);
 
@@ -34,7 +35,7 @@ public sealed record VaultItemEditorInput(
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        return new VaultItem
+        var item = new VaultItem
         {
             Id = Id ?? Guid.NewGuid(),
             Type = VaultItemType.Password,
@@ -51,5 +52,7 @@ public sealed record VaultItemEditorInput(
             HideUrl = HideUrl,
             HideNotes = HideNotes
         };
+        if (TotpConfiguration is not null) item.SetTotpConfiguration(TotpConfiguration);
+        return item;
     }
 }

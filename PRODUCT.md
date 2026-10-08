@@ -29,6 +29,6 @@ Security timeout changes require the current Master Password. Inactivity locking
 ## Intentional constraints
 
 - No cloud sync, online account, reset flow, or backdoor.
-- No server, telemetry, browser extension, mobile client, passkeys, sharing, or attachments.
-- Copy actions are explicit and clear unchanged clipboard values after 30 seconds; this is not protection from a compromised Windows session.
+- No server, telemetry, mobile client, passkeys, sharing, or attachments. The local browser extension supports explicit password fill and viewing/copying credential TOTP while the desktop vault is unlocked.
+- Copy actions are explicit. Passwords, recovery codes, and other sensitive copies clear unchanged clipboard values after 30 seconds; copied credential TOTP remains until replaced. This is not protection from a compromised Windows session.
 - Hidden URL and Notes fields remain encrypted and should be shown as `Hidden` in lists, not silently omitted.

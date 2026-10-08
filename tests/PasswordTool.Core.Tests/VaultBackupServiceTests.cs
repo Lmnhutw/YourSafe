@@ -168,6 +168,30 @@ public sealed class VaultBackupServiceTests
         ];
     }
 
+    [Fact]
+    public void Backup_retains_all_totp_metadata_and_detects_configuration_conflicts()
+    {
+        var service = new VaultBackupService();
+        var item = new VaultItem { Title = "TOTP-only account" };
+        var configuration = new TotpConfiguration("JBSWY3DPEHPK3PXP", "Example", "user", TotpAlgorithm.Sha512, 8, 60);
+        item.SetTotpConfiguration(configuration);
+        var restored = Assert.Single(service.ReadBackup(service.CreateBackup([item], BackupPassphrase, DateTimeOffset.UtcNow), BackupPassphrase));
+        Assert.Equal(configuration, restored.GetTotpConfiguration());
+        Assert.Equal(1, service.CreateImportPlan([restored], [item]).DuplicateCount);
+        foreach (var changed in new[]
+        {
+            configuration with { Issuer = "Other" },
+            configuration with { AccountName = "Other" },
+            configuration with { Algorithm = TotpAlgorithm.Sha256 },
+            configuration with { Digits = 6 },
+            configuration with { Period = 30 }
+        })
+        {
+            restored.SetTotpConfiguration(changed);
+            Assert.Equal(1, service.CreateImportPlan([restored], [item]).ConflictCount);
+        }
+    }
+
     private static VaultItem Clone(VaultItem item)
     {
         return new VaultItem
@@ -178,6 +202,11 @@ public sealed class VaultBackupServiceTests
             Username = item.Username,
             Password = item.Password,
             TotpSecretBase32 = item.TotpSecretBase32,
+            TotpIssuer = item.TotpIssuer,
+            TotpAccountName = item.TotpAccountName,
+            TotpAlgorithm = item.TotpAlgorithm,
+            TotpDigits = item.TotpDigits,
+            TotpPeriod = item.TotpPeriod,
             RecoveryCodes = [.. item.RecoveryCodes],
             Url = item.Url,
             HideUrl = item.HideUrl,

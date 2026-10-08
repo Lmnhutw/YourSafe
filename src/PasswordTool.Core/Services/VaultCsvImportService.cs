@@ -40,9 +40,10 @@ public sealed class VaultCsvImportService
         EnsureUniqueHeaders(header);
         var titleIndex = FindHeader(header, "name", "title");
         var passwordIndex = FindHeader(header, "password", "loginpassword");
-        if (titleIndex < 0 || passwordIndex < 0)
+        var totpIndex = FindHeader(header, "totp", "logintotp", "otp", "otpauth");
+        if (titleIndex < 0 || passwordIndex < 0 && totpIndex < 0)
         {
-            throw new InvalidDataException("The CSV header must include Name or Title, and Password.");
+            throw new InvalidDataException("The CSV header must include Name or Title, and Password or TOTP.");
         }
 
         var usernameIndex = FindHeader(header, "username", "loginusername", "user");
@@ -51,7 +52,6 @@ public sealed class VaultCsvImportService
         var folderIndex = FindHeader(header, "folder", "foldername");
         var favoriteIndex = FindHeader(header, "favorite", "favourite");
         var tagsIndex = FindHeader(header, "tags", "tag");
-        var totpIndex = FindHeader(header, "totp", "logintotp", "otp", "otpauth");
         var typeIndex = FindHeader(header, "type");
 
         var items = new List<VaultItem>();
@@ -73,7 +73,8 @@ public sealed class VaultCsvImportService
             }
 
             var password = GetField(row, passwordIndex);
-            if (string.IsNullOrEmpty(password))
+            var rawTotp = GetField(row, totpIndex).Trim();
+            if (string.IsNullOrEmpty(password) && rawTotp.Length == 0)
             {
                 continue;
             }
@@ -91,11 +92,10 @@ public sealed class VaultCsvImportService
                 title = $"Imported account {rowIndex}";
             }
 
-            var totpSecret = string.Empty;
-            var rawTotp = GetField(row, totpIndex).Trim();
+            TotpConfiguration? configuration = null;
             if (rawTotp.Length > 0)
             {
-                if (!totpService.TryNormalizeWebsiteSecret(rawTotp, out totpSecret))
+                if (!totpService.TryParseWebsiteConfiguration(rawTotp, out configuration, out _))
                 {
                     throw new InvalidDataException($"CSV row {rowIndex + 1} contains an invalid TOTP secret.");
                 }
@@ -108,20 +108,20 @@ public sealed class VaultCsvImportService
                 Title = title,
                 Username = username,
                 Password = password,
-                TotpSecretBase32 = totpSecret,
                 Url = url,
                 Notes = GetField(row, notesIndex),
                 LegacyFolder = GetField(row, folderIndex).Trim(),
                 IsFavorite = ParseBoolean(GetField(row, favoriteIndex)),
                 Tags = ParseTags(GetField(row, tagsIndex))
             };
+            item.SetTotpConfiguration(configuration);
             VaultBackupService.ValidateItems([item]);
             items.Add(item);
         }
 
         if (items.Count == 0)
         {
-            throw new InvalidDataException("The CSV file did not contain any password entries that can be imported.");
+            throw new InvalidDataException("The CSV file did not contain any password or TOTP entries that can be imported.");
         }
 
         return items;
@@ -279,5 +279,6 @@ public sealed class VaultCsvImportService
         && string.Equals(left.Title, right.Title, StringComparison.OrdinalIgnoreCase)
         && left.Username == right.Username
         && left.Password == right.Password
+        && left.GetTotpConfiguration() == right.GetTotpConfiguration()
         && string.Equals(left.Url, right.Url, StringComparison.OrdinalIgnoreCase);
 }

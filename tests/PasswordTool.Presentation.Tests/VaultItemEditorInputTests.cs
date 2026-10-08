@@ -42,6 +42,22 @@ public sealed class VaultItemEditorInputTests
         Assert.Equal(["alpha-1234", "beta-5678"], item.RecoveryCodes);
     }
 
+    [Fact]
+    public void Full_totp_configuration_is_a_value_draft_and_preserves_credential_fields()
+    {
+        var configuration = new TotpConfiguration("JBSWY3DPEHPK3PXP", "Issuer", "Account", TotpAlgorithm.Sha512, 8, 60);
+        var input = CreateInput() with { Password = "password", RecoveryCodesText = "alpha-1234\nbeta-5678", TotpConfiguration = configuration };
+        var same = input with { TotpConfiguration = configuration with { } };
+        Assert.Equal(input, same);
+        Assert.NotEqual(input, input with { TotpConfiguration = configuration with { Period = 30 } });
+        Assert.Equal(configuration, input.ToVaultItem().GetTotpConfiguration());
+        var removed = input with { TotpConfiguration = null };
+        Assert.Null(removed.ToVaultItem().GetTotpConfiguration());
+        Assert.Equal("password", removed.ToVaultItem().Password);
+        Assert.Equal(["alpha-1234", "beta-5678"], removed.ToVaultItem().RecoveryCodes);
+        Assert.DoesNotContain(configuration.Secret, input.ToString());
+    }
+
     private static VaultItemEditorInput CreateInput() => new(
         null,
         "Example",

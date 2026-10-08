@@ -43,7 +43,7 @@ public static class CanonicalOrigin
 
 public sealed record AutofillPayload(string? Origin = null, Guid? CredentialId = null);
 public sealed record AutofillRequest(int Version, string RequestId, string Action, AutofillPayload Payload);
-public sealed record CredentialMetadata(Guid Id, string Title, string Username);
+public sealed record CredentialMetadata(Guid Id, string Title, string Username, bool HasPassword, bool HasTotp);
 public sealed record DiscoveryResult(IReadOnlyList<CredentialMetadata> Credentials, bool Truncated);
 public sealed record CredentialSecret(string Username, string Password)
 {
@@ -52,11 +52,16 @@ public sealed record CredentialSecret(string Username, string Password)
 public sealed record StatusResult(bool Unlocked);
 public sealed record PingResult(string Host);
 public sealed record ShowAppResult(bool Shown);
+public sealed record CredentialTotp(string Code, int PeriodSeconds, long ExpiresAtUnixMs)
+{
+    public override string ToString() => "CredentialTotp { redacted }";
+}
+public sealed record CopyTotpResult(bool Copied);
 public sealed record AutofillResponse(int Version, string RequestId, bool Ok, JsonElement? Result = null, string? Error = null);
 
 public static class WireProtocol
 {
-    public const int Version = 1;
+    public const int Version = 2;
     public const int MaxFrameBytes = 64 * 1024;
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
@@ -85,10 +90,11 @@ public static class WireProtocol
     {
         if (request.Version != Version || request.RequestId?.Length != 36 || !Guid.TryParseExact(request.RequestId, "D", out _)
             || request.Payload is null) throw new JsonException("Invalid envelope.");
-        var hasOrigin = request.Action is "findCredentials" or "getCredentialSecret";
-        if (request.Action is not ("ping" or "getStatus" or "findCredentials" or "getCredentialSecret" or "showApp")
+        var credentialAction = request.Action is "getCredentialSecret" or "getCredentialTotp" or "copyCredentialTotp";
+        var hasOrigin = request.Action == "findCredentials" || credentialAction;
+        if (request.Action is not ("ping" or "getStatus" or "findCredentials" or "getCredentialSecret" or "getCredentialTotp" or "copyCredentialTotp" or "showApp")
             || (hasOrigin ? !CanonicalOrigin.IsCanonical(request.Payload.Origin) : request.Payload.Origin is not null)
-            || (request.Action == "getCredentialSecret"
+            || (credentialAction
                 ? request.Payload.CredentialId is null || request.Payload.CredentialId == Guid.Empty
                 : request.Payload.CredentialId is not null)) throw new JsonException("Invalid action payload.");
     }
@@ -135,8 +141,13 @@ public static class WireProtocol
             "getStatus" => result.Deserialize<StatusResult>(Json) is not null,
             "showApp" => result.Deserialize<ShowAppResult>(Json) is not null,
             "findCredentials" => result.Deserialize<DiscoveryResult>(Json) is { Credentials: not null } discovery
-                && discovery.Credentials.All(item => item is not null && item.Id != Guid.Empty && item.Title is not null && item.Username is not null),
+                && discovery.Credentials.All(item => item is not null && item.Id != Guid.Empty && item.Title is not null && item.Username is not null
+                    && (item.HasPassword || item.HasTotp)),
             "getCredentialSecret" => result.Deserialize<CredentialSecret>(Json) is { Username: not null, Password: not null },
+            "getCredentialTotp" => result.Deserialize<CredentialTotp>(Json) is { Code: not null } totp
+                && totp.Code.Length is 6 or 8 && totp.Code.All(character => character is >= '0' and <= '9')
+                && totp.PeriodSeconds > 0 && totp.ExpiresAtUnixMs is > 0 and <= 253402300799999,
+            "copyCredentialTotp" => result.Deserialize<CopyTotpResult>(Json)?.Copied == true,
             _ => false
         };
         if (!valid) throw new JsonException("Invalid result.");
@@ -145,6 +156,11 @@ public static class WireProtocol
 
     private static void RejectDuplicateKeys(JsonElement element)
     {
+        if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray()) RejectDuplicateKeys(item);
+            return;
+        }
         if (element.ValueKind != JsonValueKind.Object) return;
         var names = new HashSet<string>(StringComparer.Ordinal);
         foreach (var property in element.EnumerateObject())

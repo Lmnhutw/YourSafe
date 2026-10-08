@@ -7,6 +7,13 @@
     <section class="site" aria-label="Current website"><span class="eyebrow">CURRENT WEBSITE</span><p id="origin" class="origin"></p></section>
     <p id="status" role="status" aria-live="polite"></p>
     <div id="accounts" aria-label="Saved accounts"></div>
+    <div id="totp-panel" class="totp-panel" role="region" aria-label="Selected account verification code" hidden>
+      <div class="totp-heading"><strong id="totp-title"></strong><button id="totp-close" type="button" aria-label="Close verification code and choose an account">Choose account</button></div>
+      <p id="totp-username" class="totp-username"></p>
+      <p class="totp-label">Verification code</p>
+      <div class="totp-value"><output id="totp-code" aria-live="off"></output><button id="totp-copy" type="button">Copy</button></div>
+      <div class="totp-timing"><progress id="totp-progress" max="30000" value="0" aria-label="Time until code changes"></progress><span id="totp-countdown"></span></div>
+    </div>
   </main>
   <footer><div class="actions"><button id="refresh" type="button">Refresh</button><button id="show-app" type="button">Show YourSafe <span aria-hidden="true">↗</span></button></div><p class="footnote">You choose what gets filled.</p></footer>
   <script src="popup.js"></script>

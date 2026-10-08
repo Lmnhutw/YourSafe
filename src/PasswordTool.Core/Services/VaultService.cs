@@ -882,8 +882,10 @@ public sealed class VaultService : IDisposable
         ThrowIfDisposed();
         EnsureOpen();
         var credentials = vaultData!.Items
-            .Where(item => !item.IsDeleted && item.Type == VaultItemType.Password && !string.IsNullOrEmpty(item.Password))
-            .Select(item => new AutofillCredential(item.Id, item.Title, item.Username ?? "", item.Url)).ToList();
+            .Where(item => !item.IsDeleted && item.Type == VaultItemType.Password
+                && (!string.IsNullOrEmpty(item.Password) || !string.IsNullOrWhiteSpace(item.TotpSecretBase32)))
+            .Select(item => new AutofillCredential(item.Id, item.Title, item.Username ?? "", item.Url,
+                !string.IsNullOrEmpty(item.Password), !string.IsNullOrWhiteSpace(item.TotpSecretBase32))).ToList();
         EnsureOpen();
         return credentials;
     }
@@ -900,6 +902,17 @@ public sealed class VaultService : IDisposable
         var secret = new AutofillSecret(item.Username ?? "", item.Password);
         EnsureOpen();
         return secret;
+    }
+
+    public TotpCodeResult GetAutofillTotp(Guid id, string matchedUrl)
+    {
+        ThrowIfDisposed();
+        EnsureOpen();
+        var item = FindItem(id);
+        if (item.Type != VaultItemType.Password || string.IsNullOrWhiteSpace(item.TotpSecretBase32)
+            || !string.Equals(item.Url, matchedUrl, StringComparison.Ordinal))
+            throw new UnauthorizedAccessException("The credential is unavailable for this origin.");
+        return GetWebsiteTotpCode(id);
     }
 
     public IReadOnlyList<VaultGroup> GetGroups()
@@ -1116,13 +1129,20 @@ public sealed class VaultService : IDisposable
         ThrowIfDisposed();
         EnsureOpen();
         RequireSensitiveTotp(totpCode);
+        return GetWebsiteTotpCode(id);
+    }
+
+    public TotpCodeResult GetWebsiteTotpCode(Guid id)
+    {
+        ThrowIfDisposed();
+        EnsureOpen();
         var item = FindItem(id);
         if (item.Type != VaultItemType.Password || string.IsNullOrWhiteSpace(item.TotpSecretBase32))
         {
             throw new InvalidOperationException("This vault item does not contain a website TOTP secret.");
         }
 
-        var code = totpService.GetCurrentCode(item.TotpSecretBase32, utcNow());
+        var code = totpService.GetCurrentCode(item.GetTotpConfiguration()!, utcNow());
         EnsureOpen();
         return code;
     }
@@ -1258,8 +1278,14 @@ public sealed class VaultService : IDisposable
         newItem.UpdatedAt = now;
         newItem.PasswordChangedAt = string.IsNullOrWhiteSpace(newItem.Password) ? null : now;
 
-        vaultData!.Items.Add(newItem);
-        SaveVault();
+        var data = vaultData!;
+        data.Items.Add(newItem);
+        try { SaveVault(); }
+        catch
+        {
+            data.Items.Remove(newItem);
+            throw;
+        }
         return CloneForList(newItem);
     }
 
@@ -1270,13 +1296,14 @@ public sealed class VaultService : IDisposable
         if (item.Type == VaultItemType.RecoveryCodes)
         {
             item.Password = string.Empty;
-            item.TotpSecretBase32 = string.Empty;
+            item.SetTotpConfiguration(null);
             item.PasswordHistory = [];
             item.PasswordChangedAt = null;
         }
         ValidateVaultItem(item);
 
-        var existing = FindItem(item.Id);
+        var previous = FindItem(item.Id);
+        var existing = Clone(previous, includePassword: true);
         var now = utcNow();
         var hadPassword = !string.IsNullOrWhiteSpace(existing.Password);
         var hasPassword = !string.IsNullOrWhiteSpace(item.Password);
@@ -1295,7 +1322,7 @@ public sealed class VaultService : IDisposable
         existing.Type = item.Type;
         existing.Username = item.Username.Trim();
         existing.Password = item.Password;
-        existing.TotpSecretBase32 = item.TotpSecretBase32;
+        existing.SetTotpConfiguration(item.GetTotpConfiguration());
         existing.RecoveryCodes = [.. item.RecoveryCodes];
         existing.Url = item.Url.Trim();
         existing.HideUrl = item.HideUrl;
@@ -1315,7 +1342,15 @@ public sealed class VaultService : IDisposable
             existing.PasswordChangedAt = now;
         }
 
-        SaveVault();
+        var data = vaultData!;
+        var index = data.Items.IndexOf(previous);
+        data.Items[index] = existing;
+        try { SaveVault(); }
+        catch
+        {
+            data.Items[index] = previous;
+            throw;
+        }
     }
 
     public void DeleteItem(Guid id)
@@ -1595,9 +1630,10 @@ public sealed class VaultService : IDisposable
             .ToList();
         if (item.GroupId is { } groupId && !vaultData!.Groups.Any(group => group.Id == groupId))
             throw new ArgumentException("The selected group does not exist.", nameof(item));
-        if (string.IsNullOrWhiteSpace(item.Password) && item.RecoveryCodes.Count == 0)
+        if (string.IsNullOrWhiteSpace(item.Password) && item.RecoveryCodes.Count == 0
+            && string.IsNullOrWhiteSpace(item.TotpSecretBase32))
         {
-            throw new ArgumentException("A password or at least two recovery codes are required.", nameof(item));
+            throw new ArgumentException("A password, TOTP configuration, or at least two recovery codes are required.", nameof(item));
         }
 
         if (string.IsNullOrWhiteSpace(item.Password) && item.PasswordHistory.Count != 0)
@@ -1607,11 +1643,11 @@ public sealed class VaultService : IDisposable
 
         if (item.Type == VaultItemType.Password && !string.IsNullOrWhiteSpace(item.TotpSecretBase32))
         {
-            if (!totpService.TryNormalizeWebsiteSecret(item.TotpSecretBase32, out var normalizedSecret))
-            {
-                throw new ArgumentException("The website TOTP secret is invalid.", nameof(item));
-            }
-            item.TotpSecretBase32 = normalizedSecret;
+            item.SetTotpConfiguration(totpService.NormalizeConfiguration(item.GetTotpConfiguration()!));
+        }
+        else if (string.IsNullOrWhiteSpace(item.TotpSecretBase32))
+        {
+            item.SetTotpConfiguration(null);
         }
 
         if (item.Type == VaultItemType.RecoveryCodes
@@ -1635,6 +1671,11 @@ public sealed class VaultService : IDisposable
             Username = item.Username,
             Password = includePassword ? item.Password : string.Empty,
             TotpSecretBase32 = includePassword ? item.TotpSecretBase32 : string.Empty,
+            TotpIssuer = includePassword ? item.TotpIssuer : string.Empty,
+            TotpAccountName = includePassword ? item.TotpAccountName : string.Empty,
+            TotpAlgorithm = includePassword ? item.TotpAlgorithm : TotpAlgorithm.Sha1,
+            TotpDigits = includePassword ? item.TotpDigits : 6,
+            TotpPeriod = includePassword ? item.TotpPeriod : 30,
             RecoveryCodes = includePassword ? [.. item.RecoveryCodes] : [],
             Url = item.Url,
             HideUrl = item.HideUrl,

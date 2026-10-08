@@ -10,7 +10,7 @@ The reusable domain and security layer for PasswordTool. The WinUI desktop UI an
 - AES-256-GCM encryption/decryption and encrypted local-vault persistence
 - Vault sign-in TOTP generation/verification and legacy Windows-DPAPI trusted-unlock token compatibility
 - Master-Password-authorized vault durations and fixed five-hour login deadlines
-- Stored website TOTP secrets and current-code generation in Core; the current desktop UI hides website TOTP editing/display and preserves existing secrets
+- Encrypted website TOTP configuration, strict Base32/otpauth parsing, and local current-code generation for desktop and native browser requests
 - Vault item validation, CRUD, recovery-code parsing, and sensitive-action verification
 - Credential groups, tags, favorites, and migration of legacy folders to groups
 - Autofill metadata/secret projections with lock/session checks and null username normalization; origin policy and browser consent belong to Presentation and the worker
@@ -33,10 +33,10 @@ File names and Hidden/System attributes are obfuscation only. The security bound
 ## Change rules
 
 - Do not persist or log raw passwords, recovery codes, Master Passwords, TOTP secrets, or unprotected vault keys.
-- New `Password`-type credentials may contain a password, recovery codes, or both; without a password they require at least two valid unique recovery codes. Legacy `RecoveryCodes`-type entries cannot contain a password, website TOTP secret, or password-history metadata. Preserve these rules on add, update, import, and export.
+- New `Password`-type credentials may contain a password, TOTP, recovery codes, or a combination. Recovery-code lists require at least two valid unique codes. Legacy `RecoveryCodes`-type entries cannot contain a password, website TOTP configuration, or password-history metadata. Preserve these rules on add, update, import, and export.
 - Treat backups as untrusted input: retain schema, size, depth, field-length, version, KDF, and authentication checks before mutating the vault.
 - Keep inspection results metadata-only; never return decrypted backup payloads to a UI.
-- `GetAutofillCredentials` returns active password-bearing entries with their real URLs, including hidden URLs. `GetAutofillSecret` checks item availability and the matched stored URL. Normalize imported null usernames to `""` in both projections. Only ID/title/username metadata and the selected username/password DTO cross the autofill transport; URL-bearing Core models stay inside the application.
+- `GetAutofillCredentials` returns active entries with a password or website TOTP and their real URLs, including hidden URLs. Every secret/code retrieval rechecks item availability and the matched stored URL. Normalize imported null usernames to `""` in the projections. Discovery transports only ID/title/username and password/TOTP capability flags; selected password responses contain username/password, and TOTP responses contain only the code and its time window. URL-bearing Core models stay inside the application.
 - Keep UI and API layers thin. They may choose dialogs, HTTP status codes, and DTOs, but Core owns cryptography and domain validation.
 - Maintain backward compatibility for vault items that predate recovery codes: their missing `Type` defaults to `Password`.
 - New optional item metadata must keep safe defaults so older encrypted vault and backup payloads continue to deserialize.

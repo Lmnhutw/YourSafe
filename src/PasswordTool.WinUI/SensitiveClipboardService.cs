@@ -13,37 +13,69 @@ internal sealed class SensitiveClipboardService : ISensitiveClipboardService, ID
     private CancellationTokenSource? expiration;
     private byte[]? ownedValueHash;
     private long ownershipGeneration;
+    private uint ownedSequence;
     [DllImport("user32.dll")]
     private static extern uint GetClipboardSequenceNumber();
+    [DllImport("user32.dll")]
+    private static extern nint GetClipboardOwner();
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool OpenClipboard(nint owner);
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool CloseClipboard();
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool EmptyClipboard();
+    [DllImport("user32.dll")]
+    private static extern nint SetClipboardData(uint format, nint memory);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern uint RegisterClipboardFormat(string name);
+    [DllImport("kernel32.dll")]
+    private static extern nint GlobalAlloc(uint flags, nuint bytes);
+    [DllImport("kernel32.dll")]
+    private static extern nint GlobalLock(nint memory);
+    [DllImport("kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GlobalUnlock(nint memory);
+    [DllImport("kernel32.dll")]
+    private static extern nint GlobalFree(nint memory);
     private bool disposed;
 
-    public Task CopyAsync(string value, CancellationToken cancellationToken = default)
+    public Task CopyAsync(string value, CancellationToken cancellationToken = default) =>
+        CopyAsync(value, () => true, cancellationToken);
+
+    public Task CopyAsync(string value, Func<bool> canCopy, CancellationToken cancellationToken = default, bool clearAutomatically = true)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
         ArgumentNullException.ThrowIfNull(value);
+        ArgumentNullException.ThrowIfNull(canCopy);
         cancellationToken.ThrowIfCancellationRequested();
+        if (!canCopy()) throw new OperationCanceledException();
 
         return RunOnUiThreadAsync(() =>
         {
-            var package = new DataPackage();
-            package.SetText(value);
-            if (!Clipboard.SetContentWithOptions(package, new ClipboardContentOptions
-                { IsAllowedInHistory = false, IsRoamable = false }))
-                throw new InvalidOperationException("The clipboard is unavailable.");
+            ObjectDisposedException.ThrowIf(disposed, this);
+            SetText(value, canCopy, cancellationToken);
+            // Windows may add formats on close; capture the committed sequence.
+            var sequence = GetClipboardSequenceNumber();
 
             lock (sync)
             {
                 ownershipGeneration++;
                 ClearOwnedHash();
-                ownedValueHash = HashValue(value);
                 expiration?.Cancel();
                 expiration?.Dispose();
-                expiration = new CancellationTokenSource();
-                _ = ClearAfterDelayAsync(expiration.Token);
+                expiration = null;
+                if (clearAutomatically)
+                {
+                    ownedValueHash = HashValue(value);
+                    ownedSequence = sequence;
+                    expiration = new CancellationTokenSource();
+                    _ = ClearAfterDelayAsync(expiration.Token);
+                }
             }
 
-            // Publish the text before reporting success to external paste targets.
-            Clipboard.Flush();
             return Task.CompletedTask;
         });
     }
@@ -57,44 +89,65 @@ internal sealed class SensitiveClipboardService : ISensitiveClipboardService, ID
             cancellationToken.ThrowIfCancellationRequested();
             byte[]? expected;
             long expectedGeneration;
+            uint expectedSequence;
             lock (sync)
             {
                 expected = ownedValueHash is null ? null : [.. ownedValueHash];
                 expectedGeneration = ownershipGeneration;
+                expectedSequence = ownedSequence;
             }
 
             if (expected is null) return;
+            var releaseOwnership = false;
             try
             {
-                var sequence = GetClipboardSequenceNumber();
-                var content = Clipboard.GetContent();
-                if (!content.Contains(StandardDataFormats.Text)) return;
-                var current = await content.GetTextAsync();
-                var currentHash = HashValue(current);
-                try
+                // ponytail: three attempts for transient contention; later lock cleanup can retry retained ownership.
+                for (var attempt = 0; attempt < 3; attempt++)
                 {
-                    lock (sync)
+                    cancellationToken.ThrowIfCancellationRequested();
+                    try
                     {
-                        if (expectedGeneration == ownershipGeneration &&
-                            sequence == GetClipboardSequenceNumber() &&
-                            CryptographicOperations.FixedTimeEquals(currentHash, expected)) Clipboard.Clear();
+                        if (GetClipboardSequenceNumber() != expectedSequence || GetClipboardOwner() != App.WindowHandle)
+                        { releaseOwnership = true; return; }
+                        var content = Clipboard.GetContent();
+                        if (!content.Contains(StandardDataFormats.Text)) { releaseOwnership = true; return; }
+                        var current = await content.GetTextAsync();
+                        var currentHash = HashValue(current);
+                        try
+                        {
+                            lock (sync)
+                            {
+                                cancellationToken.ThrowIfCancellationRequested();
+                                if (expectedGeneration != ownershipGeneration) return;
+                                if (!CryptographicOperations.FixedTimeEquals(currentHash, expected)) { releaseOwnership = true; return; }
+                                if (OpenClipboard(App.WindowHandle))
+                                {
+                                    try
+                                    {
+                                        cancellationToken.ThrowIfCancellationRequested();
+                                        if (expectedSequence != GetClipboardSequenceNumber() || GetClipboardOwner() != App.WindowHandle)
+                                        { releaseOwnership = true; return; }
+                                        if (EmptyClipboard()) { releaseOwnership = true; return; }
+                                    }
+                                    finally { CloseClipboard(); }
+                                }
+                            }
+                        }
+                        finally { CryptographicOperations.ZeroMemory(currentHash); }
                     }
+                    catch (COMException)
+                    {
+                        // A busy clipboard can also reject the WinRT read; retain ownership and retry.
+                    }
+                    if (attempt < 2) await Task.Delay(250, cancellationToken);
                 }
-                finally
-                {
-                    CryptographicOperations.ZeroMemory(currentHash);
-                }
-            }
-            catch (COMException)
-            {
-                // Clipboard ownership is best-effort; never clear unrelated clipboard data.
             }
             finally
             {
                 CryptographicOperations.ZeroMemory(expected);
                 lock (sync)
                 {
-                    if (expectedGeneration == ownershipGeneration)
+                    if (releaseOwnership && expectedGeneration == ownershipGeneration)
                     {
                         ClearOwnedHash();
                         expiration?.Cancel();
@@ -115,6 +168,66 @@ internal sealed class SensitiveClipboardService : ISensitiveClipboardService, ID
         }
         catch (OperationCanceledException)
         {
+        }
+    }
+
+    private static void SetText(string value, Func<bool> canCopy, CancellationToken cancellationToken)
+    {
+        // WinRT writes require foreground; native messaging must also copy while the browser is active.
+        var bytes = new byte[checked(Encoding.Unicode.GetByteCount(value) + 2)];
+        var exclude = RegisterClipboardFormat("ExcludeClipboardContentFromMonitorProcessing");
+        if (exclude == 0 || !OpenClipboard(App.WindowHandle))
+            throw new InvalidOperationException("The clipboard is unavailable.");
+        try
+        {
+            Encoding.Unicode.GetBytes(value.AsSpan(), bytes);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!canCopy()) throw new OperationCanceledException();
+            if (!EmptyClipboard()) throw new InvalidOperationException("The clipboard is unavailable.");
+            void ValidateCopy()
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!canCopy()) throw new OperationCanceledException();
+            }
+            SetClipboardBytes(exclude, [0], ValidateCopy);
+            SetClipboardBytes(13, bytes, ValidateCopy); // CF_UNICODETEXT, including its zero terminator.
+            // Immediate SetClipboardData updates the sequence; other writers are excluded until CloseClipboard.
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(bytes);
+            CloseClipboard();
+        }
+    }
+
+    private static void SetClipboardBytes(uint format, byte[] bytes, Action validateCopy)
+    {
+        var memory = GlobalAlloc(0x42, (nuint)bytes.Length); // GMEM_MOVEABLE | GMEM_ZEROINIT
+        if (memory == 0) throw new InvalidOperationException("The clipboard is unavailable.");
+        try
+        {
+            var pointer = GlobalLock(memory);
+            if (pointer == 0) throw new InvalidOperationException("The clipboard is unavailable.");
+            try { Marshal.Copy(bytes, 0, pointer, bytes.Length); }
+            finally { GlobalUnlock(memory); }
+            validateCopy();
+            if (SetClipboardData(format, memory) == 0)
+                throw new InvalidOperationException("The clipboard is unavailable.");
+            memory = 0; // Windows owns the allocation after SetClipboardData succeeds.
+        }
+        finally
+        {
+            if (memory != 0)
+            {
+                var pointer = GlobalLock(memory);
+                if (pointer != 0)
+                {
+                    CryptographicOperations.ZeroMemory(bytes);
+                    Marshal.Copy(bytes, 0, pointer, bytes.Length);
+                    GlobalUnlock(memory);
+                }
+                GlobalFree(memory);
+            }
         }
     }
 

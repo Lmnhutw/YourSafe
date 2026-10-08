@@ -578,6 +578,16 @@ public sealed class RecoveryKeyAndDeadlineTests : IDisposable
         var group = vault.AddGroup("Work", "#336699");
         for (var i = 0; i < 20; i++)
             vault.AddItem(new VaultItem { Title = $"Test account {i:D2} with a long title", Username = "user@example.test", Password = "synthetic-test-password", Notes = "A long note for checking ellipsis and icon alignment", GroupId = group.Id });
+        var passwordTotp = new VaultItem
+        {
+            Title = "TOTP password account", Username = "totp-password@example.test", Password = "synthetic-test-password",
+            Url = "https://example.com", GroupId = group.Id
+        };
+        passwordTotp.SetTotpConfiguration(new TotpConfiguration(secret, "Example", passwordTotp.Username));
+        vault.AddItem(passwordTotp);
+        var onlyTotp = new VaultItem { Title = "TOTP only account", Username = "totp-only@example.test", Url = "https://example.com", GroupId = group.Id };
+        onlyTotp.SetTotpConfiguration(new TotpConfiguration(secret, "Example", onlyTotp.Username, TotpAlgorithm.Sha256, 8, 60));
+        vault.AddItem(onlyTotp);
         Assert.True(vault.TryUpdateSettings(Password, VaultLoginMode.Hybrid, new VaultSecuritySettings(1, 5, 30), out _));
     }
 
