@@ -16,7 +16,7 @@
             <SolidColorBrush x:Key="VaultGroupTabTextBrush" Color="#E4000000" />
             <SolidColorBrush x:Key="VaultGroupHoverTextBrush" Color="#E4000000" />
             <SolidColorBrush x:Key="VaultGroupTabBorderBrush" Color="#E5E5E5" />
-            <SolidColorBrush x:Key="VaultGroupSelectedBorderBrush" Color="#204BDB" />
+            <SolidColorBrush x:Key="VaultGroupSelectedBorderBrush" Color="#E6E6E6" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
             <SolidColorBrush x:Key="WorkspaceBackgroundBrush" Color="#202020" />
@@ -30,7 +30,7 @@
             <SolidColorBrush x:Key="VaultGroupTabTextBrush" Color="#FFFFFF" />
             <SolidColorBrush x:Key="VaultGroupHoverTextBrush" Color="#FFFFFF" />
             <SolidColorBrush x:Key="VaultGroupTabBorderBrush" Color="#414141" />
-            <SolidColorBrush x:Key="VaultGroupSelectedBorderBrush" Color="#204BDB" />
+            <SolidColorBrush x:Key="VaultGroupSelectedBorderBrush" Color="#333333" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="HighContrast">
             <SolidColorBrush x:Key="WorkspaceBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />

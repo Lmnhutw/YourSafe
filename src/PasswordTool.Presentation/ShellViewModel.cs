@@ -13,6 +13,7 @@ public sealed partial class ShellViewModel : ObservableObject
     private readonly IUserErrorMapper errorMapper;
     private readonly IUserDialogService dialogs;
     private bool backupReminderOffered;
+    private bool beginningAddItem;
 
     public ShellViewModel(
         AppFlowCoordinator flow,
@@ -308,13 +309,16 @@ public sealed partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsTableLocked));
     }
 
-    public async Task UnlockTableAsync()
+    public async Task<bool> UnlockTableAsync()
     {
         var version = LifecycleVersion;
         var password = await dialogs.PromptMasterPasswordAsync();
-        if (password is null || !IsCurrentUnlock(version)) return;
-        await UnlockAsync(password, string.Empty);
+        if (password is null || !IsCurrentUnlock(version)) return false;
+        var unlocking = UnlockAsync(password, string.Empty);
+        var unlockVersion = LifecycleVersion;
+        await unlocking;
         OnPropertyChanged(nameof(IsTableLocked));
+        return IsCurrentNormalUnlock(unlockVersion);
     }
 
     [RelayCommand]
@@ -345,7 +349,32 @@ public sealed partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsHashToolRoute));
     }
 
-    public void BeginAddItem() => Navigate(AppRoute.ItemEditor);
+    public async Task<bool> BeginAddItemAsync()
+    {
+        if (beginningAddItem || !IsUnlocked || CurrentRoute == AppRoute.ItemEditor) return false;
+        beginningAddItem = true;
+        try
+        {
+            if (!IsSignedIn) { await LogoutAsync(); return false; }
+            if (!IsTableLocked && !IsVaultSessionActive)
+            {
+                var locking = LockTableAsync(preserveCurrentRoute: true);
+                var version = LifecycleVersion;
+                await locking;
+                if (version != LifecycleVersion) return false;
+            }
+            if (IsTableLocked && !await UnlockTableAsync())
+            {
+                if (!IsSignedIn) await LogoutAsync();
+                return false;
+            }
+            if (!IsCurrentNormalUnlock(LifecycleVersion)) return false;
+            Navigate(AppRoute.ItemEditor);
+            return CurrentRoute == AppRoute.ItemEditor;
+        }
+        catch (Exception exception) { ShowMappedError(exception); return false; }
+        finally { beginningAddItem = false; }
+    }
 
     public async Task<VaultItem?> GetSelectedItemForEditingAsync()
     {

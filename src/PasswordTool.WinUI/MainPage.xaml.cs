@@ -188,6 +188,7 @@ public sealed partial class MainPage : Page
         if (selected && DisplayGroupColor(group) is { Length: > 0 } color)
         {
             button.Background = GroupBrush(color);
+            button.BorderBrush = button.Background;
             button.Foreground = GroupTextBrush(color);
         }
         button.MinHeight = ViewModel.Vault.IsVerticalTabs ? 40 : 48;
@@ -922,14 +923,16 @@ public sealed partial class MainPage : Page
             VaultDurationInput.SelectedIndex = Array.IndexOf(new[] { 1, 2, 5, 10, 30, 60, 120, 300 }, (int)ViewModel.Settings.VaultDurationMinutes);
     }
 
-    private void AddItemButton_Click(object sender, RoutedEventArgs e)
+    private async void AddItemButton_Click(object sender, RoutedEventArgs e) => await OpenNewEditorAsync();
+
+    private async Task OpenNewEditorAsync()
     {
-        if (!ViewModel.IsUnlocked || ViewModel.CurrentRoute == AppRoute.ItemEditor) return;
+        if (!await ViewModel.BeginAddItemAsync()) return;
         ClearEditor();
-        ViewModel.BeginAddItem();
         editorBaseline = ReadEditorInput();
         ApplyRoute(AppRoute.ItemEditor);
         EditorItemTitle.Focus(FocusState.Programmatic);
+        EditorPage.ChangeView(null, 0, null, disableAnimation: true);
     }
 
     private async void AddGroupButton_Click(object sender, RoutedEventArgs e)
@@ -1392,12 +1395,12 @@ public sealed partial class MainPage : Page
         args.Handled = true;
     }
 
-    private void NewItemKeyboardAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    private async void NewItemKeyboardAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
         if (!ViewModel.IsUnlocked) return;
         if (ViewModel.CurrentRoute == AppRoute.ItemEditor) { args.Handled = true; return; }
-        AddItemButton_Click(sender, new RoutedEventArgs());
         args.Handled = true;
+        await OpenNewEditorAsync();
     }
 
     private void HashModeSelector_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
@@ -1417,10 +1420,19 @@ public sealed partial class MainPage : Page
         HashErrorInfoBar.IsOpen = !string.IsNullOrWhiteSpace(ViewModel.HashTool.ErrorMessage);
     }
 
+    private void HashVerifyPassword_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        // The automatic clear can raise this event after verification finishes.
+        if (HashVerifyPassword.Password.Length > 0) ViewModel.HashTool.ResetVerification();
+    }
+
+    private void HashVerifyStored_TextChanged(object sender, TextChangedEventArgs e) => ViewModel.HashTool.ResetVerification();
+
     private void VerifyHashButton_Click(object sender, RoutedEventArgs e)
     {
-        ViewModel.HashTool.VerifyCommand.Execute(new HashVerificationRequest(HashVerifyPassword.Password, HashVerifyStored.Text));
+        var request = new HashVerificationRequest(HashVerifyPassword.Password, HashVerifyStored.Text);
         HashVerifyPassword.Password = string.Empty;
+        ViewModel.HashTool.VerifyCommand.Execute(request);
         HashErrorInfoBar.IsOpen = !string.IsNullOrWhiteSpace(ViewModel.HashTool.ErrorMessage);
     }
 

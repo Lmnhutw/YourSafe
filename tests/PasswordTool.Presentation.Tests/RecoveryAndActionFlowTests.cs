@@ -66,6 +66,96 @@ public sealed class RecoveryAndActionFlowTests
     }
 
     [Fact]
+    public async Task Adding_an_item_to_an_unlocked_vault_does_not_prompt_again()
+    {
+        using var context = new Context();
+        Assert.True(await context.Shell.BeginAddItemAsync());
+        Assert.Equal(AppRoute.ItemEditor, context.Shell.CurrentRoute);
+        Assert.Equal(0, context.Dialogs.PasswordPrompts);
+        Assert.True(context.Vault.IsVaultUnlocked);
+    }
+
+    [Fact]
+    public async Task Adding_an_item_unlocks_the_vault_before_opening_an_editable_editor()
+    {
+        using var context = new Context();
+        await context.Shell.LockTableAsync();
+        context.Dialogs.ActionPassword = Context.Password;
+        Assert.True(await context.Shell.BeginAddItemAsync());
+        Assert.Equal(1, context.Dialogs.PasswordPrompts);
+        Assert.Equal(AppRoute.ItemEditor, context.Shell.CurrentRoute);
+        Assert.False(context.Shell.IsTableLocked);
+        Assert.True(context.Vault.IsVaultUnlocked);
+        Assert.Empty(context.Vault.GetItems());
+        Assert.True(await context.Shell.SaveItemAsync(new VaultItemEditorInput(null, "New account", "user", "saved password", "", "", "", "", null, "", false, false, false)));
+        Assert.Single(context.Vault.GetItems());
+        Assert.Equal(1, context.Dialogs.PasswordPrompts);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("wrong")]
+    public async Task Cancelled_or_incorrect_unlock_cannot_open_the_new_item_editor(string? password)
+    {
+        using var context = new Context();
+        await context.Shell.LockTableAsync();
+        context.Dialogs.ActionPassword = password;
+        Assert.False(await context.Shell.BeginAddItemAsync());
+        Assert.Equal(AppRoute.Vault, context.Shell.CurrentRoute);
+        Assert.True(context.Shell.IsTableLocked);
+        Assert.False(context.Vault.IsVaultUnlocked);
+        Assert.Equal(password is not null, context.Shell.IsStatusOpen);
+    }
+
+    [Fact]
+    public async Task Adding_after_vault_timeout_prompts_even_before_the_ui_timer_locks_the_table()
+    {
+        using var context = new Context();
+        context.Now = context.Vault.VaultExpiresAt!.Value;
+        context.Dialogs.ActionPassword = Context.Password;
+        Assert.Equal(AppFlowState.Unlocked, context.Shell.FlowState);
+        Assert.True(await context.Shell.BeginAddItemAsync());
+        Assert.Equal(1, context.Dialogs.PasswordPrompts);
+        Assert.True(context.Vault.IsVaultUnlocked);
+        Assert.Equal(AppRoute.ItemEditor, context.Shell.CurrentRoute);
+    }
+
+    [Fact]
+    public async Task Expiring_login_while_new_item_unlock_is_pending_returns_to_sign_in()
+    {
+        using var context = new Context();
+        await context.Shell.LockTableAsync();
+        context.Dialogs.PendingPassword = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var adding = context.Shell.BeginAddItemAsync();
+        context.Now = context.Vault.LoginExpiresAt!.Value;
+        context.Dialogs.PendingPassword.SetResult(Context.Password);
+        Assert.False(await adding);
+        Assert.Equal(AppFlowState.Unlock, context.Shell.FlowState);
+        Assert.Equal(AppRoute.Vault, context.Shell.CurrentRoute);
+        Assert.False(context.Shell.IsSignedIn);
+        Assert.False(context.Vault.IsVaultUnlocked);
+    }
+
+    [Fact]
+    public async Task New_item_unlock_from_an_earlier_session_is_discarded_and_overlapping_requests_do_not_prompt()
+    {
+        using var context = new Context();
+        await context.Shell.LockTableAsync();
+        context.Dialogs.PendingPassword = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var adding = context.Shell.BeginAddItemAsync();
+        Assert.False(await context.Shell.BeginAddItemAsync());
+        Assert.Equal(1, context.Dialogs.PasswordPrompts);
+        await context.Shell.LockCommand.ExecuteAsync(null);
+        await context.Shell.UnlockAsync(Context.Password, "");
+        context.Dialogs.PendingPassword.SetResult(Context.Password);
+        Assert.False(await adding);
+        Assert.Equal(AppRoute.Vault, context.Shell.CurrentRoute);
+        Assert.True(await context.Shell.BeginAddItemAsync());
+        Assert.Equal(AppRoute.ItemEditor, context.Shell.CurrentRoute);
+        Assert.Equal(1, context.Dialogs.PasswordPrompts);
+    }
+
+    [Fact]
     public async Task New_setup_requires_saved_recovery_key_before_creating_storage()
     {
         var directory = Path.Combine(Path.GetTempPath(), "PasswordTool.Presentation.Tests", Guid.NewGuid().ToString("N"));
@@ -379,11 +469,12 @@ public sealed class RecoveryAndActionFlowTests
     private sealed class Dialogs : IUserDialogService
     {
         public string? ActionPassword { get; set; }
+        public TaskCompletionSource<string?>? PendingPassword { get; set; }
         public int PasswordPrompts { get; private set; }
         public Task<string?> PromptMasterPasswordAsync(CancellationToken cancellationToken = default)
         {
             PasswordPrompts++;
-            return Task.FromResult(ActionPassword);
+            return PendingPassword?.Task ?? Task.FromResult(ActionPassword);
         }
         public bool Confirmed { get; set; } = true;
         public TaskCompletionSource<bool>? Pending { get; set; }

@@ -85,6 +85,24 @@
                     </VisualState.StateTriggers>
                 </VisualState>
             </VisualStateGroup>
+            <VisualStateGroup>
+                <VisualState x:Name="WideBackup">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="1100" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="BackupSecondaryColumn.Width" Value="*" />
+                        <Setter Target="BackupSections.ColumnSpacing" Value="16" />
+                        <Setter Target="CsvImportSection.(Grid.Row)" Value="0" />
+                        <Setter Target="CsvImportSection.(Grid.Column)" Value="1" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="NarrowBackup">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="0" />
+                    </VisualState.StateTriggers>
+                </VisualState>
+            </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
 
         <Grid x:Name="AuthenticationPanel">
@@ -307,6 +325,12 @@
                                                 <ColumnDefinition Width="1.2*" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" Text="Actions" />
+                                            <Border Grid.Column="1" Width="1" Height="20" Margin="-10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" Background="{ThemeResource TextFillColorSecondaryBrush}" Opacity="0.22" IsHitTestVisible="False" />
+                                            <Border Grid.Column="2" Width="1" Height="20" Margin="-10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" Background="{ThemeResource TextFillColorSecondaryBrush}" Opacity="0.22" IsHitTestVisible="False" />
+                                            <Border Grid.Column="3" Width="1" Height="20" Margin="-10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" Background="{ThemeResource TextFillColorSecondaryBrush}" Opacity="0.22" IsHitTestVisible="False" />
+                                            <Border Grid.Column="4" Width="1" Height="20" Margin="-10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" Background="{ThemeResource TextFillColorSecondaryBrush}" Opacity="0.22" IsHitTestVisible="False" />
+                                            <Border Grid.Column="5" Width="1" Height="20" Margin="-10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" Background="{ThemeResource TextFillColorSecondaryBrush}" Opacity="0.22" IsHitTestVisible="False" />
+                                            <Border Grid.Column="6" Width="1" Height="20" Margin="-10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" Background="{ThemeResource TextFillColorSecondaryBrush}" Opacity="0.22" IsHitTestVisible="False" />
                                             <TextBlock Grid.Column="1" HorizontalAlignment="Center" FontWeight="SemiBold" Text="Title" />
                                             <TextBlock Grid.Column="2" HorizontalAlignment="Center" FontWeight="SemiBold" Text="Username" />
                                             <TextBlock Grid.Column="3" HorizontalAlignment="Center" FontWeight="SemiBold" Text="Password" />
@@ -388,6 +412,31 @@
                             </Border>
                         </Border>
                         <Grid x:Name="GroupTabStrip" Canvas.ZIndex="1" VerticalAlignment="Bottom" Margin="12,0,12,-1" SizeChanged="GroupTabStrip_SizeChanged">
+                            <Grid.Resources>
+                                <ResourceDictionary>
+                                    <ResourceDictionary.ThemeDictionaries>
+                                        <!-- Opaque fills prevent flashes during the native Button brush transition. -->
+                                        <ResourceDictionary x:Key="Light">
+                                            <StaticResource x:Key="ButtonBackgroundPointerOver" ResourceKey="VaultGroupHoverBrush" />
+                                            <StaticResource x:Key="ButtonBackgroundPressed" ResourceKey="VaultGroupBackgroundBrush" />
+                                            <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="VaultGroupHoverTextBrush" />
+                                            <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="VaultGroupTabTextBrush" />
+                                        </ResourceDictionary>
+                                        <ResourceDictionary x:Key="Dark">
+                                            <StaticResource x:Key="ButtonBackgroundPointerOver" ResourceKey="VaultGroupHoverBrush" />
+                                            <StaticResource x:Key="ButtonBackgroundPressed" ResourceKey="VaultGroupBackgroundBrush" />
+                                            <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="VaultGroupHoverTextBrush" />
+                                            <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="VaultGroupTabTextBrush" />
+                                        </ResourceDictionary>
+                                        <ResourceDictionary x:Key="HighContrast">
+                                            <StaticResource x:Key="ButtonBackgroundPointerOver" ResourceKey="VaultGroupHoverBrush" />
+                                            <StaticResource x:Key="ButtonBackgroundPressed" ResourceKey="VaultGroupBackgroundBrush" />
+                                            <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="VaultGroupHoverTextBrush" />
+                                            <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="VaultGroupTabTextBrush" />
+                                        </ResourceDictionary>
+                                    </ResourceDictionary.ThemeDictionaries>
+                                </ResourceDictionary>
+                            </Grid.Resources>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
@@ -505,7 +554,7 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <StackPanel Spacing="4">
-                            <TextBlock x:Name="EditorTitle" Style="{StaticResource PasswordToolPageTitleStyle}" Text="Add item" />
+                            <TextBlock x:Name="EditorTitle" AutomationProperties.AutomationId="TxtEditorPageTitle" Style="{StaticResource PasswordToolPageTitleStyle}" Text="Add item" />
                             <TextBlock Style="{StaticResource PasswordToolDescriptionStyle}" Text="Save a password, verification codes, recovery codes, and account details." />
                         </StackPanel>
                         <Grid x:Name="EditorSections" Grid.Row="1" RowSpacing="24">
@@ -620,10 +669,16 @@
                                         <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Verify a password" />
                                         <TextBlock Style="{StaticResource PasswordToolDescriptionStyle}" Text="Compare a password with a stored hash. The hash format is detected automatically." />
                                     </StackPanel>
-                                    <PasswordBox x:Name="HashVerifyPassword" AutomationProperties.AutomationId="TxtHashVerifyPassword" AutomationProperties.Name="Password to verify" Header="Password" />
-                                    <TextBox x:Name="HashVerifyStored" AutomationProperties.AutomationId="TxtHashVerifyStored" AutomationProperties.Name="Stored hash" Header="Stored hash" Style="{StaticResource PasswordToolHashInputStyle}" TextWrapping="Wrap" />
-                                    <Button AutomationProperties.AutomationId="BtnVerifyHash" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Right" Click="VerifyHashButton_Click" Content="Verify password" />
-                                    <TextBlock AutomationProperties.AutomationId="TxtHashVerificationResult" AutomationProperties.LiveSetting="Polite" Text="{x:Bind ViewModel.HashTool.VerificationResult, Mode=OneWay}" TextWrapping="Wrap" />
+                                    <PasswordBox x:Name="HashVerifyPassword" AutomationProperties.AutomationId="TxtHashVerifyPassword" AutomationProperties.Name="Password to verify" Header="Password" PasswordChanged="HashVerifyPassword_PasswordChanged" />
+                                    <TextBox x:Name="HashVerifyStored" AutomationProperties.AutomationId="TxtHashVerifyStored" AutomationProperties.Name="Stored hash" Header="Stored hash" Style="{StaticResource PasswordToolHashInputStyle}" TextWrapping="Wrap" TextChanged="HashVerifyStored_TextChanged" />
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock AutomationProperties.AutomationId="TxtHashVerificationResult" AutomationProperties.LiveSetting="Polite" Style="{StaticResource PasswordToolDescriptionStyle}" VerticalAlignment="Center" Text="{x:Bind ViewModel.HashTool.VerificationResult, Mode=OneWay}" />
+                                        <Button Grid.Column="1" AutomationProperties.AutomationId="BtnVerifyHash" Style="{StaticResource AccentButtonStyle}" Click="VerifyHashButton_Click" Content="Verify password" />
+                                    </Grid>
                                 </StackPanel>
                                 <StackPanel x:Name="HashInspectPanel" Spacing="16" Visibility="Collapsed">
                                     <StackPanel Spacing="4">
@@ -647,61 +702,88 @@
 
                 <ScrollViewer x:Name="BackupPage" Grid.Row="1" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled" Visibility="Collapsed" IsEnabled="{x:Bind local:MainPage.Not(ViewModel.Backup.IsBusy), Mode=OneWay}">
                     <StackPanel Style="{StaticResource PasswordToolFormStyle}">
-                        <StackPanel Spacing="4">
+                        <StackPanel Spacing="8">
                             <TextBlock Style="{StaticResource PasswordToolPageTitleStyle}" Text="Backup &amp; Recovery" />
-                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Keep an encrypted copy of your vault so you can restore your saved items when needed. Remember to store a copy outside this device." TextWrapping="Wrap" />
+                            <TextBlock Style="{StaticResource PasswordToolDescriptionStyle}" Text="Keep an encrypted copy of your vault outside this device." />
                             <ProgressBar IsIndeterminate="True" Visibility="{x:Bind local:MainPage.BoolToVisibility(ViewModel.Backup.IsBusy), Mode=OneWay}" AutomationProperties.Name="Processing backup operation" />
-                            <InfoBar IsClosable="True" IsOpen="{x:Bind ViewModel.Backup.IsStatusOpen, Mode=TwoWay}" Message="{x:Bind ViewModel.Backup.StatusMessage, Mode=OneWay}" Severity="Informational" Title="Backup &amp; Recovery" />
-                            <TextBlock Text="{x:Bind ViewModel.Backup.Summary, Mode=OneWay}" TextWrapping="Wrap" />
+                            <InfoBar AutomationProperties.AutomationId="StatusBackup" IsClosable="True" IsOpen="{x:Bind ViewModel.Backup.IsStatusOpen, Mode=TwoWay}" Message="{x:Bind ViewModel.Backup.StatusMessage, Mode=OneWay}" Severity="Informational" Title="Backup &amp; Recovery" />
+                            <TextBlock AutomationProperties.AutomationId="TxtBackupSummary" Style="{StaticResource PasswordToolDescriptionStyle}" Text="{x:Bind ViewModel.Backup.Summary, Mode=OneWay}" />
                         </StackPanel>
-                        <Grid x:Name="BackupSections" ColumnSpacing="16">
+                        <Grid x:Name="BackupSections" RowSpacing="16">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition x:Name="BackupSecondaryColumn" Width="*" />
+                                <ColumnDefinition x:Name="BackupSecondaryColumn" Width="0" />
                             </Grid.ColumnDefinitions>
                             <Border Style="{StaticResource PasswordToolCardStyle}" VerticalAlignment="Top">
-                                <StackPanel Spacing="12">
-                                    <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Encrypted backup" />
-                                    <TextBlock Text="Your backup also includes items in Trash." TextWrapping="Wrap" />
-                                    <TextBlock Text="Use at least 12 characters for your backup password." TextWrapping="Wrap" />
-                                    <PasswordBox x:Name="BackupPassphrase" Password="{x:Bind ViewModel.Backup.BackupPassword, Mode=TwoWay}" AutomationProperties.Name="Backup password" Header="Backup password" />
-                                    <TextBlock Text="Your backup password is separate from your Master Password. Keep it safe—you'll need it to restore your saved items." TextWrapping="Wrap" />
-                                    <PasswordBox x:Name="BackupPassphraseConfirmation" Password="{x:Bind ViewModel.Backup.ConfirmBackupPassword, Mode=TwoWay}" AutomationProperties.Name="Confirm backup password" Header="Confirm backup password for creation" />
-                                    <Button Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Right" Click="ExportBackupButton_Click" Content="Create backup" />
-                                    <Button HorizontalAlignment="Right" Click="VerifyBackupButton_Click" Content="Verify backup file" />
-                                    <TextBlock Text="Creation verifies the saved file. Verify it again later to check that it is still readable." TextWrapping="Wrap" />
-                                    <Button HorizontalAlignment="Right" Click="PreviewBackupImportButton_Click" Content="Preview backup import" />
-                                    <Button HorizontalAlignment="Right" Click="ImportBackupButton_Click" Content="Import previewed new items" IsEnabled="{x:Bind ViewModel.Backup.CanImportBackup, Mode=OneWay}" />
+                                <StackPanel Spacing="20">
+                                    <Grid ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                        <TextBlock AutomationProperties.AutomationId="TxtEncryptedBackupTitle" Style="{ThemeResource SubtitleTextBlockStyle}" VerticalAlignment="Center" Text="Encrypted backup" />
+                                        <Button Grid.Column="1" Width="32" Height="32" MinWidth="32" Padding="0" Background="Transparent" BorderThickness="0" AutomationProperties.AutomationId="BtnBackupHelp" AutomationProperties.Name="About encrypted backups" AutomationProperties.HelpText="Backups include items in Trash. Keep the backup password safe; you need it to restore the file. Creating a backup also verifies it.">
+                                            <FontIcon FontSize="16" Glyph="&#xE946;" />
+                                            <ToolTipService.ToolTip><ToolTip><TextBlock MaxWidth="320" TextWrapping="Wrap" Text="Backups include items in Trash. Keep the backup password safe; you need it to restore the file. Creating a backup also verifies it." /></ToolTip></ToolTipService.ToolTip>
+                                        </Button>
+                                    </Grid>
+                                    <StackPanel Spacing="8">
+                                        <PasswordBox x:Name="BackupPassphrase" Password="{x:Bind ViewModel.Backup.BackupPassword, Mode=TwoWay}" AutomationProperties.AutomationId="TxtBackupPassword" AutomationProperties.Name="Backup password" Header="Backup password" />
+                                        <TextBlock Style="{StaticResource PasswordToolDescriptionStyle}" Text="At least 12 characters. Separate from your Master Password." />
+                                    </StackPanel>
+                                    <PasswordBox x:Name="BackupPassphraseConfirmation" Password="{x:Bind ViewModel.Backup.ConfirmBackupPassword, Mode=TwoWay}" AutomationProperties.AutomationId="TxtConfirmBackupPassword" AutomationProperties.Name="Confirm backup password for creation" Header="Confirm backup password" ToolTipService.ToolTip="Confirmation is only required when creating a backup." AutomationProperties.HelpText="Confirmation is only required when creating a backup." />
+                                    <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+                                        <Button AutomationProperties.AutomationId="BtnVerifyBackup" AutomationProperties.Name="Verify backup file" Click="VerifyBackupButton_Click" Content="Verify file" ToolTipService.ToolTip="Check that an existing backup is still readable using its backup password." />
+                                        <Button Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="BtnCreateBackup" Click="ExportBackupButton_Click" Content="Create backup" />
+                                    </StackPanel>
+                                    <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                                    <StackPanel Spacing="12">
+                                        <TextBlock FontWeight="SemiBold" Text="Import from backup" />
+                                        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+                                            <Button AutomationProperties.AutomationId="BtnPreviewBackup" AutomationProperties.Name="Preview backup import" Click="PreviewBackupImportButton_Click" Content="Preview import" ToolTipService.ToolTip="Choose a backup and preview new items using its backup password. Existing items will stay unchanged." />
+                                            <Button AutomationProperties.AutomationId="BtnImportBackup" AutomationProperties.Name="Import previewed new items from backup" Click="ImportBackupButton_Click" Content="Import new items" IsEnabled="{x:Bind ViewModel.Backup.CanImportBackup, Mode=OneWay}" ToolTipService.ToolTip="Import the new items from the latest backup preview." />
+                                        </StackPanel>
+                                    </StackPanel>
                                 </StackPanel>
                             </Border>
-                            <Border x:Name="CsvImportSection" Grid.Column="1" Style="{StaticResource PasswordToolCardStyle}" VerticalAlignment="Top">
-                                <StackPanel Spacing="12">
-                                    <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="CSV import" />
-                                    <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Preview passwords from a browser or password manager, then import new accounts. Matching accounts will be skipped. CSV files are not encrypted; keep them safe and delete them when you're done." TextWrapping="Wrap" />
-                                    <Button HorizontalAlignment="Right" Click="PreviewCsvButton_Click" Content="Preview CSV" />
-                                    <Button HorizontalAlignment="Right" Click="ImportCsvButton_Click" Content="Import previewed new items" IsEnabled="{x:Bind ViewModel.Backup.CanImportCsv, Mode=OneWay}" />
+                            <Border x:Name="CsvImportSection" Grid.Row="1" Style="{StaticResource PasswordToolCardStyle}" VerticalAlignment="Top">
+                                <StackPanel Spacing="20">
+                                    <Grid ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                        <TextBlock AutomationProperties.AutomationId="TxtCsvImportTitle" Style="{ThemeResource SubtitleTextBlockStyle}" VerticalAlignment="Center" Text="CSV import" />
+                                        <Button Grid.Column="1" Width="32" Height="32" MinWidth="32" Padding="0" Background="Transparent" BorderThickness="0" AutomationProperties.AutomationId="BtnCsvImportHelp" AutomationProperties.Name="About CSV imports" AutomationProperties.HelpText="Preview passwords from a browser or password manager before importing. Matching accounts are skipped; existing items stay unchanged.">
+                                            <FontIcon FontSize="16" Glyph="&#xE946;" />
+                                            <ToolTipService.ToolTip><ToolTip><TextBlock MaxWidth="320" TextWrapping="Wrap" Text="Preview passwords from a browser or password manager before importing. Matching accounts are skipped; existing items stay unchanged." /></ToolTip></ToolTipService.ToolTip>
+                                        </Button>
+                                    </Grid>
+                                    <TextBlock Style="{StaticResource PasswordToolDescriptionStyle}" Text="CSV files are not encrypted. Keep them safe and delete them after import." />
+                                    <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+                                        <Button AutomationProperties.AutomationId="BtnPreviewCsv" Click="PreviewCsvButton_Click" Content="Preview CSV" />
+                                        <Button AutomationProperties.AutomationId="BtnImportCsv" AutomationProperties.Name="Import previewed new items from CSV" Click="ImportCsvButton_Click" Content="Import new items" IsEnabled="{x:Bind ViewModel.Backup.CanImportCsv, Mode=OneWay}" ToolTipService.ToolTip="Import the new items from the latest CSV preview." />
+                                    </StackPanel>
                                 </StackPanel>
                             </Border>
                         </Grid>
                         <Border Style="{StaticResource PasswordToolCardStyle}">
-                            <StackPanel Spacing="12">
-                                <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Local snapshots" />
-                                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Snapshots are earlier encrypted copies of your vault and security settings saved on this device. Restoring a snapshot returns you to sign in." TextWrapping="Wrap" />
-                                <ListView Height="180" ItemsSource="{x:Bind ViewModel.Backup.Snapshots}" SelectedItem="{x:Bind ViewModel.Backup.SelectedSnapshot, Mode=TwoWay}">
+                            <StackPanel Spacing="20">
+                                <TextBlock AutomationProperties.AutomationId="TxtLocalSnapshotsTitle" Style="{ThemeResource SubtitleTextBlockStyle}" Text="Local snapshots" />
+                                <StackPanel Spacing="8">
+                                    <TextBlock Style="{StaticResource PasswordToolDescriptionStyle}" Text="Restore an earlier encrypted copy saved on this device. This replaces your vault and security settings and returns you to sign in." />
+                                    <TextBlock FontWeight="SemiBold" Text="Older snapshots can restore previous credentials." TextWrapping="Wrap" />
+                                </StackPanel>
+                                <ListView AutomationProperties.AutomationId="ListLocalSnapshots" AutomationProperties.Name="Local snapshots" Height="180" ItemsSource="{x:Bind ViewModel.Backup.Snapshots}" SelectedItem="{x:Bind ViewModel.Backup.SelectedSnapshot, Mode=TwoWay}">
                                     <ListView.ItemTemplate>
                                         <DataTemplate x:DataType="models:VaultSnapshotInfo">
-                                            <StackPanel>
-                                                <TextBlock Text="{x:Bind SecurityStateLabel}" TextWrapping="Wrap" />
-                                            <StackPanel Padding="8,6">
-                                                <TextBlock Text="{x:Bind CreatedAtUtc}" />
-                                                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind Id}" />
-                                            </StackPanel>
+                                            <StackPanel Padding="0,6" Spacing="4" ToolTipService.ToolTip="{x:Bind Id}" AutomationProperties.HelpText="{x:Bind Id}">
+                                                <TextBlock FontWeight="SemiBold" Text="{x:Bind SecurityStateLabel}" TextWrapping="Wrap" />
+                                                <TextBlock Style="{StaticResource PasswordToolDescriptionStyle}" Text="{x:Bind CreatedAtUtc}" />
                                             </StackPanel>
                                         </DataTemplate>
                                     </ListView.ItemTemplate>
                                 </ListView>
-                                <PasswordBox x:Name="SnapshotMasterPassword" AutomationProperties.Name="Master Password for snapshot restore" Header="Current Master Password" />
-                                <Button HorizontalAlignment="Right" Click="RestoreSnapshotButton_Click" Content="Restore selected snapshot" />
+                                <PasswordBox x:Name="SnapshotMasterPassword" AutomationProperties.AutomationId="TxtSnapshotMasterPassword" AutomationProperties.Name="Master Password for snapshot restore" Header="Current Master Password" />
+                                <Button AutomationProperties.AutomationId="BtnRestoreSnapshot" HorizontalAlignment="Right" Click="RestoreSnapshotButton_Click" Content="Restore selected snapshot" />
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -774,15 +856,25 @@
 
                         <Border Style="{StaticResource PasswordToolCardStyle}">
                             <StackPanel Spacing="12">
-                                <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Sign-in and vault lock" />
-                                <TextBlock Text="YourSafe session: 5 hours" />
-                                <local:AppComboBox x:Name="VaultDurationInput" Header="Keep vault unlocked for" SelectedIndex="0">
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                    <TextBlock AutomationProperties.AutomationId="TxtSignInVaultLockTitle" Style="{ThemeResource SubtitleTextBlockStyle}" Text="Sign-in and vault lock" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" AutomationProperties.AutomationId="BtnSessionHelp" AutomationProperties.Name="About the YourSafe session" AutomationProperties.HelpText="YourSafe session lasts 5 hours from sign-in. When it ends, sign in again with your Master Password and Authenticator code. Vault lock has a separate timer; unlocking during this session only requires your Master Password." Background="Transparent" BorderThickness="0" Padding="4" MinWidth="24" MinHeight="24" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
+                                        <FontIcon Glyph="&#xE946;" FontSize="16" />
+                                        <ToolTipService.ToolTip>
+                                            <ToolTip>
+                                                <TextBlock MaxWidth="340" TextWrapping="Wrap" Text="YourSafe session lasts 5 hours from sign-in. When it ends, sign in again with your Master Password and Authenticator code. Vault lock has a separate timer; unlocking during this session only requires your Master Password." />
+                                            </ToolTip>
+                                        </ToolTipService.ToolTip>
+                                    </Button>
+                                </Grid>
+                                <local:AppComboBox x:Name="VaultDurationInput" Header="Keep vault unlocked for" AutomationProperties.AutomationId="CmbVaultDuration" SelectedIndex="0">
                                     <ComboBoxItem Content="1 minute" /><ComboBoxItem Content="2 minutes" />
                                     <ComboBoxItem Content="5 minutes" /><ComboBoxItem Content="10 minutes" />
                                     <ComboBoxItem Content="30 minutes" /><ComboBoxItem Content="1 hour" />
                                     <ComboBoxItem Content="2 hours" /><ComboBoxItem Content="5 hours" />
                                 </local:AppComboBox>
-                                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Your vault locks after this time, starting when you unlock it. Restart YourSafe to apply changes." TextWrapping="Wrap" />
+                                <TextBlock AutomationProperties.AutomationId="TxtVaultLockDescription" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" Text="Your vault locks after this time, starting when you unlock it. Restart YourSafe to apply changes." TextWrapping="Wrap" />
                                 <PasswordBox x:Name="SettingsMasterPassword" AutomationProperties.Name="Master Password for settings" Header="Current Master Password" />
                                 <Button Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Right" Click="SaveSettingsButton_Click" Content="Save security settings" />
                                 <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Recovery Key" />
@@ -817,7 +909,7 @@
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Top" Orientation="Horizontal" Spacing="8">
                                 <Button AutomationProperties.AutomationId="BtnUpgradePasswordProtection" HorizontalAlignment="Right" Click="UpgradeKdfButton_Click" Content="Upgrade password protection" IsEnabled="{x:Bind ViewModel.Settings.NeedsKdfUpgrade, Mode=OneWay}" />
-                                        <Button Style="{StaticResource AccentButtonStyle}" Click="ChangeMasterPasswordButton_Click" Content="Change Master Password" />
+                                        <Button AutomationProperties.AutomationId="BtnChangeMasterPassword" Style="{StaticResource AccentButtonStyle}" Click="ChangeMasterPasswordButton_Click" Content="Change Master Password" />
                                     </StackPanel>
                                 </Grid>
                             </StackPanel>

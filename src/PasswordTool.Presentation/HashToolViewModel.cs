@@ -33,7 +33,7 @@ public sealed partial class HashToolViewModel : ObservableObject
 
     [ObservableProperty] public partial HashAlgorithmOption? SelectedAlgorithm { get; set; }
     [ObservableProperty] public partial string GeneratedHash { get; set; } = string.Empty;
-    [ObservableProperty] public partial string VerificationResult { get; set; } = "Not checked.";
+    [ObservableProperty] public partial string VerificationResult { get; set; } = string.Empty;
     [ObservableProperty] public partial PasswordHashInfo? Inspection { get; set; }
     [ObservableProperty] public partial string ErrorMessage { get; set; } = string.Empty;
 
@@ -60,10 +60,13 @@ public sealed partial class HashToolViewModel : ObservableObject
         }
     }
 
+    public void ResetVerification() => VerificationResult = string.Empty;
+
     [RelayCommand]
     private void Verify(HashVerificationRequest? request)
     {
         ErrorMessage = string.Empty;
+        ResetVerification();
         if (request is null || string.IsNullOrWhiteSpace(request.Password) || string.IsNullOrWhiteSpace(request.StoredHash))
         {
             ErrorMessage = "Enter both a password and stored hash.";

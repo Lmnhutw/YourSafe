@@ -9,6 +9,7 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
     public async Task<string?> PromptMasterPasswordAsync(CancellationToken cancellationToken = default)
     {
         var password = new PasswordBox { Header = "Master Password" };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(password, "TxtUnlockMasterPassword");
         var panel = new StackPanel { Spacing = 12 };
         panel.Children.Add(new TextBlock
         {

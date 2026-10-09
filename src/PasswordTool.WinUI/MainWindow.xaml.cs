@@ -16,7 +16,7 @@ namespace PasswordTool_WinUI;
 /// </summary>
 public sealed partial class MainWindow : Window
 {
-    private const int MinimumLogicalWidth = 480;
+    private const int MinimumLogicalWidth = 900;
     private const int MinimumLogicalHeight = 400;
     [DllImport("user32.dll")]
     private static extern uint GetDpiForWindow(nint hwnd);
@@ -68,8 +68,7 @@ public sealed partial class MainWindow : Window
         if (AppWindow.Presenter is not OverlappedPresenter presenter) return;
         var workArea = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest).WorkArea;
         var scale = GetDpiForWindow(WinRT.Interop.WindowNative.GetWindowHandle(this)) / 96d;
-        // Leave half-screen Snap available even on small displays at high scaling.
-        var width = Math.Min((int)(MinimumLogicalWidth * scale), Math.Max(1, workArea.Width / 2));
+        var width = Math.Min((int)(MinimumLogicalWidth * scale), workArea.Width);
         var height = Math.Min((int)(MinimumLogicalHeight * scale), Math.Max(1, workArea.Height / 2));
         if (presenter.PreferredMinimumWidth != width) presenter.PreferredMinimumWidth = width;
         if (presenter.PreferredMinimumHeight != height) presenter.PreferredMinimumHeight = height;
