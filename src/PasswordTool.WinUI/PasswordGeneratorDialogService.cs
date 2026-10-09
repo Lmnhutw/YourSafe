@@ -38,7 +38,10 @@ internal sealed class PasswordGeneratorDialogService(PasswordGeneratorService ge
                 IsTextSelectionEnabled = false,
                 FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Consolas")
             };
-            var strengthText = new TextBlock();
+            var strengthText = new TextBlock
+            {
+                Style = (Style)Application.Current.Resources["PasswordToolHintStyle"]
+            };
             var errorText = new TextBlock
             {
                 Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCriticalBrush"],
@@ -93,9 +96,11 @@ internal sealed class PasswordGeneratorDialogService(PasswordGeneratorService ge
             content.Children.Add(chunks);
             content.Children.Add(characterOptions);
             content.Children.Add(generateButton);
-            content.Children.Add(new TextBlock { Text = "Generated password", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
-            content.Children.Add(generatedText);
-            content.Children.Add(strengthText);
+            var resultPanel = new StackPanel { Spacing = 4 };
+            resultPanel.Children.Add(new TextBlock { Text = "Generated password", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+            resultPanel.Children.Add(generatedText);
+            resultPanel.Children.Add(strengthText);
+            content.Children.Add(resultPanel);
             content.Children.Add(errorText);
 
             var dialog = new AppContentDialog

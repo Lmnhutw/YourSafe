@@ -791,6 +791,7 @@ public sealed partial class MainPage : Page
     private void ApplyShellState()
     {
         UpdateVaultLockButton();
+        if (ViewModel.FlowState != AppFlowState.Unlocked) ToolGeneratedPassword.Text = string.Empty;
         if (ViewModel.FlowState != AppFlowState.Unlocked) CloseTotpPanel();
         if (ViewModel.IsTableLocked)
         {
@@ -1411,6 +1412,39 @@ public sealed partial class MainPage : Page
         HashVerifyPanel.Visibility = mode == 1 ? Visibility.Visible : Visibility.Collapsed;
         HashInspectPanel.Visibility = mode == 2 ? Visibility.Visible : Visibility.Collapsed;
         HashErrorInfoBar.IsOpen = false;
+    }
+
+    private void HashGenerationMode_Changed(object sender, RoutedEventArgs e)
+    {
+        if (HashGenerationFields is null || PasswordGenerationPanel is null) return;
+        var hash = HashGenerationToggle.IsChecked == true;
+        HashGenerationFields.Visibility = hash ? Visibility.Visible : Visibility.Collapsed;
+        PasswordGenerationPanel.Visibility = hash ? Visibility.Collapsed : Visibility.Visible;
+        HashGenerateTitle.Text = hash ? "Generate a hash" : "Generate a password";
+        HashGenerateDescription.Text = hash
+            ? "Choose an algorithm and enter the password to hash. Legacy algorithms are for learning only."
+            : "Choose the length and character options, or create a passphrase, using the password generator.";
+        ToolGeneratedPassword.Text = string.Empty;
+        HashGeneratePassword.Password = string.Empty;
+        ViewModel.HashTool.GeneratedHash = string.Empty;
+        ViewModel.HashTool.ErrorMessage = string.Empty;
+        HashErrorInfoBar.IsOpen = false;
+    }
+
+    private async void ToolGeneratePasswordButton_Click(object sender, RoutedEventArgs e)
+    {
+        var button = (Button)sender;
+        if (!button.IsEnabled) return;
+        button.IsEnabled = false;
+        try
+        {
+            var version = ViewModel.LifecycleVersion;
+            var generated = await passwordGeneratorDialog.ShowAsync();
+            if (generated is not null && version == ViewModel.LifecycleVersion
+                && ViewModel.CurrentRoute == AppRoute.HashTool && HashGenerationToggle.IsChecked != true)
+                ToolGeneratedPassword.Text = generated;
+        }
+        finally { button.IsEnabled = true; }
     }
 
     private void GenerateHashButton_Click(object sender, RoutedEventArgs e)

@@ -119,6 +119,7 @@ try {
         AssertVerification ''
         Capture '01-verify-initial'
         Ui invoke HashModeGenerate | Out-Null
+        Ui invoke ChkGenerateHash | Out-Null
         Ui set-value TxtHashGeneratePassword $hashPassword | Out-Null
         Ui invoke BtnGenerateHash | Out-Null
         Ui wait-for TxtGeneratedHash --value '$' --contains -t 15000 | Out-Null

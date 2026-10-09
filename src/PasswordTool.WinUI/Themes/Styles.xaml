@@ -62,6 +62,10 @@
         <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
 
+    <Style x:Key="PasswordToolHintStyle" BasedOn="{StaticResource PasswordToolDescriptionStyle}" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+
     <Style x:Key="PasswordToolFormStyle" TargetType="StackPanel">
         <Setter Property="Spacing" Value="24" />
         <Setter Property="MaxWidth" Value="960" />
