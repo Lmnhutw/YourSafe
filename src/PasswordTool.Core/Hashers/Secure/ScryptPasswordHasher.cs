@@ -11,6 +11,11 @@ public sealed class ScryptPasswordHasher : IPasswordHasher
 {
     public ScryptPasswordHasher(ScryptOptions options)
     {
+        ArgumentNullException.ThrowIfNull(options);
+        if (!PasswordHashLimits.IsValidScryptCost(options.Cost, options.BlockSize, options.Parallelization)
+            || !PasswordHashLimits.IsValidSaltSize(options.SaltSizeBytes)
+            || !PasswordHashLimits.IsValidHashSize(options.HashSizeBytes))
+            throw new ArgumentException("Scrypt options exceed the supported cost or size limits.", nameof(options));
         Options = options;
     }
 
@@ -22,7 +27,7 @@ public sealed class ScryptPasswordHasher : IPasswordHasher
 
     public string HashPassword(string password)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(password);
+        PasswordHashLimits.ValidatePassword(password);
 
         var salt = RandomNumberGenerator.GetBytes(Options.SaltSizeBytes);
         var hash = Derive(password, salt, Options.Cost, Options.BlockSize, Options.Parallelization, Options.HashSizeBytes);
@@ -32,7 +37,7 @@ public sealed class ScryptPasswordHasher : IPasswordHasher
 
     public bool VerifyPassword(string password, string storedHash)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(password);
+        PasswordHashLimits.ValidatePassword(password);
 
         if (!TryRead(storedHash, out var cost, out var blockSize, out var parallelization, out var salt, out var expectedHash))
         {
@@ -65,14 +70,16 @@ public sealed class ScryptPasswordHasher : IPasswordHasher
             MemoryCost = blockSize,
             Parallelism = parallelization,
             HashSize = hash.Length,
-            IsSecureForPasswordStorage = true,
-            Notes = "Production-safe memory-hard password hash. N, r, p, salt, and hash are stored."
+            IsSecureForPasswordStorage = PasswordHashLimits.IsRecommendedScryptCost(cost, blockSize, parallelization),
+            Notes = "Scrypt compatibility format. Current recommendations require N=131072/r=8/p=1 or equivalent memory/parallelization costs."
         };
     }
 
     private static byte[] Derive(string password, byte[] salt, int cost, int blockSize, int parallelization, int hashSize)
     {
-        return ScryptKeyDerivation.DeriveKey(Encoding.UTF8.GetBytes(password), salt, cost, blockSize, parallelization, hashSize);
+        var passwordBytes = Encoding.UTF8.GetBytes(password);
+        try { return ScryptKeyDerivation.DeriveKey(passwordBytes, salt, cost, blockSize, parallelization, hashSize); }
+        finally { CryptographicOperations.ZeroMemory(passwordBytes); }
     }
 
     private static bool TryRead(
@@ -91,16 +98,15 @@ public sealed class ScryptPasswordHasher : IPasswordHasher
 
         return HashParser.TryParseKeyValueFormat(storedHash, out var algorithmName, out var values)
             && string.Equals(algorithmName, "SCRYPT", StringComparison.OrdinalIgnoreCase)
+            && values.Count == 6
+            && HashParser.TryGetInt(values, "v", out var version) && version == 1
             && HashParser.TryGetInt(values, "N", out cost)
-            && cost > 1
-            && (cost & (cost - 1)) == 0
             && HashParser.TryGetInt(values, "r", out blockSize)
-            && blockSize > 0
             && HashParser.TryGetInt(values, "p", out parallelization)
-            && parallelization > 0
+            && PasswordHashLimits.IsValidScryptCost(cost, blockSize, parallelization)
             && HashParser.TryGetBase64(values, "salt", out salt)
-            && salt.Length > 0
+            && PasswordHashLimits.IsValidSaltSize(salt.Length)
             && HashParser.TryGetBase64(values, "hash", out hash)
-            && hash.Length > 0;
+            && PasswordHashLimits.IsValidHashSize(hash.Length);
     }
 }

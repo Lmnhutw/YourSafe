@@ -9,6 +9,7 @@ const origin = element('origin', HTMLParagraphElement);
 const accounts = element('accounts', HTMLDivElement);
 const showApp = element('show-app', HTMLButtonElement);
 const refresh = element('refresh', HTMLButtonElement);
+const cancel = element('cancel', HTMLButtonElement);
 const panel = element('totp-panel', HTMLDivElement);
 const panelTitle = element('totp-title', HTMLElement);
 const panelUsername = element('totp-username', HTMLParagraphElement);
@@ -22,7 +23,7 @@ const errors: Record<string, string> = {
   desktopUnavailable: 'YourSafe is not connected. Start the matching desktop app, then refresh. If it is running, check browser host registration.',
   ambiguousFields: 'Focus the username or password field you want to fill, then reopen YourSafe.',
   targetChanged: 'The page changed or access expired. Refresh and choose an account again.',
-  unavailable: 'The credential is unavailable. Refresh and try again.',
+  unavailable: 'Enable browser integration in YourSafe desktop Settings and approve the request there. Then refresh and try again.',
   unsupportedPage: 'Open an HTTPS sign-in page, then reopen YourSafe.'
 };
 const port = chrome.runtime.connect({ name: 'popup-session' });
@@ -33,11 +34,12 @@ let epoch = 0;
 let selected: { account: Credential; token: string } | undefined;
 let displayed: Totp | undefined;
 let timer: ReturnType<typeof setInterval> | undefined;
-let lastReadAt = -Infinity;
+let authorizationToken: string | undefined;
 function setBusy(value: boolean): void {
   busy = value;
   refresh.disabled = showApp.disabled = value;
-  copy.disabled = value || !displayed || panel.hidden;
+  copy.disabled = value || !selected || panel.hidden;
+  cancel.hidden = !value || !authorizationToken;
   close.disabled = false;
   accounts.querySelectorAll('button').forEach(button => { button.disabled = value; });
   accounts.setAttribute('aria-busy', String(value));
@@ -64,6 +66,7 @@ function errorFor(value: unknown): Error {
     : 'YourSafe is unavailable. Refresh to try again.');
 }
 function failure(error: unknown): void {
+  authorizationToken = undefined;
   clearPanel();
   accounts.replaceChildren();
   if (!origin.textContent) origin.textContent = 'Website unavailable';
@@ -76,6 +79,10 @@ port.onMessage.addListener((message: unknown) => {
   if (message.event === 'invalidated') {
     rejectPending(errorFor(message.error));
     failure(errorFor(message.error));
+    return;
+  }
+  if (message.event === 'updated') {
+    try { renderSnapshot(message.interaction); } catch (error) { failure(error); }
     return;
   }
   if (typeof message.requestId !== 'string') return;
@@ -101,7 +108,7 @@ function request(message: unknown): Promise<unknown> {
       reject(errorFor('desktopUnavailable'));
       connected = false;
       port.disconnect();
-    }, 12000);
+    }, 72000);
     pending.set(requestId, { resolve, reject, timeout });
     try { port.postMessage({ requestId, message }); }
     catch { pending.delete(requestId); clearTimeout(timeout); reject(errorFor('desktopUnavailable')); }
@@ -114,9 +121,9 @@ function paintTotp(): void {
     displayed = undefined;
     code.textContent = '—';
     code.removeAttribute('aria-label');
-    countdown.textContent = 'Updating…';
+    countdown.textContent = 'Expired. Choose account to request a new code.';
     progress.value = 0;
-    copy.disabled = true;
+    copy.disabled = busy || !selected;
     return;
   }
   const split = value.code.length / 2;
@@ -128,26 +135,24 @@ function paintTotp(): void {
   progress.value = remaining;
   copy.disabled = busy;
 }
-async function readTotp(action: 'viewTotp' | 'refreshTotp', currentEpoch: number): Promise<void> {
+async function readTotp(currentEpoch: number): Promise<void> {
   const active = selected;
   if (!active || currentEpoch !== epoch || busy) return;
   setBusy(true);
-  lastReadAt = performance.now();
+  status.textContent = 'Approve this code request in YourSafe on the desktop. Reopen this popup afterwards if it closes.';
   try {
-    const result = await request({ action, token: active.token, id: active.account.id });
+    const result = await request({ action: 'viewTotp', token: active.token, id: active.account.id });
     if (currentEpoch !== epoch || selected !== active) return;
     if (!isTotp(result)) throw errorFor('unavailable');
     displayed = result;
     paintTotp();
-    if (action === 'viewTotp') {
-      status.dataset.state = 'ready';
-      status.textContent = 'Code access ends after one minute. Copy uses the current desktop code.';
-    }
+    status.dataset.state = 'ready';
+    status.textContent = 'This approved code expires at the countdown. Copy requires a new desktop approval.';
   } catch (error) { if (currentEpoch === epoch) failure(error); }
   finally {
     if (currentEpoch === epoch) {
-      lastReadAt = performance.now(); setBusy(false); paintTotp();
-      if (action === 'viewTotp' && !panel.hidden && !copy.disabled) copy.focus();
+      setBusy(false); paintTotp();
+      if (!panel.hidden && !copy.disabled) copy.focus();
     }
   }
 }
@@ -161,28 +166,8 @@ function viewTotp(account: Credential, token: string): void {
   panel.hidden = false;
   close.focus();
   const currentEpoch = epoch;
-  const begin = () => {
-    if (currentEpoch !== epoch) return;
-    void readTotp('viewTotp', currentEpoch);
-    timer = setInterval(() => {
-      if (currentEpoch !== epoch || panel.hidden) return;
-      paintTotp();
-      if (!busy && performance.now() - lastReadAt >= 1000) void readTotp('refreshTotp', currentEpoch);
-    }, 100);
-  };
-  // Switching accounts still respects the one-read-per-second bound.
-  const delay = Math.max(0, 1000 - (performance.now() - lastReadAt));
-  if (delay) {
-    setBusy(true);
-    timer = setInterval(() => {
-      if (currentEpoch !== epoch || performance.now() - lastReadAt < 1000) return;
-      clearInterval(timer);
-      timer = undefined;
-      setBusy(false);
-      begin();
-    }, 100);
-    paintTotp();
-  } else begin();
+  void readTotp(currentEpoch);
+  timer = setInterval(() => { if (currentEpoch === epoch && !panel.hidden) paintTotp(); }, 100);
 }
 function accountRow(account: Credential, token: string): HTMLElement {
   const row = document.createElement('div');
@@ -204,13 +189,15 @@ function accountRow(account: Credential, token: string): HTMLElement {
     fill.addEventListener('click', () => {
       if (busy) return;
       clearPanel();
+      const currentEpoch = epoch;
       setBusy(true);
-      status.textContent = 'Filling…';
+      status.textContent = 'Approve this fill in YourSafe on the desktop. Reopen this popup afterwards if it closes.';
       void request({ action: 'select', token, id: account.id }).then(() => {
+        if (currentEpoch !== epoch) return;
         accounts.replaceChildren();
         status.dataset.state = 'success';
         status.textContent = 'Filled. Review the form before signing in. YourSafe does not submit it.';
-      }).catch(failure).finally(() => { setBusy(false); });
+      }).catch(error => { if (currentEpoch === epoch) failure(error); }).finally(() => { if (currentEpoch === epoch) setBusy(false); });
     });
     actions.append(fill);
   }
@@ -241,9 +228,10 @@ async function discover(focusAccountId?: string): Promise<void> {
     if (!record(result) || typeof result.token !== 'string' || typeof result.origin !== 'string'
       || !Array.isArray(result.accounts) || !result.accounts.every(isCredential)
       || typeof result.truncated !== 'boolean') throw errorFor('unavailable');
+    authorizationToken = result.token;
     origin.textContent = result.origin;
     status.textContent = result.truncated ? 'Some accounts could not be listed. Open YourSafe on the desktop to see all accounts.'
-      : result.accounts.length ? 'Choose Fill or View TOTP for an account.' : 'No accounts available. Add one in YourSafe with this website address or choose No URL, then refresh.';
+      : result.accounts.length ? 'Choose Fill or View TOTP for an account.' : 'No accounts available. Add a supported website address to the account in YourSafe, then refresh.';
     status.dataset.state = result.accounts.length ? 'ready' : 'empty';
     for (const account of result.accounts) accounts.append(accountRow(account, result.token));
   } catch (error) { if (currentEpoch === epoch) failure(error); }
@@ -256,11 +244,43 @@ async function discover(focusAccountId?: string): Promise<void> {
     }
   }
 }
+function renderSnapshot(value: unknown): void {
+  if (!record(value) || typeof value.token !== 'string' || typeof value.origin !== 'string'
+    || !Array.isArray(value.accounts) || !value.accounts.every(isCredential) || typeof value.truncated !== 'boolean'
+    || typeof value.busy !== 'boolean' || (value.selectedId !== undefined && typeof value.selectedId !== 'string')
+    || ![undefined, 'select', 'viewTotp', 'copyTotp'].some(action => value.action === action)
+    || (value.result !== undefined && !isTotp(value.result)
+      && (!record(value.result) || (value.result.filled !== true && value.result.copied !== true)))) throw errorFor('unavailable');
+  clearPanel();
+  authorizationToken = value.token;
+  origin.textContent = value.origin;
+  accounts.replaceChildren();
+  for (const account of value.accounts) accounts.append(accountRow(account, value.token));
+  const account = value.accounts.find(item => item.id === value.selectedId);
+  if (account && ['viewTotp', 'copyTotp'].includes(String(value.action))) {
+    selected = { account, token: value.token };
+    panelTitle.textContent = account.title;
+    panelUsername.textContent = account.username || 'No username';
+    accounts.hidden = true;
+    panel.hidden = false;
+    displayed = isTotp(value.result) ? value.result : undefined;
+    timer = setInterval(paintTotp, 100);
+    paintTotp();
+  }
+  status.dataset.state = value.busy ? 'loading' : 'ready';
+  status.textContent = value.busy ? 'Waiting for desktop approval. Cancel here or in YourSafe to stop this request.'
+    : record(value.result) && 'filled' in value.result && value.result.filled === true ? 'Filled. Review the form before signing in. YourSafe does not submit it.'
+    : record(value.result) && 'copied' in value.result && value.result.copied === true ? 'Copied the current code.'
+    : isTotp(value.result) ? 'This approved code expires at the countdown. Copy requires a new desktop approval.'
+    : 'Choose Fill or View TOTP for an account.';
+  setBusy(value.busy);
+}
 copy.addEventListener('click', () => {
   const active = selected;
   if (busy || !active) return;
   const currentEpoch = epoch;
   setBusy(true);
+  status.textContent = 'Approve copying the current code in YourSafe on the desktop.';
   void request({ action: 'copyTotp', token: active.token, id: active.account.id }).then(result => {
     if (currentEpoch !== epoch) return;
     if (!record(result) || result.copied !== true) throw errorFor('unavailable');
@@ -285,9 +305,17 @@ close.addEventListener('click', () => {
   }).catch(failure);
 });
 refresh.addEventListener('click', () => { void discover(); });
+cancel.addEventListener('click', () => {
+  const token = authorizationToken;
+  if (!token) return;
+  clearPanel();
+  rejectPending(errorFor('targetChanged'));
+  void request({ action: 'cancel', token }).then(async () => { setBusy(false); await discover(); }).catch(failure);
+});
 showApp.addEventListener('click', () => {
   if (busy) return;
   clearPanel();
+  authorizationToken = undefined;
   const currentEpoch = epoch;
   setBusy(true);
   accounts.replaceChildren();
@@ -305,4 +333,14 @@ window.addEventListener('pagehide', () => {
   connected = false;
   port.disconnect();
 });
-void discover();
+async function open(): Promise<void> {
+  setBusy(true);
+  status.textContent = 'Checking the current request…';
+  try {
+    const result = await request({ action: 'resume' });
+    if (!record(result) || typeof result.resumed !== 'boolean') throw errorFor('unavailable');
+    if (result.resumed) renderSnapshot(result.interaction);
+    else { setBusy(false); await discover(); }
+  } catch (error) { failure(error); }
+}
+void open();

@@ -11,6 +11,11 @@ public abstract class Pbkdf2PasswordHasherBase : IPasswordHasher
 {
     protected Pbkdf2PasswordHasherBase(Pbkdf2Options options, HashAlgorithmName hashAlgorithmName, string formatName)
     {
+        ArgumentNullException.ThrowIfNull(options);
+        if (options.Iterations is < 10000 or > PasswordHashLimits.MaxPbkdf2Iterations
+            || !PasswordHashLimits.IsValidSaltSize(options.SaltSizeBytes)
+            || !PasswordHashLimits.IsValidHashSize(options.HashSizeBytes))
+            throw new ArgumentException("PBKDF2 options exceed the supported cost or size limits.", nameof(options));
         Options = options;
         HashAlgorithmName = hashAlgorithmName;
         FormatName = formatName;
@@ -28,34 +33,24 @@ public abstract class Pbkdf2PasswordHasherBase : IPasswordHasher
 
     public string HashPassword(string password)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(password);
+        PasswordHashLimits.ValidatePassword(password);
 
         var salt = RandomNumberGenerator.GetBytes(Options.SaltSizeBytes);
-        var hash = Rfc2898DeriveBytes.Pbkdf2(
-            Encoding.UTF8.GetBytes(password),
-            salt,
-            Options.Iterations,
-            HashAlgorithmName,
-            Options.HashSizeBytes);
+        var hash = Derive(password, salt, Options.Iterations, Options.HashSizeBytes);
 
         return $"{FormatName}$v=1$iter={Options.Iterations}$salt={Convert.ToBase64String(salt)}$hash={Convert.ToBase64String(hash)}";
     }
 
     public bool VerifyPassword(string password, string storedHash)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(password);
+        PasswordHashLimits.ValidatePassword(password);
 
         if (!TryRead(storedHash, out var iterations, out var salt, out var expectedHash))
         {
             return false;
         }
 
-        var actualHash = Rfc2898DeriveBytes.Pbkdf2(
-            Encoding.UTF8.GetBytes(password),
-            salt,
-            iterations,
-            HashAlgorithmName,
-            expectedHash.Length);
+        var actualHash = Derive(password, salt, iterations, expectedHash.Length);
 
         return CryptographicOperations.FixedTimeEquals(actualHash, expectedHash);
     }
@@ -75,8 +70,9 @@ public abstract class Pbkdf2PasswordHasherBase : IPasswordHasher
             Hash = Convert.ToBase64String(hash),
             Iterations = iterations,
             HashSize = hash.Length,
-            IsSecureForPasswordStorage = true,
-            Notes = "Production-safe when configured with a strong iteration count and random salt."
+            IsSecureForPasswordStorage = iterations >= (HashAlgorithmName == System.Security.Cryptography.HashAlgorithmName.SHA256
+                ? PasswordHashLimits.RecommendedPbkdf2Sha256Iterations : PasswordHashLimits.RecommendedPbkdf2Sha512Iterations),
+            Notes = "PBKDF2 compatibility format. Current recommendations require at least 600000 SHA256 or 220000 SHA512 iterations."
         };
     }
 
@@ -90,6 +86,13 @@ public abstract class Pbkdf2PasswordHasherBase : IPasswordHasher
         };
     }
 
+    private byte[] Derive(string password, byte[] salt, int iterations, int hashSize)
+    {
+        var passwordBytes = Encoding.UTF8.GetBytes(password);
+        try { return Rfc2898DeriveBytes.Pbkdf2(passwordBytes, salt, iterations, HashAlgorithmName, hashSize); }
+        finally { CryptographicOperations.ZeroMemory(passwordBytes); }
+    }
+
     private bool TryRead(string storedHash, out int iterations, out byte[] salt, out byte[] hash)
     {
         iterations = 0;
@@ -98,11 +101,13 @@ public abstract class Pbkdf2PasswordHasherBase : IPasswordHasher
 
         return HashParser.TryParseKeyValueFormat(storedHash, out var algorithmName, out var values)
             && string.Equals(algorithmName, FormatName, StringComparison.OrdinalIgnoreCase)
+            && values.Count == 4
+            && HashParser.TryGetInt(values, "v", out var version) && version == 1
             && HashParser.TryGetInt(values, "iter", out iterations)
-            && iterations > 0
+            && iterations is >= 10000 and <= PasswordHashLimits.MaxPbkdf2Iterations
             && HashParser.TryGetBase64(values, "salt", out salt)
-            && salt.Length > 0
+            && PasswordHashLimits.IsValidSaltSize(salt.Length)
             && HashParser.TryGetBase64(values, "hash", out hash)
-            && hash.Length > 0;
+            && PasswordHashLimits.IsValidHashSize(hash.Length);
     }
 }

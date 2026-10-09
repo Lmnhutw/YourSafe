@@ -30,6 +30,8 @@ public sealed class VaultService : IDisposable
     private int? applicationVaultDurationMinutes;
     private readonly RecoveryKeyService recoveryKeys = new();
     private bool disposed;
+    private long mutationVersion;
+    public long MutationVersion => Volatile.Read(ref mutationVersion);
 
     public VaultService()
         : this(new VaultStorageService(), new EncryptionService(), new TotpService())
@@ -203,6 +205,7 @@ public sealed class VaultService : IDisposable
     private void SaveRecoveryState(AppConfig config, string payload, string password, string recoveryKey, byte[] key,
         string expectedTotpSecret, bool requireOpen = false)
     {
+        Interlocked.Increment(ref mutationVersion);
         storageService.SaveStateVerified(config, payload, (staged, ciphertext) =>
         {
             byte[] master = [], recovery = [];
@@ -1373,6 +1376,7 @@ public sealed class VaultService : IDisposable
 
     public void LockVault()
     {
+        Interlocked.Increment(ref mutationVersion);
         if (encryptionKey is { Length: > 0 })
         {
             CryptographicOperations.ZeroMemory(encryptionKey);
@@ -1400,6 +1404,7 @@ public sealed class VaultService : IDisposable
 
     private void SaveVault()
     {
+        Interlocked.Increment(ref mutationVersion);
         EnsureOpen();
         NormalizeGroupMembership(vaultData!, utcNow());
         var payload = encryptionUsesEnvelope
@@ -1422,6 +1427,7 @@ public sealed class VaultService : IDisposable
 
     private void SaveSessionConfig(AppConfig config)
     {
+        Interlocked.Increment(ref mutationVersion);
         EnsureOpen();
         storageService.SaveStateVerified(config, storageService.LoadVaultPayload(), (_, _) => EnsureOpen(), () => EnsureOpen());
     }
@@ -1438,12 +1444,7 @@ public sealed class VaultService : IDisposable
         {
             throw new FileNotFoundException("The selected backup file was not found.", backupPath);
         }
-        if (info.Length > VaultBackupService.MaxBackupJsonCharacters)
-        {
-            throw new InvalidDataException("The selected backup exceeds the 10 MB limit.");
-        }
-
-        return File.ReadAllText(backupPath);
+        return VaultStorageService.ReadBoundedTextFile(backupPath, VaultBackupService.MaxBackupJsonCharacters);
     }
 
     internal static void WriteExternalBackupFile(string destinationPath, string backupJson, Action<string> verify)

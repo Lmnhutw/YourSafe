@@ -863,6 +863,14 @@
 
                         <Border Style="{StaticResource PasswordToolCardStyle}">
                             <StackPanel Spacing="12">
+                                <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Browser integration" />
+                                <ToggleSwitch AutomationProperties.AutomationId="TglBrowserIntegration" AutomationProperties.Name="Allow browser integration for this app session" Header="Allow browser integration for this app session" IsOn="{x:Bind ViewModel.Settings.BrowserIntegrationEnabled, Mode=TwoWay}" />
+                                <TextBlock Style="{StaticResource PasswordToolDescriptionStyle}" Text="Starts off. Enabling shares matching account names and usernames with the extension. Each password or verification-code request needs a separate approval on this desktop. Turning this off cancels pending requests and closes browser connections." TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource PasswordToolCardStyle}">
+                            <StackPanel Spacing="12">
                                 <StackPanel Spacing="4">
                                     <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Appearance" />
                                     <TextBlock Style="{StaticResource PasswordToolDescriptionStyle}" Text="Appearance is saved on this device." />

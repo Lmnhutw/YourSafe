@@ -1,7 +1,7 @@
 import { isRequest, isResponse, maxFrameBytes, type Action, type Request } from './protocol';
 declare const NATIVE_HOST: string;
 
-// One connection per popup interaction; queued operations are never retried.
+// One connection per worker interaction; queued operations are never retried.
 export function nativeSession(onFailure: (error: string) => void): {
   request(action: Action, payload?: Request['payload']): Promise<unknown>;
   close(error?: string): void;
@@ -45,7 +45,7 @@ export function nativeSession(onFailure: (error: string) => void): {
       const result = queue.then(() => new Promise<unknown>((resolve, reject) => {
         if (!port) { reject(new Error('desktopUnavailable')); return; }
         pending = { request, resolve, reject };
-        timeout = setTimeout(() => fail('desktopUnavailable'), 10000);
+        timeout = setTimeout(() => fail('desktopUnavailable'), 70000);
         try { port.postMessage(request); } catch { fail('desktopUnavailable'); }
       }));
       queue = result.then(() => {}, () => {});

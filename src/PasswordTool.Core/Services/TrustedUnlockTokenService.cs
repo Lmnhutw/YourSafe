@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -11,8 +12,9 @@ public sealed class TrustedUnlockTokenService
 {
     private const string ProtectionName = "Windows-DPAPI-CurrentUser";
     private const int CryptprotectUiForbidden = 0x1;
-    private static readonly byte[] AuthenticatorPurpose = Encoding.UTF8.GetBytes("PasswordTool/v2/trusted-authenticator");
-    private static readonly byte[] VaultKeyPurpose = Encoding.UTF8.GetBytes("PasswordTool/v2/trusted-vault-key");
+    private const int PayloadHeaderSize = 49;
+    private static readonly byte[] AuthenticatorPurpose = Encoding.UTF8.GetBytes("PasswordTool/v3/trusted-authenticator");
+    private static readonly byte[] VaultKeyPurpose = Encoding.UTF8.GetBytes("PasswordTool/v3/trusted-vault-key");
 
     public TrustedUnlockToken CreateToken(byte[] vaultKey, string authenticatorSecret, byte[] configFingerprint,
         DateTimeOffset createdAt, DateTimeOffset expiresAt)
@@ -20,18 +22,23 @@ public sealed class TrustedUnlockTokenService
         ArgumentNullException.ThrowIfNull(vaultKey);
         ArgumentNullException.ThrowIfNull(authenticatorSecret);
         ArgumentNullException.ThrowIfNull(configFingerprint);
-        if (expiresAt <= createdAt) throw new ArgumentException("Token expiration must be later than token creation.", nameof(expiresAt));
+        if (authenticatorSecret.Length > 256) throw new ArgumentException("The Authenticator secret exceeds the supported size.", nameof(authenticatorSecret));
+        if (vaultKey.Length != 32 || configFingerprint.Length != 32)
+            throw new ArgumentException("The vault key and config fingerprint must contain 32 bytes.");
+        if (expiresAt <= createdAt || expiresAt - createdAt > TimeSpan.FromDays(1))
+            throw new ArgumentException("Token lifetime must be positive and at most one day.", nameof(expiresAt));
 
         var secretBytes = Base32Encoding.ToBytes(authenticatorSecret);
         try
         {
+            if (secretBytes.Length is < 10 or > 128) throw new ArgumentException("The Authenticator secret is invalid.", nameof(authenticatorSecret));
             return new TrustedUnlockToken
             {
-                Version = 2,
+                Version = 3,
                 Protection = ProtectionName,
                 ConfigFingerprintBase64 = Convert.ToBase64String(configFingerprint),
-                ProtectedAuthenticatorSecretBase64 = Convert.ToBase64String(Protect(secretBytes, BuildEntropy(configFingerprint, AuthenticatorPurpose))),
-                ProtectedVaultKeyBase64 = Convert.ToBase64String(Protect(vaultKey, BuildEntropy(configFingerprint, VaultKeyPurpose))),
+                ProtectedAuthenticatorSecretBase64 = ProtectPayload(secretBytes, configFingerprint, AuthenticatorPurpose, createdAt, expiresAt),
+                ProtectedVaultKeyBase64 = ProtectPayload(vaultKey, configFingerprint, VaultKeyPurpose, createdAt, expiresAt),
                 CreatedAt = createdAt,
                 ExpiresAt = expiresAt
             };
@@ -46,9 +53,9 @@ public sealed class TrustedUnlockTokenService
         if (!ValidateToken(token, expectedConfigFingerprint, now, out errorMessage)) return false;
         try
         {
-            authenticatorSecret = Unprotect(Convert.FromBase64String(token.ProtectedAuthenticatorSecretBase64),
-                BuildEntropy(expectedConfigFingerprint, AuthenticatorPurpose));
-            if (authenticatorSecret.Length < 10) throw new CryptographicException("The trusted Authenticator secret is invalid.");
+            authenticatorSecret = UnprotectPayload(token.ProtectedAuthenticatorSecretBase64, token,
+                expectedConfigFingerprint, AuthenticatorPurpose);
+            if (authenticatorSecret.Length is < 10 or > 128) throw new CryptographicException("The trusted Authenticator secret is invalid.");
             return true;
         }
         catch (Exception ex) when (IsTokenException(ex))
@@ -67,8 +74,7 @@ public sealed class TrustedUnlockTokenService
         if (!ValidateToken(token, expectedConfigFingerprint, now, out errorMessage)) return false;
         try
         {
-            vaultKey = Unprotect(Convert.FromBase64String(token.ProtectedVaultKeyBase64),
-                BuildEntropy(expectedConfigFingerprint, VaultKeyPurpose));
+            vaultKey = UnprotectPayload(token.ProtectedVaultKeyBase64, token, expectedConfigFingerprint, VaultKeyPurpose);
             if (vaultKey.Length != 32) throw new CryptographicException("The trusted vault key is invalid.");
             return true;
         }
@@ -96,7 +102,7 @@ public sealed class TrustedUnlockTokenService
         errorMessage = string.Empty;
         try
         {
-            if (token.Version != 2 || !string.Equals(token.Protection, ProtectionName, StringComparison.Ordinal))
+            if (token.Version != 3 || !string.Equals(token.Protection, ProtectionName, StringComparison.Ordinal))
             {
                 errorMessage = "The Google Authenticator login token is not supported. Enter the Master Password to upgrade this vault.";
                 return false;
@@ -106,14 +112,23 @@ public sealed class TrustedUnlockTokenService
                 errorMessage = "The Google Authenticator login token has expired. Enter the Master Password to create a new 1-day token.";
                 return false;
             }
+            if (token.CreatedAt > now || token.ExpiresAt <= token.CreatedAt
+                || token.ExpiresAt - token.CreatedAt > TimeSpan.FromDays(1)
+                || expectedConfigFingerprint.Length != 32 || token.ConfigFingerprintBase64 is not { Length: 44 })
+            {
+                errorMessage = TokenFailureMessage;
+                return false;
+            }
             var fingerprint = Convert.FromBase64String(token.ConfigFingerprintBase64);
             if (!CryptographicOperations.FixedTimeEquals(fingerprint, expectedConfigFingerprint))
             {
-                errorMessage = "The Google Authenticator login token does not match this vault.";
+                errorMessage = "The Google Authenticator login token does not match this vault. Enter the Master Password to create a new token.";
                 return false;
             }
             if (string.IsNullOrWhiteSpace(token.ProtectedAuthenticatorSecretBase64)
-                || string.IsNullOrWhiteSpace(token.ProtectedVaultKeyBase64))
+                || string.IsNullOrWhiteSpace(token.ProtectedVaultKeyBase64)
+                || token.ProtectedAuthenticatorSecretBase64.Length > 16384
+                || token.ProtectedVaultKeyBase64.Length > 16384)
             {
                 errorMessage = TokenFailureMessage;
                 return false;
@@ -124,6 +139,49 @@ public sealed class TrustedUnlockTokenService
         {
             errorMessage = TokenFailureMessage;
             return false;
+        }
+    }
+
+    private static string ProtectPayload(byte[] secret, byte[] fingerprint, byte[] purpose,
+        DateTimeOffset createdAt, DateTimeOffset expiresAt)
+    {
+        var payload = new byte[PayloadHeaderSize + secret.Length];
+        var entropy = BuildEntropy(fingerprint, purpose);
+        try
+        {
+            payload[0] = 3;
+            BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(1, 8), createdAt.UtcTicks);
+            BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(9, 8), expiresAt.UtcTicks);
+            fingerprint.CopyTo(payload, 17);
+            secret.CopyTo(payload, PayloadHeaderSize);
+            return Convert.ToBase64String(Protect(payload, entropy));
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(payload);
+            CryptographicOperations.ZeroMemory(entropy);
+        }
+    }
+
+    private static byte[] UnprotectPayload(string protectedPayload, TrustedUnlockToken token,
+        byte[] fingerprint, byte[] purpose)
+    {
+        var entropy = BuildEntropy(fingerprint, purpose);
+        byte[] payload = [];
+        try
+        {
+            payload = Unprotect(Convert.FromBase64String(protectedPayload), entropy);
+            if (payload.Length <= PayloadHeaderSize || payload[0] != 3
+                || BinaryPrimitives.ReadInt64LittleEndian(payload.AsSpan(1, 8)) != token.CreatedAt.UtcTicks
+                || BinaryPrimitives.ReadInt64LittleEndian(payload.AsSpan(9, 8)) != token.ExpiresAt.UtcTicks
+                || !CryptographicOperations.FixedTimeEquals(payload.AsSpan(17, 32), fingerprint))
+                throw new CryptographicException("Trusted token metadata does not match its protected payload.");
+            return payload.AsSpan(PayloadHeaderSize).ToArray();
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(payload);
+            CryptographicOperations.ZeroMemory(entropy);
         }
     }
 

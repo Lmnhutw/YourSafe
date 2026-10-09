@@ -1,54 +1,54 @@
-import { findFields, sameFields, fillFields, passwordField, type Fields } from './fields';
+import { findFields, sameFields, visibleFields, fillFields, type Fields } from './fields';
 import { canonicalOrigin, isSecret, record } from './protocol';
 
-let focused: HTMLInputElement | undefined;
-let prepared: { token: string; url: string; fields: Fields; expiresAt: number } | undefined;
+let focused = document.activeElement instanceof HTMLInputElement ? document.activeElement : undefined;
+let generation = 0;
+let authorizedToken: string | undefined;
+let prepared: { token: string; url: string; fields: Fields; expiresAt: number; deadline: number; generation: number } | undefined;
 document.addEventListener('focusin', event => {
   if (event.target instanceof HTMLInputElement) focused = event.target;
 });
-const hint = document.createElement('button');
-hint.type = 'button';
-hint.textContent = 'Fill with YourSafe';
-hint.setAttribute('aria-label', 'Choose an account in YourSafe');
-hint.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:2147483647;padding:10px 14px;border:1px solid #64748b;border-radius:8px;background:#122238;color:#fff;font:14px system-ui;cursor:pointer';
-hint.addEventListener('click', () => {
-  void chrome.runtime.sendMessage({ action: 'openPopup' }).then((value: unknown) => {
-    if (!record(value) || value.ok !== true || !record(value.result) || value.result.opened !== true)
-      hint.textContent = 'Open YourSafe from the browser toolbar';
-  }).catch(() => { hint.textContent = 'Open YourSafe from the browser toolbar'; });
-});
-function updateHint(): void {
-  const visiblePassword = [...document.querySelectorAll<HTMLInputElement>('input[type=password]')]
-    .some(passwordField);
-  if (visiblePassword && !hint.isConnected) document.documentElement.append(hint);
-  else if (!visiblePassword && hint.isConnected) hint.remove();
-}
-let scheduled = false;
-new MutationObserver(() => {
-  if (!scheduled) {
-    scheduled = true;
-    requestAnimationFrame(() => { scheduled = false; updateHint(); });
-  }
-}).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['type', 'style', 'class', 'hidden', 'disabled', 'readonly', 'autocomplete'] });
-updateHint();
-window.addEventListener('pagehide', () => { prepared = undefined; });
+window.addEventListener('pagehide', () => { generation++; authorizedToken = undefined; prepared = undefined; });
 chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
-  if (sender.id !== chrome.runtime.id || !record(message) || typeof message.token !== 'string'
-    || message.url !== location.href || !canonicalOrigin(location.href)
-    || document.visibilityState !== 'visible') { sendResponse({ ok: false }); return; }
-  if (message.action === 'prepare') {
-    prepared = undefined;
-    const fields = findFields(focused);
-    if (fields) prepared = { token: message.token, url: location.href, fields, expiresAt: Date.now() + 10000 };
-    sendResponse({ ok: !!fields });
-    return;
-  }
-  if (message.action === 'fill') {
-    const target = prepared;
-    prepared = undefined;
-    if (!target || target.token !== message.token || target.url !== location.href || target.expiresAt <= Date.now()
-      || !isSecret(message.secret) || !sameFields(target.fields, findFields(focused))) { sendResponse({ ok: false }); return; }
-    try { fillFields(target.fields, message.secret.username, message.secret.password); sendResponse({ ok: true }); }
-    catch { sendResponse({ ok: false }); }
-  }
+  const handle = async (): Promise<boolean> => {
+    if (sender.id !== chrome.runtime.id || !record(message) || typeof message.token !== 'string'
+      || message.url !== location.href || !canonicalOrigin(location.href)) return false;
+    if (message.action === 'cancel') {
+      if (message.token !== authorizedToken) return false;
+      generation++;
+      authorizedToken = undefined;
+      prepared = undefined;
+      return true;
+    }
+    if (document.visibilityState !== 'visible') return false;
+    if (message.action === 'prepare') {
+      generation++;
+      authorizedToken = undefined;
+      prepared = undefined;
+      const fields = findFields(focused);
+      if (!fields) return false;
+      const target = { token: message.token, url: location.href, fields, expiresAt: Date.now() + 70000,
+        deadline: performance.now() + 70000, generation };
+      authorizedToken = target.token;
+      prepared = target;
+      if (!await visibleFields(fields) || prepared !== target || target.url !== location.href || document.visibilityState !== 'visible'
+        || !sameFields(fields, findFields(focused))) { if (prepared === target) prepared = undefined; return false; }
+      return true;
+    }
+    if (message.action === 'fill') {
+      const target = prepared;
+      prepared = undefined;
+      if (!target || target.token !== message.token || target.url !== location.href || target.expiresAt <= Date.now() || target.deadline <= performance.now()
+        || !isSecret(message.secret) || !sameFields(target.fields, findFields(focused))) return false;
+      try {
+        await fillFields(target.fields, message.secret.username, message.secret.password,
+          () => authorizedToken === target.token && generation === target.generation
+            && target.expiresAt > Date.now() && target.deadline > performance.now() && target.url === location.href);
+        return true;
+      } finally { if (generation === target.generation) authorizedToken = undefined; }
+    }
+    return false;
+  };
+  void handle().then(ok => sendResponse({ ok }), () => sendResponse({ ok: false }));
+  return true;
 });

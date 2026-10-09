@@ -149,7 +149,7 @@ public sealed class VaultEnvelopeEncryptionTests : IDisposable
             vault.InitializeNewVault("correct horse battery staple", secret, code, RecoveryKeyService.Generate(), true);
 
         var token = storage.LoadTrustedUnlockToken();
-        Assert.Equal(2, token.Version);
+        Assert.Equal(3, token.Version);
         Assert.False(string.IsNullOrWhiteSpace(token.ProtectedAuthenticatorSecretBase64));
         Assert.False(string.IsNullOrWhiteSpace(token.ProtectedVaultKeyBase64));
         token.ProtectedVaultKeyBase64 = "not-base64";

@@ -10,13 +10,13 @@ public static class HashParser
         algorithmName = string.Empty;
         values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        if (string.IsNullOrWhiteSpace(storedHash))
+        if (string.IsNullOrWhiteSpace(storedHash) || storedHash.Length > PasswordHashLimits.MaxStoredHashCharacters)
         {
             return false;
         }
 
-        var parts = storedHash.Split('$', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (parts.Length == 0)
+        var parts = storedHash.Split('$');
+        if (parts.Length is < 2 or > 8 || string.IsNullOrWhiteSpace(parts[0]))
         {
             return false;
         }
@@ -33,7 +33,7 @@ public static class HashParser
 
             var key = parts[i][..separatorIndex];
             var value = parts[i][(separatorIndex + 1)..];
-            values[key] = value;
+            if (!values.TryAdd(key, value)) return false;
         }
 
         return true;

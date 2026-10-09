@@ -11,6 +11,17 @@ public sealed partial class SettingsViewModel(AppFlowCoordinator flow, IUserErro
     [ObservableProperty] public partial string StatusMessage { get; set; } = string.Empty;
     [ObservableProperty] public partial bool IsStatusOpen { get; set; }
     [ObservableProperty] public partial bool IsBusy { get; set; }
+    [ObservableProperty] public partial bool BrowserIntegrationEnabled { get; set; }
+
+    partial void OnBrowserIntegrationEnabledChanged(bool value)
+    {
+        try { flow.SetBrowserIntegrationEnabled(value); }
+        catch (OperationCanceledException)
+        {
+            BrowserIntegrationEnabled = false;
+            ShowError("Unlock the vault before enabling browser integration.");
+        }
+    }
 
     public async Task LoadAsync()
     {
@@ -21,6 +32,7 @@ public sealed partial class SettingsViewModel(AppFlowCoordinator flow, IUserErro
             var snapshot = await flow.GetSettingsAsync();
             if (!flow.IsCurrentUnlock(version)) return;
             VaultDurationMinutes = snapshot.VaultDurationMinutes;
+            BrowserIntegrationEnabled = flow.BrowserIntegrationEnabled;
             NeedsKdfUpgrade = snapshot.NeedsKdfUpgrade;
             BackupHealthText = $"Last external backup: {FormatDate(snapshot.LastExternalBackupAt)} · " +
                 $"Last verified: {FormatDate(snapshot.LastVerifiedBackupAt)}";
@@ -90,6 +102,7 @@ public sealed partial class SettingsViewModel(AppFlowCoordinator flow, IUserErro
 
     public void Clear()
     {
+        BrowserIntegrationEnabled = flow.BrowserIntegrationEnabled;
         BackupHealthText = StatusMessage = string.Empty;
         IsStatusOpen = false;
         IsBusy = false;

@@ -78,8 +78,8 @@ public sealed class TotpFlowTests
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => fixture.Flow.CopyAutofillCredentialTotpAsync("https://example.com", item.Id));
         edited.Url = "";
         await fixture.Flow.UpdateItemAsync(edited);
-        Assert.Single(await fixture.Flow.FindAutofillCredentialsAsync("https://example.com"));
-        Assert.NotEmpty((await fixture.Flow.GetAutofillCredentialTotpAsync("https://example.com", item.Id)).Code);
+        Assert.Empty(await fixture.Flow.FindAutofillCredentialsAsync("https://example.com"));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => fixture.Flow.GetAutofillCredentialTotpAsync("https://example.com", item.Id));
         edited.SetTotpConfiguration(null);
         edited.RecoveryCodes = ["alpha-1234", "beta-5678"];
         await fixture.Flow.UpdateItemAsync(edited);
@@ -93,7 +93,7 @@ public sealed class TotpFlowTests
     public async Task Copy_regenerates_after_window_rotation_and_preserves_numeric_code(bool nativeCopy)
     {
         using var fixture = new VaultFixture();
-        var item = fixture.Vault.AddItem(new VaultItem { Title = "Account", TotpSecretBase32 = fixture.Secret });
+        var item = fixture.Vault.AddItem(new VaultItem { Title = "Account", Url = "https://example.com", TotpSecretBase32 = fixture.Secret });
         fixture.Now = DateTimeOffset.UtcNow.AddSeconds(-30);
         var displayed = await fixture.Flow.GetWebsiteTotpCodeAsync(item.Id);
         fixture.Now = DateTimeOffset.UtcNow;
@@ -104,14 +104,14 @@ public sealed class TotpFlowTests
         Assert.Equal(expected.Code, fixture.Clipboard.Value);
         Assert.Matches("^[0-9]{6}$", fixture.Clipboard.Value!);
         Assert.Equal(1, fixture.Clipboard.Writes);
-        Assert.False(fixture.Clipboard.ClearAutomatically);
+        Assert.True(fixture.Clipboard.ClearAutomatically);
     }
 
     [Fact]
     public async Task Table_lock_blocks_live_reads_and_copy_without_password_prompt()
     {
         using var fixture = new VaultFixture();
-        var item = fixture.Vault.AddItem(new VaultItem { Title = "Account", TotpSecretBase32 = fixture.Secret });
+        var item = fixture.Vault.AddItem(new VaultItem { Title = "Account", Url = "https://example.com", TotpSecretBase32 = fixture.Secret });
         await fixture.Flow.GetListItemsAsync();
         await fixture.Flow.LockTableAsync();
         Assert.True(fixture.Flow.IsCurrentUnlock(fixture.Flow.LifecycleVersion));
@@ -129,7 +129,7 @@ public sealed class TotpFlowTests
     public async Task A_code_from_another_time_window_cannot_be_written_to_clipboard(int clockOffsetSeconds)
     {
         using var fixture = new VaultFixture();
-        var item = fixture.Vault.AddItem(new VaultItem { Title = "Account", TotpSecretBase32 = fixture.Secret });
+        var item = fixture.Vault.AddItem(new VaultItem { Title = "Account", Url = "https://example.com", TotpSecretBase32 = fixture.Secret });
         fixture.Now = DateTimeOffset.UtcNow.AddSeconds(clockOffsetSeconds);
         await Assert.ThrowsAsync<OperationCanceledException>(() => fixture.Flow.CopyWebsiteTotpAsync(item.Id));
         Assert.Equal(0, fixture.Clipboard.Writes);
@@ -141,7 +141,7 @@ public sealed class TotpFlowTests
     public async Task A_queued_clipboard_write_rechecks_lock_and_cancellation(bool cancel)
     {
         using var fixture = new VaultFixture();
-        var item = fixture.Vault.AddItem(new VaultItem { Title = "Account", TotpSecretBase32 = fixture.Secret });
+        var item = fixture.Vault.AddItem(new VaultItem { Title = "Account", Url = "https://example.com", TotpSecretBase32 = fixture.Secret });
         fixture.Clipboard.Delay = true;
         using var cancellation = new CancellationTokenSource();
         var copying = fixture.Flow.CopyWebsiteTotpAsync(item.Id, cancellation.Token);
@@ -157,7 +157,7 @@ public sealed class TotpFlowTests
     public async Task A_completed_TOTP_read_is_discarded_if_lock_begins_before_return()
     {
         using var fixture = new VaultFixture();
-        var item = fixture.Vault.AddItem(new VaultItem { Title = "Account", TotpSecretBase32 = fixture.Secret });
+        var item = fixture.Vault.AddItem(new VaultItem { Title = "Account", Url = "https://example.com", TotpSecretBase32 = fixture.Secret });
         var runner = new DelayedRunner();
         var flow = new AppFlowCoordinator(fixture.Vault, runner, new TotpService());
         var reading = flow.GetWebsiteTotpCodeAsync(item.Id);
@@ -182,7 +182,8 @@ public sealed class TotpFlowTests
             Secret = totp.GenerateSecret();
             Vault = new VaultService(new VaultStorageService(directory), new EncryptionService(), totp, utcNow: () => Now);
             Vault.InitializeNewVault("correct horse battery staple", Secret, totp.GetCurrentCode(Secret).Code, RecoveryKeyService.Generate(), true);
-            Flow = new AppFlowCoordinator(Vault, runner, totp, Clipboard);
+            Flow = new AppFlowCoordinator(Vault, runner, totp, Clipboard) { RequestAutofillApprovalAsync = (_, _) => Task.FromResult(true) };
+            Flow.SetBrowserIntegrationEnabled(true);
         }
         public void Dispose()
         {

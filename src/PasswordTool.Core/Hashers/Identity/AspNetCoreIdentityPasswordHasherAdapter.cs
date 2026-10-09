@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using Microsoft.AspNetCore.Identity;
 using PasswordTool.Core.Abstractions;
 using PasswordTool.Core.Models;
+using PasswordTool.Core.Utilities;
 
 namespace PasswordTool.Core.Hashers.Identity;
 
@@ -15,14 +16,15 @@ public sealed class AspNetCoreIdentityPasswordHasherAdapter : IPasswordHasher
 
     public string HashPassword(string password)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(password);
+        PasswordHashLimits.ValidatePassword(password);
 
         return passwordHasher.HashPassword(new object(), password);
     }
 
     public bool VerifyPassword(string password, string storedHash)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(password);
+        PasswordHashLimits.ValidatePassword(password);
+        if (!TryRead(storedHash, out _)) return false;
 
         try
         {
@@ -64,7 +66,7 @@ public sealed class AspNetCoreIdentityPasswordHasherAdapter : IPasswordHasher
             Notes = "Invalid ASP.NET Core Identity password hash format."
         };
 
-        if (string.IsNullOrWhiteSpace(storedHash))
+        if (string.IsNullOrWhiteSpace(storedHash) || storedHash.Length > PasswordHashLimits.MaxStoredHashCharacters)
         {
             return false;
         }
@@ -99,7 +101,7 @@ public sealed class AspNetCoreIdentityPasswordHasherAdapter : IPasswordHasher
         const int saltSize = 16;
         const int headerSize = 1;
 
-        if (decoded.Length <= headerSize + saltSize)
+        if (decoded.Length != headerSize + saltSize + 32)
         {
             return false;
         }
@@ -115,7 +117,7 @@ public sealed class AspNetCoreIdentityPasswordHasherAdapter : IPasswordHasher
             Hash = Convert.ToBase64String(hash),
             Iterations = 1000,
             HashSize = hash.Length,
-            IsSecureForPasswordStorage = true,
+            IsSecureForPasswordStorage = false,
             Notes = "ASP.NET Identity V2 format. Valid framework format, but lower iteration count than modern Identity V3 hashes."
         };
 
@@ -136,7 +138,9 @@ public sealed class AspNetCoreIdentityPasswordHasherAdapter : IPasswordHasher
         var iterations = BinaryPrimitives.ReadInt32BigEndian(decoded.AsSpan(5, 4));
         var saltLength = BinaryPrimitives.ReadInt32BigEndian(decoded.AsSpan(9, 4));
 
-        if (iterations <= 0 || saltLength <= 0 || decoded.Length <= headerSize + saltLength)
+        if (prf > 2 || iterations is < 10000 or > PasswordHashLimits.MaxPbkdf2Iterations
+            || !PasswordHashLimits.IsValidSaltSize(saltLength) || saltLength > decoded.Length - headerSize
+            || !PasswordHashLimits.IsValidHashSize(decoded.Length - headerSize - saltLength))
         {
             return false;
         }
@@ -152,8 +156,13 @@ public sealed class AspNetCoreIdentityPasswordHasherAdapter : IPasswordHasher
             Hash = Convert.ToBase64String(hash),
             Iterations = iterations,
             HashSize = hash.Length,
-            IsSecureForPasswordStorage = true,
-            Notes = $"ASP.NET Core Identity V3 framework format using {GetPrfName(prf)}."
+            IsSecureForPasswordStorage = prf switch
+            {
+                1 => iterations >= PasswordHashLimits.RecommendedPbkdf2Sha256Iterations,
+                2 => iterations >= PasswordHashLimits.RecommendedPbkdf2Sha512Iterations,
+                _ => false
+            },
+            Notes = $"ASP.NET Core Identity V3 framework format using {GetPrfName(prf)}. A valid framework format can still need a cost upgrade."
         };
 
         return true;

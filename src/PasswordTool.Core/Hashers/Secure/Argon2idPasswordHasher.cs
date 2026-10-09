@@ -12,6 +12,11 @@ public sealed class Argon2idPasswordHasher : IPasswordHasher
 {
     public Argon2idPasswordHasher(Argon2idOptions options)
     {
+        ArgumentNullException.ThrowIfNull(options);
+        if (!PasswordHashLimits.IsValidArgon2Cost(options.MemoryCost, options.Iterations, options.Parallelism)
+            || !PasswordHashLimits.IsValidSaltSize(options.SaltSizeBytes)
+            || !PasswordHashLimits.IsValidHashSize(options.HashSizeBytes))
+            throw new ArgumentException("Argon2id options exceed the supported cost or size limits.", nameof(options));
         Options = options;
     }
 
@@ -23,7 +28,7 @@ public sealed class Argon2idPasswordHasher : IPasswordHasher
 
     public string HashPassword(string password)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(password);
+        PasswordHashLimits.ValidatePassword(password);
 
         var salt = RandomNumberGenerator.GetBytes(Options.SaltSizeBytes);
         var hash = Derive(password, salt, Options.MemoryCost, Options.Iterations, Options.Parallelism, Options.HashSizeBytes);
@@ -33,7 +38,7 @@ public sealed class Argon2idPasswordHasher : IPasswordHasher
 
     public bool VerifyPassword(string password, string storedHash)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(password);
+        PasswordHashLimits.ValidatePassword(password);
 
         if (!TryRead(storedHash, out var memoryCost, out var iterations, out var parallelism, out var salt, out var expectedHash))
         {
@@ -66,22 +71,26 @@ public sealed class Argon2idPasswordHasher : IPasswordHasher
             MemoryCost = memoryCost,
             Parallelism = parallelism,
             HashSize = hash.Length,
-            IsSecureForPasswordStorage = true,
-            Notes = "Production-safe memory-hard password hash. Parameters are stored for verification."
+            IsSecureForPasswordStorage = PasswordHashLimits.IsRecommendedArgon2Cost(memoryCost, iterations),
+            Notes = "Argon2id memory-hard password hash. The security recommendation depends on the stored memory and iteration costs."
         };
     }
 
     private static byte[] Derive(string password, byte[] salt, int memoryCost, int iterations, int parallelism, int hashSize)
     {
-        var argon2 = new Argon2id(Encoding.UTF8.GetBytes(password))
+        var passwordBytes = Encoding.UTF8.GetBytes(password);
+        try
         {
-            Salt = salt,
-            MemorySize = memoryCost,
-            Iterations = iterations,
-            DegreeOfParallelism = parallelism
-        };
-
-        return argon2.GetBytes(hashSize);
+            using var argon2 = new Argon2id(passwordBytes)
+            {
+                Salt = salt,
+                MemorySize = memoryCost,
+                Iterations = iterations,
+                DegreeOfParallelism = parallelism
+            };
+            return argon2.GetBytes(hashSize);
+        }
+        finally { CryptographicOperations.ZeroMemory(passwordBytes); }
     }
 
     private static bool TryRead(
@@ -100,15 +109,15 @@ public sealed class Argon2idPasswordHasher : IPasswordHasher
 
         return HashParser.TryParseKeyValueFormat(storedHash, out var algorithmName, out var values)
             && string.Equals(algorithmName, "ARGON2ID", StringComparison.OrdinalIgnoreCase)
+            && values.Count == 6
+            && HashParser.TryGetInt(values, "v", out var version) && version == 1
             && HashParser.TryGetInt(values, "m", out memoryCost)
-            && memoryCost > 0
             && HashParser.TryGetInt(values, "t", out iterations)
-            && iterations > 0
             && HashParser.TryGetInt(values, "p", out parallelism)
-            && parallelism > 0
+            && PasswordHashLimits.IsValidArgon2Cost(memoryCost, iterations, parallelism)
             && HashParser.TryGetBase64(values, "salt", out salt)
-            && salt.Length > 0
+            && PasswordHashLimits.IsValidSaltSize(salt.Length)
             && HashParser.TryGetBase64(values, "hash", out hash)
-            && hash.Length > 0;
+            && PasswordHashLimits.IsValidHashSize(hash.Length);
     }
 }

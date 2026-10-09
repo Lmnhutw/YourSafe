@@ -6,6 +6,50 @@ namespace PasswordTool.Presentation.Tests;
 
 public sealed class RecoveryAndActionFlowTests
 {
+    [Theory]
+    [InlineData(false, "lock")]
+    [InlineData(true, "lock")]
+    [InlineData(false, "tableLock")]
+    [InlineData(true, "tableLock")]
+    [InlineData(false, "logout")]
+    [InlineData(true, "logout")]
+    public async Task Queued_manual_clipboard_write_is_discarded_after_session_transition(bool username, string transition)
+    {
+        var clipboard = new DeferredClipboard();
+        using var context = new Context(clipboard: clipboard);
+        var item = context.Vault.AddItem(new VaultItem { Title = "Synthetic account", Username = "synthetic-user", Password = "synthetic-password" });
+        var copying = username ? context.Shell.CopyUsernameAsync(item.Id) : context.Shell.CopyPasswordAsync(item.Id);
+        await clipboard.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        if (transition == "tableLock") await context.Shell.LockTableAsync();
+        else if (transition == "logout") await context.Shell.LogoutCommand.ExecuteAsync(null);
+        else await context.Shell.LockCommand.ExecuteAsync(null);
+        await context.Shell.UnlockAsync(Context.Password, context.Totp.GetCurrentCode(context.Secret).Code);
+        Assert.True(context.Shell.IsUnlocked);
+        clipboard.Release.SetResult();
+        await copying;
+        Assert.Equal(0, clipboard.Writes);
+        Assert.Null(clipboard.Value);
+        Assert.False(context.Shell.IsStatusOpen);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Manual_clipboard_write_from_current_session_is_cleared_on_lock(bool username)
+    {
+        var clipboard = new DeferredClipboard();
+        using var context = new Context(clipboard: clipboard);
+        var item = context.Vault.AddItem(new VaultItem { Title = "Synthetic account", Username = "synthetic-user", Password = "synthetic-password" });
+        var copying = username ? context.Shell.CopyUsernameAsync(item.Id) : context.Shell.CopyPasswordAsync(item.Id);
+        await clipboard.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        clipboard.Release.SetResult();
+        await copying;
+        Assert.Equal(username ? "synthetic-user" : "synthetic-password", clipboard.Value);
+        Assert.Equal(1, clipboard.Writes);
+        await context.Shell.LockCommand.ExecuteAsync(null);
+        Assert.Null(clipboard.Value);
+    }
+
     [Fact]
     public async Task Saved_vault_timeout_is_preserved_when_settings_are_reopened_after_table_lock()
     {
@@ -472,7 +516,7 @@ public sealed class RecoveryAndActionFlowTests
         public AppFlowCoordinator Flow { get; }
         public ShellViewModel Shell { get; }
 
-        public Context(IVaultOperationRunner? operationRunner = null)
+        public Context(IVaultOperationRunner? operationRunner = null, ISensitiveClipboardService? clipboard = null)
         {
             Secret = Totp.GenerateSecret();
             Vault = new(new VaultStorageService(Directory), new EncryptionService(), Totp, utcNow: () => Now);
@@ -483,7 +527,7 @@ public sealed class RecoveryAndActionFlowTests
             var mapper = new UserErrorMapper();
             Shell = new(Flow, workspace, null!, new SettingsViewModel(Flow, mapper),
                 new BackupViewModel(Flow, picker, Dialogs, mapper, workspace), new SecurityCheckViewModel(Flow, mapper),
-                new TrashViewModel(Flow, Dialogs, mapper, workspace), new NavigationService(), new Clipboard(), picker, mapper, Dialogs);
+                new TrashViewModel(Flow, Dialogs, mapper, workspace), new NavigationService(), clipboard ?? new Clipboard(), picker, mapper, Dialogs);
         }
 
         public void Dispose()
@@ -543,6 +587,26 @@ public sealed class RecoveryAndActionFlowTests
     {
         public Task CopyAsync(string value, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task ClearOwnedValueAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    private sealed class DeferredClipboard : ISensitiveClipboardService
+    {
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public int Writes { get; private set; }
+        public string? Value { get; private set; }
+        public Task CopyAsync(string value, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Manual secrets must use the guarded clipboard overload.");
+        public async Task CopyAsync(string value, Func<bool> canCopy, CancellationToken cancellationToken = default, bool clearAutomatically = true)
+        {
+            Entered.SetResult();
+            await Release.Task.WaitAsync(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!canCopy()) throw new OperationCanceledException();
+            Value = value;
+            Writes++;
+        }
+        public Task ClearOwnedValueAsync(CancellationToken cancellationToken = default) { Value = null; return Task.CompletedTask; }
     }
 
     private sealed class Picker : IFilePickerService

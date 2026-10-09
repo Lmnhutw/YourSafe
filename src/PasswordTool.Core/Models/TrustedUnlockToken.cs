@@ -2,7 +2,7 @@ namespace PasswordTool.Core.Models;
 
 public sealed class TrustedUnlockToken
 {
-    public int Version { get; set; } = 2;
+    public int Version { get; set; } = 3;
     public string Protection { get; set; } = "Windows-DPAPI-CurrentUser";
     public string ConfigFingerprintBase64 { get; set; } = string.Empty;
     public string ProtectedEncryptionKeyBase64 { get; set; } = string.Empty;

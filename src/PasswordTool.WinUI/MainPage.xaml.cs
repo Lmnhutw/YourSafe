@@ -50,6 +50,7 @@ public sealed partial class MainPage : Page
                 {
                     preservingEditorDuringTimeoutUnlock = ViewModel.CurrentRoute == AppRoute.ItemEditor
                         && draftTotp is null && editorBaseline?.TotpConfiguration is null;
+                    App.Services.GetRequiredService<DialogLifetime>().DismissAll();
                     await ViewModel.LockTableAsync(preserveCurrentRoute: preservingEditorDuringTimeoutUnlock);
                     if (preservingEditorDuringTimeoutUnlock && ViewModel.IsTableLocked)
                         await ViewModel.UnlockTableAsync();
@@ -558,11 +559,26 @@ public sealed partial class MainPage : Page
 
     private async void CopyAuthenticatorSecretButton_Click(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.PendingAuthenticatorSetup is { } setup) await sensitiveClipboard.CopyAsync(setup.SecretBase32);
+        if (ViewModel.PendingAuthenticatorSetup is not { } setup) return;
+        var version = ViewModel.LifecycleVersion;
+        bool CanCopy() => version == ViewModel.LifecycleVersion
+            && ViewModel.FlowState == AppFlowState.SetupAuthenticator
+            && ReferenceEquals(ViewModel.PendingAuthenticatorSetup, setup);
+        try { await sensitiveClipboard.CopyAsync(setup.SecretBase32, CanCopy); }
+        catch (OperationCanceledException) { }
+        catch (Exception)
+        {
+            if (!CanCopy()) return;
+            ViewModel.StatusMessage = "The clipboard is unavailable. Please try again.";
+            ViewModel.IsStatusOpen = true;
+        }
     }
 
     private async Task<string?> ConfirmRecoveryKeyAsync()
     {
+        var version = ViewModel.LifecycleVersion;
+        var lifetime = App.Services.GetRequiredService<DialogLifetime>();
+        var generation = lifetime.Generation;
         var key = PasswordTool.Core.Services.RecoveryKeyService.Generate();
         var text = new TextBlock { Text = key, TextWrapping = TextWrapping.Wrap, FontFamily = new FontFamily("Consolas"), IsTextSelectionEnabled = false };
         var copy = new Button { Content = "Copy key securely" };
@@ -589,7 +605,8 @@ public sealed partial class MainPage : Page
             try
             {
                 var startedAt = Stopwatch.GetTimestamp();
-                await sensitiveClipboard.CopyAsync(text.Text);
+                await sensitiveClipboard.CopyAsync(text.Text,
+                    () => !closed && version == ViewModel.LifecycleVersion && lifetime.IsCurrent(generation));
                 if (closed) return;
                 copiedAt = startedAt;
                 copy.Content = "Copied";
@@ -610,17 +627,18 @@ public sealed partial class MainPage : Page
         panel.Children.Add(copyRow);
         panel.Children.Add(new TextBlock
         {
-            Text = "The copied key is automatically cleared from the clipboard after 30 seconds. Copy again to restart the countdown. You can copy the key while this dialog is open; closing it clears the copied key.\n\nPaste with Ctrl+V. This key is excluded from Windows clipboard history.",
+            Text = "YourSafe attempts to clear the copied key after 30 seconds and when this dialog closes, while it still owns the clipboard value. Copy again to restart the countdown.\n\nPaste with Ctrl+V. YourSafe requests exclusion from Windows clipboard history; other applications may still read or retain the key.",
             TextWrapping = TextWrapping.Wrap
         });
         panel.Children.Add(saved);
         var dialog = new AppContentDialog { Title = "Save your Recovery Key", Content = panel, PrimaryButtonText = "I've saved it", CloseButtonText = "Cancel", IsPrimaryButtonEnabled = false };
+        dialog.Closed += (_, _) => closed = true;
         saved.Checked += (_, _) => dialog.IsPrimaryButtonEnabled = true;
         saved.Unchecked += (_, _) => dialog.IsPrimaryButtonEnabled = false;
         var confirmed = false;
         try
         {
-            confirmed = await App.Services.GetRequiredService<DialogLifetime>().ShowAsync(dialog, CancellationToken.None) == ContentDialogResult.Primary;
+            confirmed = await lifetime.ShowAsync(dialog, CancellationToken.None) == ContentDialogResult.Primary;
             return confirmed ? key : null;
         }
         finally

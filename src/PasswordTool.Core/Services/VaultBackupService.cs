@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using PasswordTool.Core.Models;
+using PasswordTool.Core.Utilities;
 
 namespace PasswordTool.Core.Services;
 
@@ -61,7 +62,7 @@ public sealed class VaultBackupService
         var key = DeriveKey(passphrase, salt, KdfIterations);
         try
         {
-            var encryptedPayloadJson = encryptionService.EncryptObject(payload, key);
+            var encryptedPayloadJson = encryptionService.EncryptObject(payload, key, MaxBackupJsonCharacters / 4 * 3);
             using var encryptedPayload = JsonDocument.Parse(encryptedPayloadJson);
             var envelope = new BackupEnvelope
             {
@@ -73,7 +74,10 @@ public sealed class VaultBackupService
                 EncryptedPayload = encryptedPayload.RootElement.Clone()
             };
 
-            return JsonSerializer.Serialize(envelope, JsonOptions);
+            var json = JsonSerializer.Serialize(envelope, JsonOptions);
+            if (json.Length > MaxBackupJsonCharacters || Encoding.UTF8.GetByteCount(json) > MaxBackupJsonCharacters)
+                throw new InvalidDataException("The backup exceeds the 10 MiB UTF-8 size limit.");
+            return json;
         }
         finally
         {
@@ -104,7 +108,8 @@ public sealed class VaultBackupService
     private BackupContents ReadAndValidateBackup(string backupJson, string passphrase)
     {
         ValidatePassphrase(passphrase);
-        if (string.IsNullOrWhiteSpace(backupJson) || backupJson.Length > MaxBackupJsonCharacters)
+        if (string.IsNullOrWhiteSpace(backupJson) || backupJson.Length > MaxBackupJsonCharacters
+            || Encoding.UTF8.GetByteCount(backupJson) > MaxBackupJsonCharacters)
         {
             throw new InvalidDataException("The backup file is empty or exceeds the 10 MB limit.");
         }
@@ -281,6 +286,7 @@ public sealed class VaultBackupService
 
     private static byte[] ReadSalt(string saltBase64)
     {
+        if (saltBase64 is not { Length: 24 }) throw new InvalidDataException("The backup KDF salt is malformed.");
         try
         {
             var salt = Convert.FromBase64String(saltBase64);
@@ -299,19 +305,17 @@ public sealed class VaultBackupService
 
     private static byte[] DeriveKey(string passphrase, byte[] salt, int iterations)
     {
-        return Rfc2898DeriveBytes.Pbkdf2(
-            Encoding.UTF8.GetBytes(passphrase),
-            salt,
-            iterations,
-            HashAlgorithmName.SHA256,
-            KeySizeBytes);
+        var passphraseBytes = Encoding.UTF8.GetBytes(passphrase);
+        try { return Rfc2898DeriveBytes.Pbkdf2(passphraseBytes, salt, iterations, HashAlgorithmName.SHA256, KeySizeBytes); }
+        finally { CryptographicOperations.ZeroMemory(passphraseBytes); }
     }
 
     public static void ValidatePassphrase(string passphrase)
     {
-        if (string.IsNullOrWhiteSpace(passphrase) || passphrase.Length < 12)
+        if (string.IsNullOrWhiteSpace(passphrase) || passphrase.Length < 12
+            || passphrase.Length > PasswordHashLimits.MaxPasswordCharacters)
         {
-            throw new ArgumentException("Use a backup password with at least 12 characters.", nameof(passphrase));
+            throw new ArgumentException("Use a backup password between 12 and 4096 characters.", nameof(passphrase));
         }
     }
 

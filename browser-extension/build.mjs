@@ -5,7 +5,6 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 const production = process.argv.includes('--production');
 const output = production ? 'dist/production' : 'dist/development';
-const sites = ['https://*/*', 'http://localhost/*', 'http://127.0.0.1/*', 'http://[::1]/*'];
 await mkdir(`${output}/icons`, { recursive: true });
 await build({
   entryPoints: ['src/worker.ts', 'src/content.ts', 'src/popup.ts'],
@@ -21,11 +20,9 @@ await writeFile(`${output}/manifest.json`, JSON.stringify({
   manifest_version: 3, name: production ? 'YourSafe' : 'YourSafe Development', version: '1.0.0',
   minimum_chrome_version: '127',
   ...(!production ? { key: (await readFile('development-key.txt', 'utf8')).trim() } : {}),
-  permissions: ['nativeMessaging', 'webNavigation'],
-  host_permissions: sites,
+  permissions: ['nativeMessaging', 'webNavigation', 'activeTab', 'scripting'],
   background: { service_worker: 'worker.js' },
   icons: { 16: 'icons/icon-16.png', 32: 'icons/icon-32.png', 48: 'icons/icon-48.png', 128: 'icons/icon-128.png' },
   action: { default_title: 'YourSafe', default_popup: 'popup.html', default_icon: { 16: 'icons/icon-16.png', 32: 'icons/icon-32.png' } },
-  content_scripts: [{ matches: sites, js: ['content.js'], all_frames: false, run_at: 'document_idle' }],
-  content_security_policy: { extension_pages: "script-src 'self'; object-src 'none'; frame-ancestors 'none'" }
+  content_security_policy: { extension_pages: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'" }
 }, null, 2));

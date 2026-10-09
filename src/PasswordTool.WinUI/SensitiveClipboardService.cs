@@ -9,6 +9,7 @@ namespace PasswordTool_WinUI;
 internal sealed class SensitiveClipboardService : ISensitiveClipboardService, IDisposable
 {
     private static readonly TimeSpan ClearDelay = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(1);
     private readonly object sync = new();
     private CancellationTokenSource? expiration;
     private byte[]? ownedValueHash;
@@ -72,7 +73,7 @@ internal sealed class SensitiveClipboardService : ISensitiveClipboardService, ID
                     ownedValueHash = HashValue(value);
                     ownedSequence = sequence;
                     expiration = new CancellationTokenSource();
-                    _ = ClearAfterDelayAsync(expiration.Token);
+                    _ = ClearAfterDelayAsync(ClearDelay, expiration.Token);
                 }
             }
 
@@ -101,7 +102,7 @@ internal sealed class SensitiveClipboardService : ISensitiveClipboardService, ID
             var releaseOwnership = false;
             try
             {
-                // ponytail: three attempts for transient contention; later lock cleanup can retry retained ownership.
+                // Each cleanup is bounded; transient contention retains ownership for a later retry.
                 for (var attempt = 0; attempt < 3; attempt++)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -154,16 +155,23 @@ internal sealed class SensitiveClipboardService : ISensitiveClipboardService, ID
                         expiration?.Dispose();
                         expiration = null;
                     }
+                    else if (expectedGeneration == ownershipGeneration && !disposed && !cancellationToken.IsCancellationRequested)
+                    {
+                        expiration?.Cancel();
+                        expiration?.Dispose();
+                        expiration = new CancellationTokenSource();
+                        _ = ClearAfterDelayAsync(RetryDelay, expiration.Token);
+                    }
                 }
             }
         });
     }
 
-    private async Task ClearAfterDelayAsync(CancellationToken cancellationToken)
+    private async Task ClearAfterDelayAsync(TimeSpan delay, CancellationToken cancellationToken)
     {
         try
         {
-            await Task.Delay(ClearDelay, cancellationToken);
+            await Task.Delay(delay, cancellationToken);
             await ClearOwnedValueAsync(cancellationToken);
         }
         catch (OperationCanceledException)
@@ -178,12 +186,14 @@ internal sealed class SensitiveClipboardService : ISensitiveClipboardService, ID
         var exclude = RegisterClipboardFormat("ExcludeClipboardContentFromMonitorProcessing");
         if (exclude == 0 || !OpenClipboard(App.WindowHandle))
             throw new InvalidOperationException("The clipboard is unavailable.");
+        var changed = false;
         try
         {
             Encoding.Unicode.GetBytes(value.AsSpan(), bytes);
             cancellationToken.ThrowIfCancellationRequested();
             if (!canCopy()) throw new OperationCanceledException();
             if (!EmptyClipboard()) throw new InvalidOperationException("The clipboard is unavailable.");
+            changed = true;
             void ValidateCopy()
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -191,7 +201,13 @@ internal sealed class SensitiveClipboardService : ISensitiveClipboardService, ID
             }
             SetClipboardBytes(exclude, [0], ValidateCopy);
             SetClipboardBytes(13, bytes, ValidateCopy); // CF_UNICODETEXT, including its zero terminator.
+            ValidateCopy();
             // Immediate SetClipboardData updates the sequence; other writers are excluded until CloseClipboard.
+        }
+        catch
+        {
+            if (changed) EmptyClipboard();
+            throw;
         }
         finally
         {

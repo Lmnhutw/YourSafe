@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Konscious.Security.Cryptography;
 using PasswordTool.Core.Models;
+using PasswordTool.Core.Utilities;
 
 namespace PasswordTool.Core.Services;
 
@@ -113,24 +114,31 @@ public sealed class MasterPasswordService
     private static byte[] DeriveKey(string masterPassword, string algorithm, int iterations, int memorySizeKb,
         int parallelism, int keySizeBytes, string saltBase64)
     {
-        if (string.IsNullOrWhiteSpace(masterPassword)) throw new ArgumentException("Master Password is required.", nameof(masterPassword));
-        var salt = Convert.FromBase64String(saltBase64);
-        if (salt.Length < SaltSizeBytes) throw new InvalidOperationException("The configured salt is too short.");
+        PasswordHashLimits.ValidatePassword(masterPassword);
+        if (string.IsNullOrEmpty(saltBase64) || saltBase64.Length > 128)
+            throw new InvalidOperationException("The configured salt exceeds the supported size.");
         if (keySizeBytes != DefaultKeySizeBytes) throw new InvalidOperationException("The configured key size is not supported.");
 
-        if (string.Equals(algorithm, Pbkdf2Algorithm, StringComparison.Ordinal))
+        var isPbkdf2 = string.Equals(algorithm, Pbkdf2Algorithm, StringComparison.Ordinal);
+        if (isPbkdf2)
         {
-            if (iterations < 100_000) throw new InvalidOperationException("The configured PBKDF2 iteration count is too low.");
-            return Rfc2898DeriveBytes.Pbkdf2(masterPassword, salt, iterations, HashAlgorithmName.SHA256, keySizeBytes);
+            if (iterations is < 100_000 or > PasswordHashLimits.MaxPbkdf2Iterations)
+                throw new InvalidOperationException("The configured PBKDF2 iteration count exceeds the supported range.");
         }
-        if (!string.Equals(algorithm, Argon2idAlgorithm, StringComparison.Ordinal))
-            throw new NotSupportedException($"Unsupported key derivation algorithm: {algorithm}");
-        if (iterations is < 2 or > 10 || memorySizeKb is < 32_768 or > 1_048_576 || parallelism is < 1 or > 16)
+        else if (!string.Equals(algorithm, Argon2idAlgorithm, StringComparison.Ordinal))
+            throw new NotSupportedException("The key derivation algorithm is not supported.");
+        else if (iterations < 2 || memorySizeKb < 32_768
+            || !PasswordHashLimits.IsValidArgon2Cost(memorySizeKb, iterations, parallelism))
             throw new InvalidOperationException("The configured Argon2id parameters are outside the supported range.");
 
+        var salt = Convert.FromBase64String(saltBase64);
+        if (salt.Length is < SaltSizeBytes or > 64)
+            throw new InvalidOperationException("The configured salt is outside the supported size range.");
         var passwordBytes = Encoding.UTF8.GetBytes(masterPassword);
         try
         {
+            if (isPbkdf2)
+                return Rfc2898DeriveBytes.Pbkdf2(passwordBytes, salt, iterations, HashAlgorithmName.SHA256, keySizeBytes);
             using var argon2 = new Argon2id(passwordBytes)
             {
                 Salt = salt,
@@ -192,7 +200,7 @@ public sealed class MasterPasswordService
 
     public static void ValidateNewMasterPassword(string masterPassword)
     {
-        if (string.IsNullOrWhiteSpace(masterPassword)) throw new ArgumentException("Master Password is required.", nameof(masterPassword));
+        PasswordHashLimits.ValidatePassword(masterPassword);
         if (masterPassword.Length < 12) throw new ArgumentException("Use a Master Password with at least 12 characters.", nameof(masterPassword));
     }
 

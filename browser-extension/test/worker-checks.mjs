@@ -21,6 +21,8 @@ let nativeError;
 let frameHook;
 let nativeHook;
 let frameReads = 0;
+let contentAvailable = false;
+const injections = [];
 const nativeActions = [], deliveries = [];
 const id = '11111111-1111-1111-1111-111111111111';
 globalThis.chrome = {
@@ -55,6 +57,7 @@ globalThis.chrome = {
   tabs: {
     query: async () => [{ id: 1, windowId: 1, url: currentUrl }],
     sendMessage: async (tabId, message, options) => {
+      if (!contentAvailable) throw new Error('No content receiver');
       deliveries.push({ tabId, message, options }); return { ok: true };
     },
     onActivated: event(), onRemoved: event(), onDetached: event(), onUpdated: event()
@@ -67,7 +70,8 @@ globalThis.chrome = {
     },
     onBeforeNavigate: nav, onCommitted: event(), onHistoryStateUpdated: event(), onReferenceFragmentUpdated: event()
   },
-  windows: { onFocusChanged: event(), onRemoved: event() },
+  windows: { WINDOW_ID_NONE: -1, onFocusChanged: event(), onRemoved: event() },
+  scripting: { executeScript: async options => { injections.push(options); contentAvailable = true; } },
   action: { openPopup: async () => {} }
 };
 await build({ entryPoints: ['src/worker.ts'], bundle: true, outfile: 'dist/test/worker.js', format: 'esm', platform: 'node', define: { NATIVE_HOST: '"test.host"' } });
@@ -91,16 +95,20 @@ function connect(sender = popup) {
   return port;
 }
 session = connect();
-const send = (message, sender = popup) => sender === popup ? session.send(message) : new Promise(resolve => messages.emit(message, sender, resolve));
+const send = (message, sender = popup) => sender === popup ? session.send(message)
+  : Promise.resolve({ ok: !connect(sender).disconnected });
 assert.equal((await send({ action: 'discover' }, content)).ok, false);
 assert.equal((await send({ action: 'select', id }, content)).ok, false);
 assert.equal(nativeActions.length, 0, 'content cannot trigger discovery/retrieval');
+assert.equal((await send({ action: 'showApp' })).result.shown, true, 'showApp closes its connection after returning a response');
 let discovery = await send({ action: 'discover' });
 assert.equal(discovery.ok, true);
 assert.equal((await send({ action: 'select', token: discovery.result.token, id })).ok, true);
-assert.deepEqual(nativeActions, ['findCredentials', 'getCredentialSecret']);
+assert.deepEqual(nativeActions.slice(-2), ['findCredentials', 'getCredentialSecret']);
 assert.equal(deliveries.at(-1).options.documentId, documentId);
 assert.equal(deliveries.at(-1).options.frameId, 0);
+assert.deepEqual(injections, [{ target: { tabId: 1, documentIds: [documentId] }, files: ['content.js'] }],
+  'explicit password selection injects only into the bound top document');
 assert.equal((await send({ action: 'select', token: discovery.result.token, id })).ok, false, 'consent cannot be replayed');
 discovery = await send({ action: 'discover' });
 changeDuringSecret = true;
@@ -184,13 +192,11 @@ const connectionBeforeTicks = nativeConnections;
 let value = await send({ action: 'viewTotp', token: discovery.result.token, id });
 assert.equal(value.result.code, '001234');
 assert.equal(deliveries.filter(item => item.message.action === 'fill').length >= 1, true);
-monotonic += 1000;
-assert.equal((await send({ action: 'refreshTotp', token: discovery.result.token, id })).ok, true);
 assert.equal((await send({ action: 'copyTotp', token: discovery.result.token, id })).result.copied, true);
-assert.equal(nativeConnections, connectionBeforeTicks, 'discovery, ticks and copy reuse one native connection');
+assert.equal(nativeConnections, connectionBeforeTicks, 'discovery, explicit read and copy reuse one native connection');
 const beforeFastTick = nativeActions.length;
 assert.equal((await send({ action: 'refreshTotp', token: discovery.result.token, id })).error, 'invalidRequest');
-assert.equal(nativeActions.length, beforeFastTick, 'read rate is enforced in the trusted worker');
+assert.equal(nativeActions.length, beforeFastTick, 'automatic refresh has no native authority');
 
 // Navigation during a get discards its result; failures never trigger retries.
 discovery = await send({ action: 'discover' });
@@ -211,7 +217,7 @@ for (const failure of ['locked', 'desktopUnavailable', 'malformed']) {
   assert.equal(nativeActions.length, before + 1, 'failure clears access without automatic retries');
   nativeError = undefined; malformed = false;
 }
-// A closed popup invalidates an outstanding native operation and discards its late response.
+// Explicit cancellation invalidates an outstanding approval and discards its late response.
 discovery = await send({ action: 'discover' });
 delayedAction = 'getCredentialTotp';
 void send({ action: 'viewTotp', token: discovery.result.token, id });
@@ -230,13 +236,68 @@ delayedAction = 'getCredentialTotp';
 void send({ action: 'viewTotp', token: discovery.result.token, id });
 await new Promise(resolve => setImmediate(resolve));
 const beforeClose = nativeDisconnects;
+const beforeDuplicate = nativeActions.length;
+assert.equal((await send({ action: 'copyTotp', token: discovery.result.token, id })).error, 'invalidRequest');
+assert.equal(nativeActions.length, beforeDuplicate, 'only one desktop approval can be pending');
+const oldSession = session;
 session.disconnect();
+chrome.windows.onFocusChanged.emit(chrome.windows.WINDOW_ID_NONE ?? -1);
+assert.equal(nativeDisconnects, beforeClose, 'desktop focus and popup closure preserve the explicit approval');
+session = connect();
+oldSession.onMessage.emit({ malformed: true });
+let resumed = await send({ action: 'resume' });
+assert.equal(resumed.result.resumed, true);
+assert.equal(resumed.result.interaction.busy, true);
+const actionsBeforeResume = nativeActions.length;
 delayedReply();
 await new Promise(resolve => setImmediate(resolve));
-assert.equal(nativeDisconnects, beforeClose + 1);
+resumed = await send({ action: 'resume' });
+assert.equal(resumed.result.interaction.result.code, '001234');
+assert.equal(nativeActions.length, actionsBeforeResume, 'reopening never replays the approved read');
+delayedAction = undefined;
+await send({ action: 'cancel', token: discovery.result.token });
+hasPassword = true;
+discovery = await send({ action: 'discover' });
+delayedAction = 'getCredentialSecret';
+void send({ action: 'select', token: discovery.result.token, id });
+await new Promise(resolve => setImmediate(resolve));
+session.disconnect();
+chrome.windows.onFocusChanged.emit(-1);
+const fillsBeforeApproval = deliveries.filter(item => item.message.action === 'fill').length;
+delayedReply();
+await new Promise(resolve => setImmediate(resolve));
+assert.equal(deliveries.filter(item => item.message.action === 'fill').length, fillsBeforeApproval + 1,
+  'approved password fills the exact document once after the popup closes');
+session = connect();
+resumed = await send({ action: 'resume' });
+assert.equal(resumed.result.interaction.result.filled, true);
+assert.equal(JSON.stringify(resumed).includes('synthetic'), false, 'password is not retained for recovery');
+assert.equal((await send({ action: 'select', token: discovery.result.token, id })).ok, false, 'recovery cannot replay a password');
+delayedAction = undefined;
+discovery = await send({ action: 'discover' });
+delayedAction = 'getCredentialSecret';
+void send({ action: 'select', token: discovery.result.token, id });
+await new Promise(resolve => setImmediate(resolve));
+session.disconnect();
+nav.emit({ tabId: 1, frameId: 0 });
+const fillsBeforeDetachedNavigation = deliveries.filter(item => item.message.action === 'fill').length;
+delayedReply();
+await new Promise(resolve => setImmediate(resolve));
+assert.equal(deliveries.filter(item => item.message.action === 'fill').length, fillsBeforeDetachedNavigation,
+  'navigation cancels even without a popup');
 delayedAction = undefined;
 session = connect();
-assert.equal((await send({ action: 'copyTotp', token: discovery.result.token, id })).ok, false);
+discovery = await send({ action: 'discover' });
+delayedAction = 'getCredentialSecret';
+const expiredApproval = send({ action: 'select', token: discovery.result.token, id });
+await new Promise(resolve => setImmediate(resolve));
+const beforeExpiredApproval = deliveries.filter(item => item.message.action === 'fill').length;
+monotonic += 70001;
+delayedReply();
+assert.equal((await expiredApproval).error, 'targetChanged');
+assert.equal(deliveries.filter(item => item.message.action === 'fill').length, beforeExpiredApproval,
+  'a late desktop approval cannot outlive the monotonic deadline');
+delayedAction = undefined;
 session.disconnect();
 globalThis.performance = realPerformance;
-console.log('Passed worker password/TOTP authorization, session cleanup, connection reuse, rate limit, navigation/expiry races and no-retry checks.');
+console.log('Passed worker authorization, one-shot OTP, approval focus/reconnect, cancellation, target/expiry races and no retries.');

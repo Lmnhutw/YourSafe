@@ -74,7 +74,9 @@ public partial class App : Application
         Window = new MainWindow();
         Window.Closed += Window_Closed;
         Window.Activate();
-        autofillServer = new AutofillPipeServer(Services.GetRequiredService<AppFlowCoordinator>());
+        var flow = Services.GetRequiredService<AppFlowCoordinator>();
+        flow.RequestAutofillApprovalAsync = Services.GetRequiredService<AutofillApprovalService>().ApproveAsync;
+        autofillServer = new AutofillPipeServer(flow);
     }
 
     private async void App_UnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
@@ -96,8 +98,13 @@ public partial class App : Application
         {
             if (Services is not null)
             {
-                try { await Services.GetRequiredService<ISensitiveClipboardService>().ClearOwnedValueAsync(); }
-                finally { await Services.GetRequiredService<AppFlowCoordinator>().LogoutAsync(); }
+                var logout = Services.GetRequiredService<AppFlowCoordinator>().LogoutAsync();
+                try
+                {
+                    Services.GetRequiredService<DialogLifetime>().DismissAll();
+                    await Services.GetRequiredService<ISensitiveClipboardService>().ClearOwnedValueAsync();
+                }
+                finally { await logout; }
             }
         }
         catch
@@ -111,13 +118,20 @@ public partial class App : Application
 
     private async void Window_Closed(object sender, WindowEventArgs args)
     {
-        if (autofillServer is not null) await autofillServer.StopAsync();
-        autofillServer = null;
         try
         {
-            Services.GetRequiredService<DialogLifetime>().DismissAll();
-            try { await Services.GetRequiredService<ISensitiveClipboardService>().ClearOwnedValueAsync(); }
-            finally { await Services.GetRequiredService<AppFlowCoordinator>().LogoutAsync(); }
+            // Invalidate queued secret work before any asynchronous close/clipboard cleanup.
+            var logout = Services.GetRequiredService<AppFlowCoordinator>().LogoutAsync();
+            try
+            {
+                Services.GetRequiredService<DialogLifetime>().DismissAll();
+                await Services.GetRequiredService<ISensitiveClipboardService>().ClearOwnedValueAsync();
+            }
+            finally
+            {
+                try { if (autofillServer is not null) await autofillServer.StopAsync(); }
+                finally { autofillServer = null; await logout; }
+            }
         }
         catch
         {

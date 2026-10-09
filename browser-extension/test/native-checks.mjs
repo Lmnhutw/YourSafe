@@ -11,9 +11,10 @@ const compiled = await build({ entryPoints: ['src/native.ts'], bundle: true, wri
   globalName: 'transport', define: { NATIVE_HOST: '"test.host"' } });
 const ports = [], timeouts = new Map(), failures = [];
 let sequence = 0;
+const timeoutDurations = [];
 const context = {
   TextEncoder, crypto: { randomUUID: () => '12345678-1234-1234-1234-' + String(++sequence).padStart(12, '0') },
-  setTimeout: callback => { const id = ++sequence; timeouts.set(id, callback); return id; }, clearTimeout: id => timeouts.delete(id),
+  setTimeout: (callback, milliseconds) => { timeoutDurations.push(milliseconds); const id = ++sequence; timeouts.set(id, callback); return id; }, clearTimeout: id => timeouts.delete(id),
   chrome: { runtime: { connectNative: () => {
     const port = { onMessage: event(), onDisconnect: event(), messages: [], disconnected: false,
       postMessage(request) { this.messages.push(request); }, disconnect() { this.disconnected = true; } };
@@ -55,6 +56,7 @@ for (const kind of ['disconnect', 'timeout', 'malformed', 'oversized']) {
   await assert.rejects(active.request('ping'), /desktopUnavailable/);
 }
 assert.equal(failures.length, 4);
+assert(timeoutDurations.every(milliseconds => milliseconds === 70000), 'native timeout leaves sixty seconds for desktop approval');
 const closed = context.transport.nativeSession(() => assert.fail('explicit close is not a failure notification'));
 const awaiting = closed.request('ping');
 const discarded = assert.rejects(awaiting, /targetChanged/);

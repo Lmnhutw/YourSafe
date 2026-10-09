@@ -6,8 +6,8 @@ namespace PasswordTool.Presentation.Autofill;
 public static class AutofillPolicy
 {
     public static bool Matches(AutofillCredential credential, string origin) =>
-        string.IsNullOrWhiteSpace(credential.Url)
-        || CanonicalOrigin.TryParse(credential.Url, out var actual) && actual == origin;
+        !string.IsNullOrWhiteSpace(credential.Url)
+        && CanonicalOrigin.TryParse(credential.Url, out var actual) && actual == origin;
 
     public static string RequireOrigin(string origin)
     {

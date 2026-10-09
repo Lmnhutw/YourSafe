@@ -22,7 +22,7 @@ public sealed class PasswordHashInspector : IPasswordHashInspector
 
     public PasswordHashInfo Inspect(string storedHash)
     {
-        if (string.IsNullOrWhiteSpace(storedHash))
+        if (string.IsNullOrWhiteSpace(storedHash) || storedHash.Length > PasswordHashLimits.MaxStoredHashCharacters)
         {
             return Unknown("Stored hash is required.");
         }

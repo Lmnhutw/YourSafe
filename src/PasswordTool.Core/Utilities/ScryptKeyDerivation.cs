@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 
 namespace PasswordTool.Core.Utilities;
@@ -7,36 +8,31 @@ public static class ScryptKeyDerivation
 {
     public static byte[] DeriveKey(byte[] password, byte[] salt, int cost, int blockSize, int parallelization, int outputBytes)
     {
-        if (cost <= 1 || (cost & (cost - 1)) != 0)
+        ArgumentNullException.ThrowIfNull(password);
+        ArgumentNullException.ThrowIfNull(salt);
+        if (!PasswordHashLimits.IsValidScryptCost(cost, blockSize, parallelization))
         {
-            throw new ArgumentOutOfRangeException(nameof(cost), "Scrypt cost N must be a power of two greater than 1.");
+            throw new ArgumentOutOfRangeException(nameof(cost), "Scrypt parameters exceed the supported CPU or memory limits.");
         }
 
-        if (blockSize <= 0)
+        if (outputBytes is < 1 or > 64)
         {
-            throw new ArgumentOutOfRangeException(nameof(blockSize), "Scrypt block size r must be greater than 0.");
-        }
-
-        if (parallelization <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(parallelization), "Scrypt parallelization p must be greater than 0.");
-        }
-
-        if (outputBytes <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(outputBytes), "Output size must be greater than 0.");
+            throw new ArgumentOutOfRangeException(nameof(outputBytes), "Output size must be between 1 and 64 bytes.");
         }
 
         var blockLength = 128 * blockSize;
         var b = Pbkdf2(password, salt, 1, parallelization * blockLength);
 
-        for (var i = 0; i < parallelization; i++)
+        try
         {
-            var block = b.AsSpan(i * blockLength, blockLength);
-            ScryptRomix(block, cost, blockSize);
+            for (var i = 0; i < parallelization; i++)
+            {
+                var block = b.AsSpan(i * blockLength, blockLength);
+                ScryptRomix(block, cost, blockSize);
+            }
+            return Pbkdf2(password, b, 1, outputBytes);
         }
-
-        return Pbkdf2(password, b, 1, outputBytes);
+        finally { CryptographicOperations.ZeroMemory(b); }
     }
 
     private static byte[] Pbkdf2(byte[] password, byte[] salt, int iterations, int outputBytes)
@@ -49,20 +45,22 @@ public static class ScryptKeyDerivation
         var v = new byte[cost * block.Length];
         var x = block.ToArray();
 
-        for (var i = 0; i < cost; i++)
+        try
         {
-            x.CopyTo(v.AsSpan(i * block.Length));
-            BlockMix(x, blockSize);
+            for (var i = 0; i < cost; i++)
+            {
+                x.CopyTo(v.AsSpan(i * block.Length));
+                BlockMix(x, blockSize);
+            }
+            for (var i = 0; i < cost; i++)
+            {
+                var j = Integerify(x, blockSize) & (ulong)(cost - 1);
+                Xor(x, v.AsSpan((int)j * block.Length, block.Length));
+                BlockMix(x, blockSize);
+            }
+            x.CopyTo(block);
         }
-
-        for (var i = 0; i < cost; i++)
-        {
-            var j = Integerify(x, blockSize) & (ulong)(cost - 1);
-            Xor(x, v.AsSpan((int)j * block.Length, block.Length));
-            BlockMix(x, blockSize);
-        }
-
-        x.CopyTo(block);
+        finally { CryptographicOperations.ZeroMemory(v); CryptographicOperations.ZeroMemory(x); }
     }
 
     private static ulong Integerify(byte[] block, int blockSize)
@@ -77,19 +75,20 @@ public static class ScryptKeyDerivation
         block.AsSpan((2 * blockSize - 1) * 64, 64).CopyTo(x);
 
         var y = new byte[block.Length];
-        for (var i = 0; i < 2 * blockSize; i++)
+        try
         {
-            Xor(x, block.AsSpan(i * 64, 64));
-            Salsa208(x);
-
-            var destinationOffset = i % 2 == 0
-                ? (i / 2) * 64
-                : (blockSize + i / 2) * 64;
-
-            x.CopyTo(y.AsSpan(destinationOffset, 64));
+            for (var i = 0; i < 2 * blockSize; i++)
+            {
+                Xor(x, block.AsSpan(i * 64, 64));
+                Salsa208(x);
+                var destinationOffset = i % 2 == 0
+                    ? (i / 2) * 64
+                    : (blockSize + i / 2) * 64;
+                x.CopyTo(y.AsSpan(destinationOffset, 64));
+            }
+            y.CopyTo(block.AsSpan());
         }
-
-        y.CopyTo(block.AsSpan());
+        finally { CryptographicOperations.ZeroMemory(y); CryptographicOperations.ZeroMemory(x); }
     }
 
     private static void Xor(byte[] destination, ReadOnlySpan<byte> source)
@@ -166,6 +165,8 @@ public static class ScryptKeyDerivation
         {
             BinaryPrimitives.WriteUInt32LittleEndian(block.Slice(i * 4, 4), x[i] + original[i]);
         }
+        CryptographicOperations.ZeroMemory(MemoryMarshal.AsBytes(x));
+        CryptographicOperations.ZeroMemory(MemoryMarshal.AsBytes(original));
     }
 
     private static uint RotateLeft(uint value, int count)

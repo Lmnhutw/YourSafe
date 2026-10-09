@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using PasswordTool.Core.Models;
 using PasswordTool.Core.Services;
 using PasswordTool.Autofill;
@@ -12,6 +13,7 @@ public sealed class AppFlowCoordinator
     private readonly IVaultOperationRunner operations;
     private readonly TotpService totpService;
     private readonly ISensitiveClipboardService? clipboard;
+    private readonly TimeProvider timeProvider;
     private readonly bool hasPartialStorage;
     private IReadOnlyList<VaultItemListItem> tableItems = [];
     private IReadOnlyList<VaultGroup> tableGroups = [];
@@ -19,14 +21,55 @@ public sealed class AppFlowCoordinator
     private IReadOnlyList<VaultSnapshotInfo> tableSnapshots = [];
     private SettingsSnapshot tableSettings = new(VaultSecuritySettings.DefaultVaultOpenDurationMinutes, false, null, null);
     public Func<CancellationToken, Task<string?>>? RequestActionPasswordAsync { get; set; }
+    public Func<AutofillApprovalRequest, CancellationToken, Task<bool>>? RequestAutofillApprovalAsync { get; set; }
+    private readonly object autofillSync = new();
+    private readonly Queue<long> autofillRequests = new();
+    private CancellationTokenSource? pendingAutofill;
+    private bool browserIntegrationEnabled;
+    public bool BrowserIntegrationEnabled { get { lock (autofillSync) return browserIntegrationEnabled; } }
+    public event Action? BrowserIntegrationChanged;
+
+    public void SetBrowserIntegrationEnabled(bool enabled)
+    {
+        if (enabled && !IsCurrentNormalUnlock(LifecycleVersion)) throw new OperationCanceledException("Unlock the vault before enabling browser integration.");
+        bool changed;
+        lock (autofillSync)
+        {
+            changed = browserIntegrationEnabled != enabled;
+            browserIntegrationEnabled = enabled;
+            if (!enabled) pendingAutofill?.Cancel();
+        }
+        if (changed) BrowserIntegrationChanged?.Invoke();
+    }
+
+    private void CancelPendingAutofill()
+    {
+        lock (autofillSync) pendingAutofill?.Cancel();
+    }
+
+    private void RequireBrowserIntegration(bool countRequest = false)
+    {
+        if (!IsCurrentNormalUnlock(LifecycleVersion)) throw new OperationCanceledException("Unlock the vault on the desktop first.");
+        lock (autofillSync)
+        {
+            if (!browserIntegrationEnabled) throw new UnauthorizedAccessException("Browser integration is disabled.");
+            if (!countRequest) return;
+            var now = System.Diagnostics.Stopwatch.GetTimestamp();
+            while (autofillRequests.TryPeek(out var previous) && System.Diagnostics.Stopwatch.GetElapsedTime(previous, now) >= TimeSpan.FromMinutes(1))
+                autofillRequests.Dequeue();
+            if (autofillRequests.Count >= 30) throw new UnauthorizedAccessException("Too many browser requests.");
+            autofillRequests.Enqueue(now);
+        }
+    }
 
     public AppFlowCoordinator(VaultService vaultService, IVaultOperationRunner operations, TotpService totpService,
-        ISensitiveClipboardService? clipboard = null)
+        ISensitiveClipboardService? clipboard = null, TimeProvider? timeProvider = null)
     {
         this.vaultService = vaultService;
         this.operations = operations;
         this.totpService = totpService;
         this.clipboard = clipboard;
+        this.timeProvider = timeProvider ?? TimeProvider.System;
         hasPartialStorage = vaultService.HasPartialStorage;
         FlowState = vaultService.HasActiveVaultSession
             ? vaultService.NeedsRecoveryKey ? AppFlowState.SaveRecoveryKey : AppFlowState.Unlocked
@@ -61,6 +104,7 @@ public sealed class AppFlowCoordinator
             EnsureCurrentFlow(version, state);
             if (!vaultService.HasActiveVaultSession) throw new OperationCanceledException();
             vaultService.SaveRecoveryKey(password, key, saved);
+            CancelPendingAutofill();
         }).ConfigureAwait(false);
         EnsureCurrentFlow(version, state);
         if (!vaultService.IsVaultUnlocked) throw new OperationCanceledException();
@@ -123,6 +167,7 @@ public sealed class AppFlowCoordinator
     }
     private long lifecycleVersion;
     public long LifecycleVersion => Volatile.Read(ref lifecycleVersion);
+    public long AutofillMutationVersion => vaultService.MutationVersion;
     public bool IsCurrentUnlock(long version) => version == LifecycleVersion &&
         (FlowState == AppFlowState.Unlocked && vaultService.IsVaultUnlocked || FlowState == AppFlowState.TableLocked && IsSignedIn);
     public bool IsCurrentNormalUnlock(long version) => version == LifecycleVersion
@@ -278,6 +323,7 @@ public sealed class AppFlowCoordinator
     public async Task LockAsync(CancellationToken cancellationToken = default)
     {
         var version = Interlocked.Increment(ref lifecycleVersion);
+        CancelPendingAutofill();
         FlowState = AppFlowState.Unlock;
         tableItems = [];
         tableGroups = [];
@@ -295,6 +341,7 @@ public sealed class AppFlowCoordinator
     public async Task LockTableAsync(CancellationToken cancellationToken = default)
     {
         var version = Interlocked.Increment(ref lifecycleVersion);
+        CancelPendingAutofill();
         FlowState = AppFlowState.TableLocked;
         await operations.RunAsync(vaultService.LockVault, cancellationToken);
         if (version == LifecycleVersion && !IsSignedIn) FlowState = AppFlowState.Unlock;
@@ -303,6 +350,7 @@ public sealed class AppFlowCoordinator
     public async Task LogoutAsync(CancellationToken cancellationToken = default)
     {
         var version = Interlocked.Increment(ref lifecycleVersion);
+        SetBrowserIntegrationEnabled(false);
         FlowState = AppFlowState.Unlock;
         tableItems = [];
         tableGroups = [];
@@ -321,21 +369,25 @@ public sealed class AppFlowCoordinator
             return tableItems = vaultService.GetItems().Select(VaultItemListItem.FromVaultItem).ToList();
         }, cancellationToken);
 
-    public Task<IReadOnlyList<CredentialMetadata>> FindAutofillCredentialsAsync(string origin, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<CredentialMetadata>> FindAutofillCredentialsAsync(string origin, CancellationToken cancellationToken = default)
     {
         AutofillPolicy.RequireOrigin(origin);
-        return RunUnlockedVaultAsync(() => (IReadOnlyList<CredentialMetadata>)vaultService.GetAutofillCredentials()
-            .Where(item => AutofillPolicy.Matches(item, origin))
-            .Select(item => new CredentialMetadata(item.Id, item.Title, item.Username, item.HasPassword, item.HasTotp)).ToList(), cancellationToken);
+        RequireBrowserIntegration(countRequest: true);
+        var result = await RunUnlockedVaultAsync(() =>
+        {
+            RequireBrowserIntegration();
+            return (IReadOnlyList<CredentialMetadata>)vaultService.GetAutofillCredentials()
+                .Where(item => AutofillPolicy.Matches(item, origin))
+                .Select(item => new CredentialMetadata(item.Id, item.Title, item.Username, item.HasPassword, item.HasTotp)).ToList();
+        }, cancellationToken).ConfigureAwait(false);
+        RequireBrowserIntegration();
+        return result;
     }
 
     public Task<CredentialSecret> GetAutofillCredentialSecretAsync(string origin, Guid id, CancellationToken cancellationToken = default)
     {
-        AutofillPolicy.RequireOrigin(origin);
-        return RunUnlockedVaultAsync(() =>
+        return RunApprovedAutofillAsync(origin, id, AutofillAction.Password, candidate =>
         {
-            var candidate = vaultService.GetAutofillCredentials().FirstOrDefault(item => item.Id == id && item.HasPassword && AutofillPolicy.Matches(item, origin))
-                ?? throw new UnauthorizedAccessException("The credential is unavailable for this origin.");
             var secret = vaultService.GetAutofillSecret(id, candidate.Url);
             return new CredentialSecret(secret.Username, secret.Password);
         }, cancellationToken);
@@ -343,18 +395,71 @@ public sealed class AppFlowCoordinator
 
     public Task<TotpCodeResult> GetAutofillCredentialTotpAsync(string origin, Guid id, CancellationToken cancellationToken = default)
     {
-        AutofillPolicy.RequireOrigin(origin);
-        if (id == Guid.Empty) throw new ArgumentException("A credential is required.", nameof(id));
-        return RunUnlockedVaultAsync(() =>
-        {
-            var candidate = vaultService.GetAutofillCredentials().FirstOrDefault(item => item.Id == id && item.HasTotp && AutofillPolicy.Matches(item, origin))
-                ?? throw new UnauthorizedAccessException("The credential is unavailable for this origin.");
-            return vaultService.GetAutofillTotp(id, candidate.Url);
-        }, cancellationToken);
+        return RunApprovedAutofillAsync(origin, id, AutofillAction.ViewTotp,
+            candidate => vaultService.GetAutofillTotp(id, candidate.Url), cancellationToken);
     }
 
-    public Task CopyAutofillCredentialTotpAsync(string origin, Guid id, CancellationToken cancellationToken = default) =>
-        CopyTotpAsync(() => GetAutofillCredentialTotpAsync(origin, id, cancellationToken), cancellationToken);
+    public Task CopyAutofillCredentialTotpAsync(string origin, Guid id, CancellationToken cancellationToken = default, Func<bool>? canCopy = null) =>
+        RunApprovedAutofillAsync(origin, id, AutofillAction.CopyTotp,
+            candidate => vaultService.GetAutofillTotp(id, candidate.Url), cancellationToken,
+            (result, token, stillApproved) => CopyTotpAsync(() => Task.FromResult(result), token, stillApproved), canCopy);
+
+    private async Task<T> RunApprovedAutofillAsync<T>(string origin, Guid id, AutofillAction action,
+        Func<AutofillCredential, T> read, CancellationToken cancellationToken, Func<T, CancellationToken, Func<bool>, Task>? complete = null,
+        Func<bool>? canContinue = null)
+    {
+        AutofillPolicy.RequireOrigin(origin);
+        if (id == Guid.Empty) throw new ArgumentException("A credential is required.", nameof(id));
+        RequireBrowserIntegration(countRequest: true);
+        var approval = RequestAutofillApprovalAsync ?? throw new UnauthorizedAccessException("Desktop approval is unavailable.");
+        var version = LifecycleVersion;
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(60), timeProvider);
+        using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token);
+        lock (autofillSync)
+        {
+            if (!browserIntegrationEnabled || pendingAutofill is not null)
+                throw new UnauthorizedAccessException("A browser request is unavailable or already awaiting approval.");
+            pendingAutofill = lifetime;
+        }
+        try
+        {
+            if (canContinue is not null && !canContinue()) throw new OperationCanceledException();
+            var snapshot = await RunUnlockedVaultAsync(() =>
+            {
+                if (!IsCurrentNormalUnlock(version) || canContinue is not null && !canContinue()) throw new OperationCanceledException();
+                var candidate = vaultService.GetAutofillCredentials().FirstOrDefault(item => item.Id == id
+                    && (action == AutofillAction.Password ? item.HasPassword : item.HasTotp) && AutofillPolicy.Matches(item, origin))
+                    ?? throw new UnauthorizedAccessException("The credential is unavailable for this origin.");
+                return (Credential: candidate, Revision: vaultService.MutationVersion);
+            }, lifetime.Token).ConfigureAwait(false);
+            if (!await approval(new(snapshot.Credential, action, origin), lifetime.Token).WaitAsync(lifetime.Token).ConfigureAwait(false))
+                throw new UnauthorizedAccessException("Desktop approval was declined.");
+            var result = await RunUnlockedVaultAsync(() =>
+            {
+                RequireBrowserIntegration();
+                if (!IsCurrentNormalUnlock(version) || snapshot.Revision != vaultService.MutationVersion
+                    || canContinue is not null && !canContinue())
+                    throw new OperationCanceledException();
+                var current = vaultService.GetAutofillCredentials().FirstOrDefault(item => item.Id == id);
+                if (current is null || current != snapshot.Credential || !AutofillPolicy.Matches(current, origin)) throw new OperationCanceledException();
+                return read(current);
+            }, lifetime.Token).ConfigureAwait(false);
+            lifetime.Token.ThrowIfCancellationRequested();
+            RequireBrowserIntegration();
+            if (!IsCurrentNormalUnlock(version)) throw new OperationCanceledException();
+            bool StillApproved() => !lifetime.IsCancellationRequested && BrowserIntegrationEnabled
+                && IsCurrentNormalUnlock(version) && snapshot.Revision == vaultService.MutationVersion
+                && (canContinue is null || canContinue());
+            if (complete is not null) await complete(result, lifetime.Token, StillApproved).ConfigureAwait(false);
+            lifetime.Token.ThrowIfCancellationRequested();
+            if (!StillApproved()) throw new OperationCanceledException();
+            return result;
+        }
+        finally
+        {
+            lock (autofillSync) { if (pendingAutofill == lifetime) pendingAutofill = null; }
+        }
+    }
 
     public Task<IReadOnlyList<VaultGroup>> GetGroupsAsync(CancellationToken cancellationToken = default) =>
         FlowState == AppFlowState.TableLocked && IsSignedIn ? Task.FromResult(tableGroups) :
@@ -421,7 +526,7 @@ public sealed class AppFlowCoordinator
         CancellationToken cancellationToken = default) =>
         GetWebsiteTotpCodeAsync(id, cancellationToken);
 
-    private async Task CopyTotpAsync(Func<Task<TotpCodeResult>> getCode, CancellationToken cancellationToken)
+    private async Task CopyTotpAsync(Func<Task<TotpCodeResult>> getCode, CancellationToken cancellationToken, Func<bool>? additionalGuard = null)
     {
         var version = LifecycleVersion;
         var target = clipboard ?? throw new InvalidOperationException("The clipboard is unavailable.");
@@ -431,9 +536,9 @@ public sealed class AppFlowCoordinator
         await target.CopyAsync(result.Code, () =>
         {
             var now = DateTimeOffset.UtcNow;
-            return IsCurrentNormalUnlock(version) && now < result.ExpiresAtUtc
+            return IsCurrentNormalUnlock(version) && additionalGuard?.Invoke() != false && now < result.ExpiresAtUtc
                 && now >= result.ExpiresAtUtc.AddSeconds(-result.PeriodSeconds);
-        }, cancellationToken, clearAutomatically: false).ConfigureAwait(false);
+        }, cancellationToken, clearAutomatically: true).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         if (!IsCurrentNormalUnlock(version)) throw new OperationCanceledException();
     }
@@ -621,17 +726,19 @@ public sealed class AppFlowCoordinator
 
     private static string ReadBoundedBackupFile(string path)
     {
-        if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("A backup file is required.", nameof(path));
-        var info = new FileInfo(path);
-        if (info.Length > VaultBackupService.MaxBackupJsonCharacters)
-            throw new InvalidDataException("The selected backup exceeds the 10 MB limit.");
-        return File.ReadAllText(path);
+        return ReadBoundedFile(path, VaultBackupService.MaxBackupJsonCharacters);
     }
 
     private async Task<T> RunVaultAsync<T>(Func<T> operation, CancellationToken cancellationToken, bool allowTableLocked = true)
     {
         var version = LifecycleVersion;
         var locked = FlowState == AppFlowState.TableLocked;
+        T RunOperation()
+        {
+            var revision = vaultService.MutationVersion;
+            try { return operation(); }
+            finally { if (revision != vaultService.MutationVersion) CancelPendingAutofill(); }
+        }
         string? actionPassword = null;
         if (locked)
         {
@@ -645,14 +752,14 @@ public sealed class AppFlowCoordinator
             result = await operations.RunAsync(() =>
             {
                 if (!IsCurrentUnlock(version)) throw new OperationCanceledException("The vault was locked or the sign-in session expired.");
-                if (!locked) return operation();
+                if (!locked) return RunOperation();
                 try
                 {
                     if (!vaultService.IsSignInSessionActive) throw new OperationCanceledException();
                     var unlock = vaultService.UnlockWithMasterPassword(actionPassword!);
                     if (!unlock.Success) throw new UnauthorizedAccessException("The Master Password is incorrect.");
                     if (!IsCurrentUnlock(version) || !vaultService.HasActiveVaultSession) throw new OperationCanceledException();
-                    var value = operation();
+                    var value = RunOperation();
                     tableItems = vaultService.GetItems().Select(VaultItemListItem.FromVaultItem).ToList();
                     CachePageMetadata();
                     tableGroups = vaultService.GetGroups();
@@ -699,10 +806,19 @@ public sealed class AppFlowCoordinator
     private static string ReadBoundedFile(string path, int maximumCharacters)
     {
         if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("A file is required.", nameof(path));
-        var info = new FileInfo(path);
-        if (info.Length > maximumCharacters) throw new InvalidDataException("The selected file exceeds the 10 MB limit.");
-        var content = File.ReadAllText(path);
-        if (content.Length > maximumCharacters) throw new InvalidDataException("The selected file exceeds the 10 MB limit.");
-        return content;
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        var length = stream.Length;
+        if (length > maximumCharacters) throw new InvalidDataException("The selected file exceeds the 10 MB limit.");
+        var bytes = new byte[(int)length];
+        try
+        {
+            stream.ReadExactly(bytes);
+            if (stream.ReadByte() != -1) throw new InvalidDataException("The selected file changed while being read.");
+            using var reader = new StreamReader(new MemoryStream(bytes));
+            var content = reader.ReadToEnd();
+            if (content.Length > maximumCharacters) throw new InvalidDataException("The selected file exceeds the 10 MB limit.");
+            return content;
+        }
+        finally { CryptographicOperations.ZeroMemory(bytes); }
     }
 }

@@ -1,3 +1,5 @@
+Historical scope: This earlier review prompt is superseded by [security-hardening-requirements.md](security-hardening-requirements.md) for authorization, browser permissions, clipboard lifetime and verification policy.
+
 Purpose: Sửa các lỗi review tĩnh của YourSafe browser autofill bằng thay đổi tối thiểu.
 
 Assumptions: Extension chưa được đăng ký. Chỉ chạy unit test, kiểm tra tĩnh và build; hoãn flow browser/extension, IPC thực tế và install.

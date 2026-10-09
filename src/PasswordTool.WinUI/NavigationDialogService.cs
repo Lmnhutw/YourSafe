@@ -4,7 +4,7 @@ using PasswordTool.Presentation;
 
 namespace PasswordTool_WinUI;
 
-internal sealed class NavigationDialogService(ISensitiveClipboardService clipboard, DialogLifetime lifetime) : IUserDialogService
+internal sealed class NavigationDialogService(ISensitiveClipboardService clipboard, DialogLifetime lifetime, AppFlowCoordinator flow) : IUserDialogService
 {
     public async Task<string?> PromptMasterPasswordAsync(CancellationToken cancellationToken = default)
     {
@@ -95,6 +95,10 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
         bool multiline,
         CancellationToken cancellationToken = default)
     {
+        var version = flow.LifecycleVersion;
+        if (!flow.IsCurrentUnlock(version)) return;
+        var generation = lifetime.Generation;
+        using var copyLifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var text = new TextBlock
         {
             Text = value,
@@ -112,10 +116,23 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
         dialog.PrimaryButtonClick += async (_, args) =>
         {
             args.Cancel = true;
-            await clipboard.CopyAsync(value, cancellationToken);
+            dialog.PrimaryButtonText = "Copy securely";
+            try
+            {
+                await clipboard.CopyAsync(value,
+                    () => flow.IsCurrentUnlock(version) && lifetime.IsCurrent(generation) && !copyLifetime.IsCancellationRequested,
+                    copyLifetime.Token);
+            }
+            catch (OperationCanceledException) { }
+            catch (InvalidOperationException)
+            {
+                if (!copyLifetime.IsCancellationRequested && lifetime.IsCurrent(generation))
+                    dialog.PrimaryButtonText = "Copy failed — try again";
+            }
         };
-        try { await ShowDialogAsync(dialog, cancellationToken); }
-        finally { text.Text = string.Empty; value = string.Empty; }
+        dialog.Closed += (_, _) => copyLifetime.Cancel();
+        try { await lifetime.ShowAsync(dialog, cancellationToken, () => flow.IsCurrentUnlock(version)); }
+        finally { copyLifetime.Cancel(); text.Text = string.Empty; value = string.Empty; }
     }
 
     private async Task<bool> ShowConfirmAsync(

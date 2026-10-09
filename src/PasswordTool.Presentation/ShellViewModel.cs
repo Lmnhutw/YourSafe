@@ -501,7 +501,7 @@ public sealed partial class ShellViewModel : ObservableObject
         try
         {
             var value = await flow.GetUsernameAsync(itemId);
-            if (IsCurrentUnlock(version)) await clipboard.CopyAsync(value);
+            if (IsCurrentUnlock(version)) await clipboard.CopyAsync(value, () => IsCurrentUnlock(version));
         }
         catch (Exception exception)
         {
@@ -569,7 +569,7 @@ public sealed partial class ShellViewModel : ObservableObject
         try
         {
             var value = await flow.GetPasswordAsync(itemId, string.Empty);
-            if (IsCurrentUnlock(version)) await clipboard.CopyAsync(value);
+            if (IsCurrentUnlock(version)) await clipboard.CopyAsync(value, () => IsCurrentUnlock(version));
         }
         catch (Exception exception)
         {

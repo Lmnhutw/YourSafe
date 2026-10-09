@@ -111,7 +111,8 @@ public sealed class AutofillTests
             var backup = new VaultBackupService().CreateBackup([item], "correct backup passphrase", DateTimeOffset.UtcNow);
             Assert.Equal(1, vault.ImportBackupJson(backup, "correct backup passphrase", code));
             using var runner = new VaultOperationRunner();
-            var flow = new AppFlowCoordinator(vault, runner, totp);
+            var flow = new AppFlowCoordinator(vault, runner, totp) { RequestAutofillApprovalAsync = (_, _) => Task.FromResult(true) };
+            flow.SetBrowserIntegrationEnabled(true);
             var metadata = Assert.Single(await flow.FindAutofillCredentialsAsync("https://example.com"));
             Assert.Equal("", metadata.Username);
             var retrieved = await flow.GetAutofillCredentialSecretAsync("https://example.com", metadata.Id);
@@ -155,7 +156,8 @@ public sealed class AutofillTests
             using var vault = new VaultService(new VaultStorageService(directory), new EncryptionService(), totp);
             vault.InitializeNewVault("correct horse battery staple", secret, totp.GetCurrentCode(secret).Code, RecoveryKeyService.Generate(), true);
             using var runner = new VaultOperationRunner();
-            var flow = new AppFlowCoordinator(vault, runner, totp);
+            var flow = new AppFlowCoordinator(vault, runner, totp) { RequestAutofillApprovalAsync = (_, _) => Task.FromResult(true) };
+            flow.SetBrowserIntegrationEnabled(true);
             var matching = new VaultItem { Title = "Hidden", Username = "user", Password = "test-secret", Url = "https://example.com/login", HideUrl = true, Notes = "private" };
             matching = vault.AddItem(matching);
             await flow.AddItemAsync(new VaultItem { Title = "Subdomain", Password = "other", Url = "https://sub.example.com" });
@@ -182,7 +184,7 @@ public sealed class AutofillTests
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    public async Task No_URL_items_are_listed_and_selectable_with_site_matches(string? url)
+    public async Task No_URL_items_are_denied_in_discovery_and_secret_reads(string? url)
     {
         var directory = Path.Combine(Path.GetTempPath(), "YourSafe.Autofill.Tests", Guid.NewGuid().ToString("N"));
         try
@@ -192,20 +194,21 @@ public sealed class AutofillTests
             using var vault = new VaultService(new VaultStorageService(directory), new EncryptionService(), totp);
             vault.InitializeNewVault("correct horse battery staple", secret, totp.GetCurrentCode(secret).Code, RecoveryKeyService.Generate(), true);
             using var runner = new VaultOperationRunner();
-            var flow = new AppFlowCoordinator(vault, runner, totp);
+            var flow = new AppFlowCoordinator(vault, runner, totp) { RequestAutofillApprovalAsync = (_, _) => Task.FromResult(true) };
+            flow.SetBrowserIntegrationEnabled(true);
             var noUrl = vault.AddItem(new VaultItem { Title = "No URL", Username = "user", Password = "synthetic", Url = url! });
             var matching = vault.AddItem(new VaultItem { Title = "Site", Password = "site-secret", Url = "https://example.com/login" });
             var other = vault.AddItem(new VaultItem { Title = "Other site", Password = "other-secret", Url = "https://other.example" });
             await flow.AddItemAsync(new VaultItem { Title = "Recovery only", RecoveryCodes = ["code-one", "code-two"], Url = "" });
 
             var discovered = await flow.FindAutofillCredentialsAsync("https://example.com");
-            Assert.Equal(2, discovered.Count);
-            Assert.Contains(discovered, item => item.Id == noUrl.Id);
+            Assert.Single(discovered);
+            Assert.DoesNotContain(discovered, item => item.Id == noUrl.Id);
             Assert.Contains(discovered, item => item.Id == matching.Id);
-            Assert.Equal("synthetic", (await flow.GetAutofillCredentialSecretAsync("https://example.com", noUrl.Id)).Password);
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => flow.GetAutofillCredentialSecretAsync("https://example.com", noUrl.Id));
             Assert.Equal("site-secret", (await flow.GetAutofillCredentialSecretAsync("https://example.com", matching.Id)).Password);
-            Assert.Equal(noUrl.Id, Assert.Single(await flow.FindAutofillCredentialsAsync("http://localhost:8222")).Id);
-            Assert.Equal("synthetic", (await flow.GetAutofillCredentialSecretAsync("http://localhost:8222", noUrl.Id)).Password);
+            Assert.Empty(await flow.FindAutofillCredentialsAsync("http://localhost:8222"));
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => flow.GetAutofillCredentialSecretAsync("http://localhost:8222", noUrl.Id));
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() => flow.GetAutofillCredentialSecretAsync("https://example.com", other.Id));
             await Assert.ThrowsAsync<ArgumentException>(() => flow.GetAutofillCredentialSecretAsync("http://example.com", noUrl.Id));
 
@@ -230,7 +233,8 @@ public sealed class AutofillTests
             using var vault = new VaultService(new VaultStorageService(directory), new EncryptionService(), totp);
             vault.InitializeNewVault("correct horse battery staple", secret, totp.GetCurrentCode(secret).Code, RecoveryKeyService.Generate(), true);
             using var runner = new VaultOperationRunner();
-            var flow = new AppFlowCoordinator(vault, runner, totp);
+            var flow = new AppFlowCoordinator(vault, runner, totp) { RequestAutofillApprovalAsync = (_, _) => Task.FromResult(true) };
+            flow.SetBrowserIntegrationEnabled(true);
             var item = new VaultItem { Title = "Account", Password = "test-secret", Url = "https://example.com" };
             item = vault.AddItem(item);
             var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -262,7 +266,8 @@ public sealed class AutofillTests
             vault.InitializeNewVault("correct horse battery staple", secret, totp.GetCurrentCode(secret).Code, RecoveryKeyService.Generate(), true);
             var item = vault.AddItem(new VaultItem { Title = "Account", Password = "synthetic", Url = "https://example.com" });
             using var runner = new VaultOperationRunner();
-            var flow = new AppFlowCoordinator(vault, runner, totp);
+            var flow = new AppFlowCoordinator(vault, runner, totp) { RequestAutofillApprovalAsync = (_, _) => Task.FromResult(true) };
+            flow.SetBrowserIntegrationEnabled(true);
             var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var blocked = runner.RunAsync(() => { entered.SetResult(); release.Task.GetAwaiter().GetResult(); });

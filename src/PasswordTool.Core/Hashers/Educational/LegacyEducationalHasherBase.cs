@@ -26,7 +26,7 @@ public abstract class LegacyEducationalHasherBase : IPasswordHasher
 
     public string HashPassword(string password)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(password);
+        PasswordHashLimits.ValidatePassword(password);
 
         var salt = UsesSalt ? RandomNumberGenerator.GetBytes(16) : [];
         var hash = ComputeHash(password, salt);
@@ -38,7 +38,7 @@ public abstract class LegacyEducationalHasherBase : IPasswordHasher
 
     public bool VerifyPassword(string password, string storedHash)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(password);
+        PasswordHashLimits.ValidatePassword(password);
 
         if (!TryRead(storedHash, out var salt, out var expectedHash))
         {
@@ -77,14 +77,22 @@ public abstract class LegacyEducationalHasherBase : IPasswordHasher
         var passwordBytes = Encoding.UTF8.GetBytes(password);
         var input = UsesSalt ? [.. salt, .. passwordBytes] : passwordBytes;
 
-        return FormatName switch
+        try
         {
-            "LEGACY-MD5" => MD5.HashData(input),
-            "LEGACY-SHA1" => SHA1.HashData(input),
-            "LEGACY-SHA256" or "LEGACY-SHA256-SALTED" => SHA256.HashData(input),
-            "LEGACY-SHA512" or "LEGACY-SHA512-SALTED" => SHA512.HashData(input),
-            _ => throw new InvalidOperationException($"Unsupported legacy format '{FormatName}'.")
-        };
+            return FormatName switch
+            {
+                "LEGACY-MD5" => MD5.HashData(input),
+                "LEGACY-SHA1" => SHA1.HashData(input),
+                "LEGACY-SHA256" or "LEGACY-SHA256-SALTED" => SHA256.HashData(input),
+                "LEGACY-SHA512" or "LEGACY-SHA512-SALTED" => SHA512.HashData(input),
+                _ => throw new InvalidOperationException($"Unsupported legacy format '{FormatName}'.")
+            };
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(input);
+            if (UsesSalt) CryptographicOperations.ZeroMemory(passwordBytes);
+        }
     }
 
     private bool TryRead(string storedHash, out byte[] salt, out byte[] hash)

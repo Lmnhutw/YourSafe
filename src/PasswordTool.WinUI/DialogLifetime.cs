@@ -10,26 +10,31 @@ internal sealed class DialogLifetime
     private ContentDialog? active;
     private int generation;
 
+    public int Generation => Volatile.Read(ref generation);
+    public bool IsCurrent(int expectedGeneration) => expectedGeneration == Generation;
+
     public void DismissAll()
     {
-        generation++;
+        Interlocked.Increment(ref generation);
         active?.Hide();
     }
 
-    public async Task<ContentDialogResult> ShowAsync(ContentDialog dialog, CancellationToken cancellationToken)
+    public async Task<ContentDialogResult> ShowAsync(ContentDialog dialog, CancellationToken cancellationToken, Func<bool>? canShow = null)
     {
-        var requestedGeneration = generation;
+        var requestedGeneration = Generation;
         await gate.WaitAsync(cancellationToken);
         try
         {
-            if (requestedGeneration != generation) return ContentDialogResult.None;
+            if (cancellationToken.IsCancellationRequested || !IsCurrent(requestedGeneration)
+                || canShow is not null && !canShow()) return ContentDialogResult.None;
             active = dialog;
             dialog.XamlRoot = ((FrameworkElement)App.Window.Content).XamlRoot;
             App.Services.GetRequiredService<AppearanceService>().ApplyTo(dialog);
             using var registration = cancellationToken.Register(() =>
                 App.DispatcherQueue.TryEnqueue(() => { if (active == dialog) dialog.Hide(); }));
             var result = await dialog.ShowAsync();
-            return cancellationToken.IsCancellationRequested || requestedGeneration != generation
+            return cancellationToken.IsCancellationRequested || !IsCurrent(requestedGeneration)
+                || canShow is not null && !canShow()
                 ? ContentDialogResult.None : result;
         }
         finally
