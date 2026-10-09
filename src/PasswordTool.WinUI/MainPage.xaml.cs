@@ -100,7 +100,7 @@ public sealed partial class MainPage : Page
 
     public static Visibility BoolToVisibility(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
     public static bool Not(bool value) => !value;
-    public static bool CanEditItem(bool isSaving, bool isTableLocked) => !isSaving && !isTableLocked;
+    public static bool CanEditItem(bool isSaving, bool isSignedIn) => !isSaving && isSignedIn;
     public static bool HasSelection(object? value) => value is not null;
     public static Visibility EmptyVisibility(int count) => count == 0 ? Visibility.Visible : Visibility.Collapsed;
     public static Visibility InvertBoolToVisibility(bool value) => value ? Visibility.Collapsed : Visibility.Visible;

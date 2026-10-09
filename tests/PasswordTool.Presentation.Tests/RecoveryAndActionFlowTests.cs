@@ -7,6 +7,53 @@ namespace PasswordTool.Presentation.Tests;
 public sealed class RecoveryAndActionFlowTests
 {
     [Fact]
+    public async Task Saved_vault_timeout_is_preserved_when_settings_are_reopened_after_table_lock()
+    {
+        using var context = new Context();
+        await context.Shell.Vault.RefreshAsync();
+        await context.Shell.Settings.LoadAsync();
+        Assert.Equal(1, context.Shell.Settings.VaultDurationMinutes);
+        context.Shell.Settings.VaultDurationMinutes = 30;
+        Assert.True(await context.Shell.Settings.SaveAsync(Context.Password));
+        Assert.Equal(30, context.Vault.SecuritySettings.VaultOpenDurationMinutes);
+        await context.Shell.LockTableAsync();
+        await context.Shell.Settings.LoadAsync();
+        Assert.Equal(30, context.Shell.Settings.VaultDurationMinutes);
+        Assert.Equal(0, context.Dialogs.PasswordPrompts);
+        Assert.True(context.Shell.IsTableLocked);
+        Assert.False(context.Vault.IsVaultUnlocked);
+    }
+
+    [Fact]
+    public async Task Editing_and_saving_with_action_password_keeps_the_vault_locked()
+    {
+        using var context = new Context();
+        var item = context.Vault.AddItem(new VaultItem { Title = "Original", Password = "synthetic-password" });
+        await context.Shell.Vault.RefreshAsync();
+        await context.Shell.LockTableAsync();
+        context.Dialogs.ActionPassword = "wrong";
+        Assert.Null(await context.Shell.GetItemForEditingAsync(item.Id));
+        context.Dialogs.ActionPassword = Context.Password;
+        var editable = await context.Shell.GetItemForEditingAsync(item.Id);
+        Assert.NotNull(editable);
+        Assert.True(context.Shell.IsTableLocked);
+        Assert.False(context.Vault.IsVaultUnlocked);
+        context.Shell.Navigate(AppRoute.ItemEditor);
+        var input = new VaultItemEditorInput(item.Id, "Edited", editable.Username, editable.Password,
+            "", "", editable.Url, editable.Notes, editable.GroupId, "", false, false, false);
+        context.Dialogs.ActionPassword = "wrong";
+        Assert.False(await context.Shell.SaveItemAsync(input));
+        Assert.Equal(AppRoute.ItemEditor, context.Shell.CurrentRoute);
+        context.Dialogs.ActionPassword = Context.Password;
+        Assert.True(await context.Shell.SaveItemAsync(input));
+        Assert.Equal("Edited", Assert.Single(context.Shell.Vault.Items).Title);
+        Assert.Equal(AppRoute.Vault, context.Shell.CurrentRoute);
+        Assert.True(context.Shell.IsTableLocked);
+        Assert.False(context.Vault.IsVaultUnlocked);
+        Assert.Equal(4, context.Dialogs.PasswordPrompts);
+    }
+
+    [Fact]
     public async Task Table_lock_keeps_login_and_metadata_but_requires_password_for_each_action()
     {
         using var context = new Context();

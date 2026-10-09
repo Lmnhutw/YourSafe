@@ -491,6 +491,7 @@ public sealed class AppFlowCoordinator
                     VaultSecuritySettings.DefaultSensitiveActionTimeoutMinutes,
                     vaultDurationMinutes),
                 out var message);
+            if (success) tableSettings = ReadSettings();
             return new OperationResult(success, message);
         }, cancellationToken);
 

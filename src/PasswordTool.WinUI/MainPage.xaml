@@ -546,7 +546,7 @@
                     <InfoBar Grid.Row="3" IsClosable="True" IsOpen="{x:Bind ViewModel.Trash.IsErrorOpen, Mode=TwoWay}" Message="{x:Bind ViewModel.Trash.ErrorMessage, Mode=OneWay}" Severity="Error" Title="Could not update Trash" />
                 </Grid>
 
-                <ScrollViewer x:Name="EditorPage" Grid.Row="1" MaxWidth="1024" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled" Visibility="Collapsed" IsEnabled="{x:Bind local:MainPage.CanEditItem(ViewModel.IsSavingItem, ViewModel.IsTableLocked), Mode=OneWay}">
+                <ScrollViewer x:Name="EditorPage" Grid.Row="1" MaxWidth="1024" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled" Visibility="Collapsed" IsEnabled="{x:Bind local:MainPage.CanEditItem(ViewModel.IsSavingItem, ViewModel.IsSignedIn), Mode=OneWay}">
                     <Grid Margin="24" RowSpacing="24" VerticalAlignment="Top">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
