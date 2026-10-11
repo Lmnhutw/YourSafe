@@ -1,16 +1,18 @@
 param(
     [Parameter(Mandatory)][int]$ProcessId,
     [Parameter(Mandatory)][string]$TestDirectory,
+    [string]$WinAppPath = 'winapp',
     [switch]$SetupOnly
 )
 
 # Only the synthetic vault seeded by Create_opt_in_disposable_ui_vault.
 $ErrorActionPreference = 'Stop'
-$winApp = 'C:\Users\lmnhu\.nuget\packages\microsoft.windows.sdk.buildtools.winapp\0.6.1\tools\win-x64\winapp.exe'
+$null = Get-Command $WinAppPath -ErrorAction Stop
 function Ui {
-    $output = & $winApp ui @args -a $ProcessId --json
+    $output = & $WinAppPath ui @args -a $ProcessId --json
     $exitCode = $LASTEXITCODE
     $result = $output -join "`n" | ConvertFrom-Json
+    if ($args[0] -eq 'wait-for' -and $result.timedOut) { throw "UI condition timed out: $($args -join ' ')" }
     if ($exitCode -ne 0 -and -not ($args[0] -eq 'search' -and $result.matchCount -eq 0)) { throw ($args[0] + ' ' + $args[1] + ': ' + ($output -join "`n")) }
     $result
 }
@@ -24,7 +26,7 @@ function CurrentCode {
     if ($match.Count -eq 0) { return '' }
     $match[0].name
 }
-$directory = (Resolve-Path -LiteralPath $TestDirectory).Path
+$directory = [IO.Path]::TrimEndingDirectorySeparator((Resolve-Path -LiteralPath $TestDirectory).Path)
 Ui wait-for YourSafeDisposableUiTest -t 10000 | Out-Null
 if ((Ui get-property YourSafeDisposableUiTest -p HelpText).properties.HelpText -ne $directory) { throw 'Disposable vault marker mismatch.' }
 if (@((Ui search TxtMasterPassword).matches).Count -gt 0) {

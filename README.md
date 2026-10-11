@@ -128,7 +128,7 @@ npm.cmd test
 npm.cmd run build
 ```
 
-Native action checks use [scripts/Test-VaultUi.ps1](scripts/Test-VaultUi.ps1) against an unlocked disposable test vault. Debug builds support `PASSWORDTOOL_UI_TEST_DIRECTORY` for isolated storage and a separate single-instance mutex; `PASSWORDTOOL_UI_TEST_WIDTH` and `PASSWORDTOOL_UI_TEST_THEME` select test geometry and theme. Release builds ignore these overrides. Seed a new test directory with the opt-in `Create_opt_in_disposable_ui_vault` Core test, then run the script with that app's process ID. Never target a user vault. See [the verification record](docs/recovery-session-verification.md) for results and outstanding visual checks.
+See [the test guide](tests/README.md) to choose the relevant unit, integration, release or native UI checks. Native UI scripts require both the disposable Debug app's process ID and `-TestDirectory`; they verify its storage marker before interaction. Debug builds support `PASSWORDTOOL_UI_TEST_DIRECTORY` for isolated storage and a separate single-instance mutex; `PASSWORDTOOL_UI_TEST_WIDTH` and `PASSWORDTOOL_UI_TEST_THEME` select test geometry and theme. Release builds ignore these overrides. Never target a user vault. See [the verification record](docs/recovery-session-verification.md) for historical results and outstanding visual checks.
 
 ## How encryption and unlocking work
 

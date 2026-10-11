@@ -29,6 +29,7 @@ function Ui {
     $output = & $WinAppPath ui @args @target --json 2>&1
     $exitCode = $LASTEXITCODE
     $json = ($output -join [Environment]::NewLine) | ConvertFrom-Json
+    if ($args[0] -eq 'wait-for' -and $json.timedOut) { throw "UI condition timed out: $($args -join ' ')" }
     if ($exitCode -ne 0 -and -not ($exitCode -eq 1 -and $args[0] -eq 'search' -and $json.matchCount -eq 0)) {
         throw "WinApp $($args[0]) [$($args[1])] failed ($exitCode): $output"
     }
@@ -58,7 +59,9 @@ function SelectCombo([string]$Id, [string]$Value) {
     if ((Ui get-value $Id).text -eq $Value) { return }
     Ui invoke $Id | Out-Null
     $option = VisibleItem $Value ListItem
-    Ui invoke $option.selector | Out-Null
+    Ui focus $option.selector | Out-Null
+    Ui click $option.selector | Out-Null
+    Ui wait-for $Id -p ExpandCollapseState --value Collapsed -t 5000 | Out-Null
     Ui wait-for $Id --value $Value -t 5000 | Out-Null
 }
 
@@ -98,11 +101,6 @@ function AssertPreferences([string]$Theme, [bool]$Vertical) {
     }
 }
 
-function AssertTabPreference([string]$Property, [AllowNull()][object]$Expected) {
-    $preferences = Get-Content -LiteralPath $preferencesPath -Raw | ConvertFrom-Json
-    if ($preferences.$Property -ne $Expected) { throw "Persisted $Property does not match the applied tab setting." }
-}
-
 function OpenTabMenu([string]$Id, [string]$Action) {
     EnsureForeground
     Ui invoke NavVault | Out-Null
@@ -115,11 +113,36 @@ function OpenTabMenu([string]$Id, [string]$Action) {
 function OpenTabColor([string]$Id) {
     OpenTabMenu $Id 'Change tab color'
     Ui wait-for GroupColorPicker -t 5000 | Out-Null
+    AssertDialogButtons -ExpectSecondary
+}
+
+function AssertDialogButtons([switch]$ExpectSecondary) {
+    $deadline = [DateTime]::UtcNow.AddSeconds(3)
+    do {
+        $primary = VisibleButton PrimaryButton
+        $cancel = VisibleButton CloseButton
+        $ordered = $cancel.x + $cancel.width -le $primary.x -and [Math]::Abs($cancel.y - $primary.y) -le 2
+        if (-not $ordered) { Start-Sleep -Milliseconds 100 }
+    } while (-not $ordered -and [DateTime]::UtcNow -lt $deadline)
+    if (-not $ordered) { throw 'Cancel must be left of Primary in the same footer row.' }
+    if ($ExpectSecondary) {
+        $secondary = VisibleButton SecondaryButton
+        if ($secondary.x -lt $cancel.x + $cancel.width -or $secondary.x + $secondary.width -gt $primary.x) {
+            throw 'Secondary must be between Cancel and Primary.'
+        }
+    }
+}
+
+function VisibleButton([string]$Id) {
+    $buttons = @(Matches $Id | Where-Object { $_.automationId -eq $Id } | Group-Object selector | ForEach-Object { $_.Group[0] })
+    if ($buttons.Count -ne 1) { throw "Expected one visible modal button: $Id" }
+    return $buttons[0]
 }
 
 function RenameTab([string]$Id, [string]$Name) {
     OpenTabMenu $Id 'Rename tab'
     Ui wait-for TxtTabName -t 5000 | Out-Null
+    AssertDialogButtons
     Ui set-value TxtTabName $Name | Out-Null
     Ui invoke PrimaryButton | Out-Null
     Ui wait-for TxtTabName --gone -t 5000 | Out-Null
@@ -127,11 +150,33 @@ function RenameTab([string]$Id, [string]$Name) {
 
 # Fail closed: a real vault/app without the matching DEBUG marker is never driven.
 Ui wait-for YourSafeDisposableUiTest -p HelpText --value $testRoot -t 5000 | Out-Null
+if ((Ui get-property YourSafeDisposableUiTest -p HelpText).properties.HelpText -ne $testRoot) {
+    throw 'Disposable vault marker mismatch.'
+}
 Ui invoke NavVault | Out-Null
 Ui wait-for BtnLockVault -t 5000 | Out-Null
 New-Item -ItemType Directory -Force -Path $outputDirectory | Out-Null
 
 try {
+    Test 'Item filter popup opens downward and selects on the first click' {
+        foreach ($value in @('Recovery codes', 'Favorites', 'Passwords', 'All items', 'Recovery codes', 'All items')) {
+            $combo = VisibleItem 'Item type filter' ComboBox
+            EnsureForeground $combo.selector
+            Ui invoke $combo.selector | Out-Null
+            $deadline = [DateTime]::UtcNow.AddSeconds(3)
+            do {
+                $first = VisibleItem 'All items' ListItem
+                $below = $first.y -ge $combo.y + $combo.height - 2
+                if (-not $below) { Start-Sleep -Milliseconds 100 }
+            } while (-not $below -and [DateTime]::UtcNow -lt $deadline)
+            if (-not $below) { throw 'The filter popup must open below its field.' }
+            $option = VisibleItem $value ListItem
+            Ui focus $option.selector | Out-Null
+            Ui click $option.selector | Out-Null
+            Ui wait-for $combo.selector -p ExpandCollapseState --value Collapsed -t 5000 | Out-Null
+            Ui wait-for $combo.selector --value $value -t 5000 | Out-Null
+        }
+    }
     Test 'Background changes apply and persist while buttons remain fixed blue' {
         Ui invoke NavSettings | Out-Null
         Ui wait-for CmbAppTheme -t 5000 | Out-Null
@@ -256,6 +301,7 @@ try {
     Test 'Discard confirmation protects drafts and cancel returns to selected Vault' {
         Ui invoke BtnCancelItem | Out-Null
         Ui wait-for PrimaryButton -t 5000 | Out-Null
+        AssertDialogButtons
         Capture '13-discard-confirmation' -Popup
         Ui invoke CloseButton | Out-Null
         Ui wait-for TxtEditorTitle --value $draftTitle -t 5000 | Out-Null

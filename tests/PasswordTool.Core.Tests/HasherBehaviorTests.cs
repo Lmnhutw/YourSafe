@@ -1,5 +1,6 @@
 using PasswordTool.Core.Hashers;
 using PasswordTool.Core.Inspection;
+using PasswordTool.Core.Models;
 using PasswordTool.Core.Registry;
 using PasswordTool.Core.Utilities;
 
@@ -7,6 +8,15 @@ namespace PasswordTool.Core.Tests;
 
 public sealed class HasherBehaviorTests
 {
+    [Fact]
+    public void Argon2id_Is_The_Only_Default_Recommendation()
+    {
+        var defaultHasher = new PasswordHasherRegistry().GetAvailableHashers().Single(x => x.IsDefaultRecommendation);
+
+        Assert.Equal(PasswordHasherNames.Argon2id, defaultHasher.AlgorithmName);
+        Assert.Equal(PasswordHasherSecurityCategory.ProductionSafe, defaultHasher.SecurityCategory);
+    }
+
     [Theory]
     [InlineData(PasswordHasherNames.Argon2id)]
     [InlineData(PasswordHasherNames.Bcrypt)]
@@ -47,28 +57,16 @@ public sealed class HasherBehaviorTests
     }
 
     [Theory]
-    [InlineData(PasswordHasherNames.Pbkdf2Sha256, "PBKDF2-SHA256")]
-    [InlineData(PasswordHasherNames.Pbkdf2Sha512, "PBKDF2-SHA512")]
-    public void Pbkdf2_Stored_Format_Uses_Requested_Base64_Fields(string algorithmName, string formatName)
+    [InlineData(PasswordHasherNames.Pbkdf2Sha256, "PBKDF2-SHA256$v=1$iter=210000$salt=")]
+    [InlineData(PasswordHasherNames.Pbkdf2Sha512, "PBKDF2-SHA512$v=1$iter=210000$salt=")]
+    [InlineData(PasswordHasherNames.Scrypt, "SCRYPT$v=1$N=16384$r=8$p=1$salt=")]
+    public void Secure_Stored_Format_Uses_Requested_Base64_Fields(string algorithmName, string prefix)
     {
         var hasher = new PasswordHasherRegistry().GetHasher(algorithmName);
 
         var storedHash = hasher.HashPassword("correct horse battery staple");
 
-        Assert.StartsWith($"{formatName}$v=1$iter=210000$salt=", storedHash);
-        AssertBase64Field(storedHash, "salt");
-        AssertBase64Field(storedHash, "hash");
-    }
-
-    [Theory]
-    [InlineData(PasswordHasherNames.Scrypt)]
-    public void Scrypt_Stored_Format_Uses_Requested_Base64_Fields(string algorithmName)
-    {
-        var hasher = new PasswordHasherRegistry().GetHasher(algorithmName);
-
-        var storedHash = hasher.HashPassword("correct horse battery staple");
-
-        Assert.StartsWith("SCRYPT$v=1$N=16384$r=8$p=1$salt=", storedHash);
+        Assert.StartsWith(prefix, storedHash);
         AssertBase64Field(storedHash, "salt");
         AssertBase64Field(storedHash, "hash");
     }

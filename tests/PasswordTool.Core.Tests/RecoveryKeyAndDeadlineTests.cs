@@ -588,7 +588,8 @@ public sealed class RecoveryKeyAndDeadlineTests : IDisposable
         var onlyTotp = new VaultItem { Title = "TOTP only account", Username = "totp-only@example.test", Url = "https://example.com", GroupId = group.Id };
         onlyTotp.SetTotpConfiguration(new TotpConfiguration(secret, "Example", onlyTotp.Username, TotpAlgorithm.Sha256, 8, 60));
         vault.AddItem(onlyTotp);
-        Assert.True(vault.TryUpdateSettings(Password, VaultLoginMode.Hybrid, new VaultSecuritySettings(1, 5, 30), out _));
+        // UI batches need time to finish; deadline behavior uses the independent clock-controlled tests.
+        Assert.True(vault.TryUpdateSettings(Password, VaultLoginMode.Hybrid, new VaultSecuritySettings(10, 5, 30), out _));
     }
 
     [Fact]

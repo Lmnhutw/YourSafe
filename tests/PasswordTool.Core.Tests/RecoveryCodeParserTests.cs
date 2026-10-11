@@ -4,24 +4,15 @@ namespace PasswordTool.Core.Tests;
 
 public sealed class RecoveryCodeParserTests
 {
-    [Fact]
-    public void Parse_normalizes_numbered_lines_without_changing_code_values()
+    [Theory]
+    [InlineData("1. abcd-1234\r\n2. 5678 9012\r\n- XyZ9-8765", "abcd-1234", "5678 9012", "XyZ9-8765")]
+    [InlineData("abcd-1234, efgh-5678; ijkl-9012", "abcd-1234", "efgh-5678", "ijkl-9012")]
+    public void Parse_normalizes_supported_lists_without_changing_code_values(string input, string first, string second, string third)
     {
-        const string clipboardText = "1. abcd-1234\r\n2. 5678 9012\r\n- XyZ9-8765";
-
-        var result = RecoveryCodeParser.Parse(clipboardText);
+        var result = RecoveryCodeParser.Parse(input);
 
         Assert.True(result.IsValid);
-        Assert.Equal(["abcd-1234", "5678 9012", "XyZ9-8765"], result.Codes);
-    }
-
-    [Fact]
-    public void Parse_supports_comma_separated_codes()
-    {
-        var result = RecoveryCodeParser.Parse("abcd-1234, efgh-5678; ijkl-9012");
-
-        Assert.True(result.IsValid);
-        Assert.Equal(3, result.Codes.Count);
+        Assert.Equal([first, second, third], result.Codes);
     }
 
     [Theory]

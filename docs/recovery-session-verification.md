@@ -21,14 +21,14 @@ Core coverage includes matching DEK wrappers, wrong/tampered/unsupported credent
 
 The native script verifies Clear defaults, read-only details, History, duplicate cancellation and distinct-ID save, group moves, Trash/Restore, permanent-delete cancellation and confirmation, and manual lock with password-only re-unlock. It also compares the Title header and row geometry. Its JSON results and captures are written to ignored `test-results`.
 
-The subsequent 1440px full run timed out after seven passing checks when the test window was minimized. That report remains in `test-results/vault-ui-fixed-1440-dark.json`. The remaining two checks were verified directly with the foreground native window; their passing evidence is in `test-results/vault-ui-remaining-1440-dark.json`. The script now restores foreground before dialog actions and waits briefly after Trash selection.
+The subsequent 1440px full run timed out after seven passing checks when the test window was minimized. That report remains in `test-results/vault-ui-fixed-1440-dark.json`. The remaining two checks were verified directly with the foreground native window; their passing evidence is in `test-results/vault-ui-remaining-1440-dark.json`. The current script requires the marked test window to be foreground before dialog actions and waits briefly after Trash selection.
 
 ```powershell
 dotnet test tests/PasswordTool.Core.Tests --no-restore
 dotnet test tests/PasswordTool.Presentation.Tests --no-restore
 dotnet build PasswordTool.slnx --no-restore
 dotnet build src/PasswordTool.WinUI -c Release --no-restore -p:Platform=x64
-pwsh -File scripts/Test-VaultUi.ps1 -ProcessId <isolated-test-process-id> -CaptureLabel <size-and-theme>
+pwsh -File scripts/Test-VaultUi.ps1 -ProcessId <isolated-test-process-id> -TestDirectory <disposable-vault-directory> -CaptureLabel <size-and-theme>
 ```
 
 The user explicitly waived 125–150% DPI and high-contrast runtime verification on 2026-10-02. Windows scale stayed at 100%, and high contrast stayed Off. Source resources use system colors in High Contrast; this does not establish runtime acceptance at the waived settings.

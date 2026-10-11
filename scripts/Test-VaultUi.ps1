@@ -1,6 +1,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][int]$ProcessId,
+    [Parameter(Mandatory)][string]$TestDirectory,
+    [string]$WinAppPath = 'winapp',
     [string]$CaptureLabel = 'current'
 )
 
@@ -8,20 +10,23 @@ param(
 # Repeat at the required window sizes/themes/DPI; native screenshots need separate visual review.
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$testRoot = [IO.Path]::TrimEndingDirectorySeparator((Resolve-Path -LiteralPath $TestDirectory).Path)
+$null = Get-Command $WinAppPath -ErrorAction Stop
 $testProcess = Get-Process -Id $ProcessId
 [IntPtr]$windowHandle = $testProcess.MainWindowHandle
 if ($windowHandle -eq [IntPtr]::Zero) { throw 'The supplied process has no main window.' }
-$outputDirectory = Join-Path (Split-Path $PSScriptRoot -Parent) 'test-results'
-New-Item -ItemType Directory -Force -Path $outputDirectory | Out-Null
+$outputDirectory = Join-Path $testRoot 'ui-results'
 $captureName = $CaptureLabel -replace '[^A-Za-z0-9_-]', '_'
 $results = [System.Collections.Generic.List[object]]::new()
 $originalTitle = 'Test account 00 with a long title'
 $copyTitle = "UI check $([Guid]::NewGuid().ToString('N')) (copy)"
 
 function Ui {
-    $output = & winapp ui @args -w $windowHandle --json 2>&1
+    $target = if ($args[0] -eq 'screenshot') { @('-w', $windowHandle.ToInt64()) } else { @('-a', $ProcessId) }
+    $output = & $WinAppPath ui @args @target --json 2>&1
     $exitCode = $LASTEXITCODE
     $json = ($output -join [Environment]::NewLine) | ConvertFrom-Json
+    if ($args[0] -eq 'wait-for' -and $json.timedOut) { throw "UI condition timed out: $($args -join ' ')" }
     if ($exitCode -ne 0 -and -not ($exitCode -eq 1 -and $args[0] -eq 'search' -and $json.matchCount -eq 0)) {
         throw "WinApp $($args[0]) failed: $output"
     }
@@ -33,16 +38,13 @@ function Matches([string]$Selector) {
 }
 
 function EnsureForeground {
-    $output = & winapp ui list-windows --json 2>&1
+    $output = & $WinAppPath ui list-windows --json 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Window inventory failed: $output" }
     $windows = ($output -join [Environment]::NewLine) | ConvertFrom-Json
     $target = $windows | Where-Object { $_.hwnd -eq $windowHandle.ToInt64() } | Select-Object -First 1
     if ($null -eq $target) { throw 'The test window was not found.' }
     if ($target.isForeground) { return }
-    $taskbar = $windows | Where-Object { $_.className -eq 'Shell_TrayWnd' } | Select-Object -First 1
-    if ($null -eq $taskbar) { throw 'The taskbar was not found.' }
-    $output = & winapp ui invoke $testProcess.Path -w $taskbar.hwnd --json 2>&1
-    if ($LASTEXITCODE -ne 0) { throw "Foreground activation failed: $output" }
+    throw 'Keep the disposable test window in the foreground during native UI checks.'
 }
 
 function WaitText([string]$Text) {
@@ -113,6 +115,13 @@ function SelectTrashItem {
     Ui invoke $item.selector | Out-Null
     Start-Sleep -Milliseconds 200
 }
+
+# Fail closed before any action, including the permanent-delete test.
+Ui wait-for YourSafeDisposableUiTest -p HelpText --value $testRoot -t 5000 | Out-Null
+if ((Ui get-property YourSafeDisposableUiTest -p HelpText).properties.HelpText -ne $testRoot) {
+    throw 'Disposable vault marker mismatch.'
+}
+New-Item -ItemType Directory -Force -Path $outputDirectory | Out-Null
 
 try {
     Test 'Default Clear is disabled; search and Clear restore defaults' {
@@ -210,10 +219,14 @@ try {
     }
     Test 'Manual lock preserves Login and re-unlock needs no OTP' {
         Ui invoke 'BtnLockVault' | Out-Null
-        Ui wait-for 'Unlock Vault' -t 5000 | Out-Null
-        Ui set-value 'TxtMasterPassword' 'correct horse battery staple' | Out-Null
-        Ui invoke 'BtnUnlock' | Out-Null
-        Ui wait-for 'BtnLockVault' -t 15000 | Out-Null
+        Ui wait-for BtnLockVault -p Name --value 'Unlock vault' -t 5000 | Out-Null
+        Ui invoke BtnLockVault | Out-Null
+        Ui wait-for TxtUnlockMasterPassword -t 5000 | Out-Null
+        Ui set-value TxtUnlockMasterPassword 'correct horse battery staple' | Out-Null
+        Ui invoke PrimaryButton | Out-Null
+        Ui wait-for TxtUnlockMasterPassword --gone -t 15000 | Out-Null
+        Ui wait-for BtnLockVault -p Name --value 'Lock vault' -t 15000 | Out-Null
+        if (@(Matches 'Digit 1 of 6').Count -ne 0) { throw 'Table re-unlock asked for a second login code.' }
         Ui wait-for 'BtnClearVaultFilters' -p IsEnabled --value False -t 5000 | Out-Null
     }
 }
