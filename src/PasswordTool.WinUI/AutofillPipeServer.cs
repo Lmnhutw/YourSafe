@@ -109,7 +109,7 @@ internal sealed class AutofillPipeServer
                     if (responseBytes is not null) CryptographicOperations.ZeroMemory(responseBytes);
                 }
             }
-            catch (Exception error) when (error is IOException or JsonException or System.Text.DecoderFallbackException or UnauthorizedAccessException or OperationCanceledException)
+            catch (Exception error) when (error is IOException or InvalidDataException or JsonException or System.Text.DecoderFallbackException or UnauthorizedAccessException or OperationCanceledException)
             {
                 // Malformed input, impersonation, disconnect and timeout fail closed without payload logging.
                 try { await Task.Delay(250, integrationToken).ConfigureAwait(false); }

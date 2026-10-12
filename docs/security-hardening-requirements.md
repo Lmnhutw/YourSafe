@@ -4,7 +4,7 @@ Purpose: Close the verified desktop/extension authorization gaps and harden loca
 
 Assumptions: One Windows user and desktop vault; Chrome/Edge-compatible extension; .NET 10, WinUI 3 and strict TypeScript. Browser integration is opt-in for the current app session and starts disabled. Password and OTP releases are one-shot desktop approvals; there is no background OTP grant or automatic renewal. Existing supported vault formats and desktop sign-in/recovery workflows are preserved. Old trusted-unlock tokens require a fresh Master Password sign-in, and oversized/excessively costly input is rejected under the explicit limits below.
 
-Current phase: security requirements, implementation and source review. The user deferred further tests, builds, UI automation and runtime qualification. The acceptance column and adversarial matrix below describe the later verification phase; they are not claims that the final code has passed those checks. Earlier checks do not qualify changes made after them.
+Current phase: implementation and isolated runtime verification. The user authorized fixes, regression tests, builds, WinUI automation and the real extension/NativeHost/desktop flow. The acceptance column and adversarial matrix are required checks, not claims of success. Record fresh results against the final code and keep mock, browser DOM, OS pipe, NativeHost process and full extension E2E evidence separate.
 
 ## Final Prompt
 
@@ -41,7 +41,7 @@ The extension and the destination website can read plaintext that has been delib
 
 ## Required adversarial matrix
 
-In the later verification phase, run against synthetic data and the actual desktop/NativeHost boundary, not only the official worker:
+Run against synthetic data and the actual desktop/NativeHost boundary, not only the official worker:
 
 1. Integration off; unlocked vault; enumerate origin/credential IDs without approval.
 2. Approve A/password; alter ID, origin, action or connection to B/OTP/copy; replay the same request.
@@ -60,7 +60,7 @@ For each case report **verified**, **partially verified**, **not run**, or **res
 
 ## Deliverables
 
-Produce minimal security changes and focused regression coverage, update user-facing integration/OTP/security documentation, and report changed behavior, compatibility effects and deferred verification. Do not run further tests/builds/UI/runtime checks in this phase. Keep later verification isolated from the real vault; do not register or launch a production NativeHost for an adversarial test. Do not publish, deploy, install, sign or alter the user's real vault as part of this hardening task.
+Produce minimal security changes and focused regression coverage, update user-facing integration/OTP/security documentation, and run the authorized tests/builds/UI/runtime checks. Use marked disposable Debug vaults and isolated browser profiles. Preserve pre-existing development registration and undo only test-owned changes; do not register or launch a production NativeHost for adversarial testing. Do not publish, deploy, sign or alter the user's real vault or browser profile.
 
 ## Implementation and source-review record
 
@@ -79,4 +79,16 @@ Compatibility changes: browser integration starts off at each launch; each passw
 
 Resource limits: config/token/snapshot metadata is capped at 64 KiB; encrypted vault/snapshot JSON at 64 MiB; backup and Presentation import files at 10 MiB. The existing transaction journal embeds both documents as escaped JSON strings, so its format-preserving quota is `6 × (64 MiB + 64 KiB) + 1 KiB` (403,047,424 bytes). This is a finite document limit, not a promise of low peak memory at the maximum. Wrapped-key JSON is capped at 4,096 characters with a 32-byte key; nonce/tag encodings have fixed lengths. Password/passphrase inputs are capped at 4,096 characters, PBKDF2 at 1,000,000 iterations, Argon2 at 128 MiB with bounded passes/parallelism and combined work, and scrypt at 128 MiB plus a combined work limit. Existing generated vault defaults (Argon2 64 MiB/3 passes/parallelism 2 and legacy PBKDF2 600,000) remain within the bounds.
 
-Deferred: final Core/Presentation suites, WinUI/NativeHost/API and extension builds/typecheck, browser DOM/extension E2E, actual Windows clipboard/pipe/approval cancellation and release qualification. Earlier successful checks preceded the final source edits and do not establish final-artifact acceptance. Completed implementation/source review must not be labeled as tested, signed, published or immune to credential theft.
+The source-review table above predates the demo remediation pass and is not final-artifact acceptance. Fresh verification must include the requirements below. Installer execution and production signing remain outside this local demo task; synthetic release tests do not qualify a real installer or signature.
+
+## Demo remediation and acceptance
+
+| ID | Required final behavior | Verification |
+| --- | --- | --- |
+| R1 | Table timeout and every security lock discard secret editor controls, baseline, TOTP draft and references before waiting for user input. No preserved-secret draft or automatic unlock prompt; lifecycle cleanup cannot be held across a password dialog. | Real one-minute WinUI batch with/without TOTP; cancel, wrong password, fresh editor and stale-callback tests. Simulated lifecycle and actual Windows lock/suspend are separate evidence. |
+| R2 | Validate all form-owned image submitters, including external `form=` controls and overrides added/changed by username events. Same-origin valid forms still fill; cross-origin and HTTPS-to-HTTP overrides never receive a password. | Real HTTP and HTTPS DOM smoke plus installed extension fixtures; no replacement of desktop approval or origin checks. |
+| R3 | Every failed persistence leaves no item/group/purge/normalization change pending in RAM to be committed by a later save. Retain mutation counters and never revive locked data. | Fault checkpoints, in-memory and durable assertions, another successful mutation, then reopen. |
+| R4 | Current credentials authorize replacement; the selected historical credentials authenticate staged key/Authenticator/payload before commit. Valid legacy and old-security snapshots remain restorable. | Tampered authenticated envelopes, wrong historical/current passwords, mismatched pairs, lock/expiry and write failure preserve live files; valid old credentials restore and require sign-in again. |
+| R5 | Qualify the installed development extension through real Native Messaging, adjacent NativeHost, verified Windows pipe peer, real WinUI approval and synthetic vault. | Chrome and Edge separately: off/locked, normal/dynamic/password-only fill, independent OTP read/copy, cancellation/deadline, popup recovery, target/lifecycle mutation, NativeHost EOF/extra frame/malformed transport and clipboard ownership/timer checks. |
+
+For every case record expected/actual behavior, test layer, browser/version, exact command and evidence path using verified, partially verified, blocked, not run or residual limitation. A mock or DOM pass never counts as installed-extension E2E. Do not mark demo readiness until required flows have passed for the browsers in the demo.

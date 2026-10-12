@@ -835,7 +835,8 @@ public sealed class VaultService : IDisposable
         return storageService.GetSnapshots();
     }
 
-    public bool TryRestoreSnapshot(string snapshotId, string currentMasterPassword, out string errorMessage)
+    public bool TryRestoreSnapshot(string snapshotId, string currentMasterPassword, out string errorMessage,
+        string? snapshotMasterPassword = null)
     {
         ThrowIfDisposed();
         EnsureOpen();
@@ -850,14 +851,34 @@ public sealed class VaultService : IDisposable
                 return false;
             }
 
-            storageService.RestoreSnapshot(snapshotId, () => EnsureOpen());
+            storageService.RestoreSnapshot(snapshotId, (stagedConfig, stagedPayload) =>
+            {
+                byte[] snapshotKey = [];
+                try
+                {
+                    var password = string.IsNullOrEmpty(snapshotMasterPassword) ? currentMasterPassword : snapshotMasterPassword;
+                    if (!masterPasswordService.TryUnlockConfig(password, stagedConfig, out snapshotKey, out var snapshotSecret)
+                        || !totpService.IsSecretValid(snapshotSecret))
+                        throw new CryptographicException("The snapshot credentials or Authenticator could not be verified.");
+                    var data = stagedConfig.Version >= 3
+                        ? encryptionService.DecryptObject<VaultData>(stagedPayload, snapshotKey, MasterPasswordService.VaultContext)
+                        : encryptionService.DecryptObject<VaultData>(stagedPayload, snapshotKey);
+                    if (data.Items is null || data.Items.Any(item => item is null)
+                        || data.Groups?.Any(group => group is null) == true)
+                        throw new InvalidDataException("The snapshot item or group list is invalid.");
+                    NormalizeItems(data.Items, utcNow());
+                    NormalizeGroups(data, utcNow());
+                    EnsureOpen();
+                }
+                finally { CryptographicOperations.ZeroMemory(snapshotKey); }
+            }, () => EnsureOpen());
             ClearSession();
             return true;
         }
-        catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException
-            or InvalidOperationException or CryptographicException or FormatException or System.Text.Json.JsonException)
+        catch (Exception ex) when (ex is ArgumentException or IOException or InvalidDataException or UnauthorizedAccessException
+            or InvalidOperationException or CryptographicException or FormatException or NotSupportedException or System.Text.Json.JsonException)
         {
-            errorMessage = "The selected snapshot could not be restored.";
+            errorMessage = "The selected snapshot could not be verified or restored. If it used a different Master Password, enter that snapshot's Master Password and try again.";
             return false;
         }
         finally
@@ -922,7 +943,7 @@ public sealed class VaultService : IDisposable
     {
         ThrowIfDisposed();
         EnsureOpen();
-        if (NormalizeGroupMembership(vaultData!, utcNow())) SaveVault();
+        if (vaultData!.Version < 2 || vaultData.Items.Any(item => item.GroupId is null)) SaveVault();
         var groups = vaultData!.Groups.OrderBy(group => group.SortOrder).ThenBy(group => group.Name, StringComparer.CurrentCultureIgnoreCase)
             .Select(CloneGroup).ToList();
         EnsureOpen();
@@ -938,8 +959,14 @@ public sealed class VaultService : IDisposable
             throw new ArgumentException("A group with this name already exists.", nameof(name));
         var now = utcNow();
         var group = new VaultGroup { Name = name, AccentColor = NormalizeAccentColor(accentColor), SortOrder = vaultData.Groups.Count, CreatedAt = now, UpdatedAt = now };
-        vaultData.Groups.Add(group);
-        SaveVault();
+        var data = vaultData;
+        data.Groups.Add(group);
+        try { SaveVault(); }
+        catch
+        {
+            if (ReferenceEquals(data, vaultData)) data.Groups.Remove(group);
+            throw;
+        }
         return CloneGroup(group);
     }
 
@@ -952,10 +979,22 @@ public sealed class VaultService : IDisposable
             throw new ArgumentException("A group with this name already exists.", nameof(name));
         var group = vaultData.Groups.FirstOrDefault(group => group.Id == id) ?? throw new KeyNotFoundException("Group not found.");
         accentColor = NormalizeAccentColor(accentColor);
+        var data = vaultData;
+        var previous = CloneGroup(group);
         group.Name = name;
         group.AccentColor = accentColor;
         group.UpdatedAt = utcNow();
-        SaveVault();
+        try { SaveVault(); }
+        catch
+        {
+            if (ReferenceEquals(data, vaultData))
+            {
+                group.Name = previous.Name;
+                group.AccentColor = previous.AccentColor;
+                group.UpdatedAt = previous.UpdatedAt;
+            }
+            throw;
+        }
     }
 
     public void DeleteGroup(Guid id, string confirmation, string totpCode)
@@ -975,8 +1014,11 @@ public sealed class VaultService : IDisposable
         try { SaveVault(); }
         catch
         {
-            data.Items = previousItems;
-            data.Groups = previousGroups;
+            if (ReferenceEquals(data, vaultData))
+            {
+                data.Items = previousItems;
+                data.Groups = previousGroups;
+            }
             throw;
         }
     }
@@ -1023,10 +1065,23 @@ public sealed class VaultService : IDisposable
         EnsureOpen();
         var item = FindAnyItem(id);
         if (!item.IsDeleted) throw new InvalidOperationException("The selected item is not in Trash.");
+        var data = vaultData!;
+        var previousDeletedAt = item.DeletedAt;
+        var previousUpdatedAt = item.UpdatedAt;
         item.IsDeleted = false;
         item.DeletedAt = null;
         item.UpdatedAt = utcNow();
-        SaveVault();
+        try { SaveVault(); }
+        catch
+        {
+            if (ReferenceEquals(data, vaultData))
+            {
+                item.IsDeleted = true;
+                item.DeletedAt = previousDeletedAt;
+                item.UpdatedAt = previousUpdatedAt;
+            }
+            throw;
+        }
     }
 
     public void PermanentlyDeleteItem(Guid id, string totpCode)
@@ -1036,8 +1091,15 @@ public sealed class VaultService : IDisposable
         RequireSensitiveTotp(totpCode);
         var item = FindAnyItem(id);
         if (!item.IsDeleted) throw new InvalidOperationException("Move the item to Trash before permanently deleting it.");
-        vaultData!.Items.Remove(item);
-        SaveVault();
+        var data = vaultData!;
+        var index = data.Items.IndexOf(item);
+        data.Items.RemoveAt(index);
+        try { SaveVault(); }
+        catch
+        {
+            if (ReferenceEquals(data, vaultData)) data.Items.Insert(index, item);
+            throw;
+        }
     }
 
     public IReadOnlyList<VaultSecurityFinding> GetSecurityFindings(string totpCode)
@@ -1208,10 +1270,8 @@ public sealed class VaultService : IDisposable
         }
         catch
         {
-            foreach (var newItem in newItems)
-            {
-                data.Items.Remove(newItem);
-            }
+            if (ReferenceEquals(data, vaultData))
+                foreach (var newItem in newItems) data.Items.Remove(newItem);
 
             throw;
         }
@@ -1245,25 +1305,29 @@ public sealed class VaultService : IDisposable
         EnsureOpen();
         var data = vaultData!;
         var now = utcNow();
-        MigrateImportedFolders(newItems, now);
-        foreach (var item in newItems)
-        {
-            item.Id = Guid.NewGuid();
-            item.CreatedAt = now;
-            item.UpdatedAt = now;
-            item.PasswordChangedAt = now;
-            ValidateVaultItem(item);
-        }
-
-        data.Items.AddRange(newItems);
+        var previousGroups = data.Groups.ToList();
         try
         {
+            MigrateImportedFolders(newItems, now);
+            foreach (var item in newItems)
+            {
+                item.Id = Guid.NewGuid();
+                item.CreatedAt = now;
+                item.UpdatedAt = now;
+                item.PasswordChangedAt = now;
+                ValidateVaultItem(item);
+            }
+            data.Items.AddRange(newItems);
             SaveVault();
             return newItems.Count;
         }
         catch
         {
-            foreach (var item in newItems) data.Items.Remove(item);
+            if (ReferenceEquals(data, vaultData))
+            {
+                foreach (var item in newItems) data.Items.Remove(item);
+                data.Groups = previousGroups;
+            }
             throw;
         }
     }
@@ -1286,7 +1350,7 @@ public sealed class VaultService : IDisposable
         try { SaveVault(); }
         catch
         {
-            data.Items.Remove(newItem);
+            if (ReferenceEquals(data, vaultData)) data.Items.Remove(newItem);
             throw;
         }
         return CloneForList(newItem);
@@ -1351,7 +1415,7 @@ public sealed class VaultService : IDisposable
         try { SaveVault(); }
         catch
         {
-            data.Items[index] = previous;
+            if (ReferenceEquals(data, vaultData)) data.Items[index] = previous;
             throw;
         }
     }
@@ -1362,10 +1426,23 @@ public sealed class VaultService : IDisposable
         EnsureOpen();
 
         var item = FindItem(id);
+        var data = vaultData!;
+        var previousDeletedAt = item.DeletedAt;
+        var previousUpdatedAt = item.UpdatedAt;
         item.IsDeleted = true;
         item.DeletedAt = utcNow();
         item.UpdatedAt = item.DeletedAt.Value;
-        SaveVault();
+        try { SaveVault(); }
+        catch
+        {
+            if (ReferenceEquals(data, vaultData))
+            {
+                item.IsDeleted = false;
+                item.DeletedAt = previousDeletedAt;
+                item.UpdatedAt = previousUpdatedAt;
+            }
+            throw;
+        }
     }
 
     public void ClearSession()
@@ -1406,12 +1483,29 @@ public sealed class VaultService : IDisposable
     {
         Interlocked.Increment(ref mutationVersion);
         EnsureOpen();
-        NormalizeGroupMembership(vaultData!, utcNow());
-        var payload = encryptionUsesEnvelope
-            ? encryptionService.EncryptObject(vaultData, encryptionKey!, MasterPasswordService.VaultContext)
-            : encryptionService.EncryptObject(vaultData, encryptionKey!);
-        EnsureOpen();
-        storageService.SaveStateVerified(storageService.LoadConfig(), payload, (_, _) => EnsureOpen(), () => EnsureOpen());
+        var data = vaultData!;
+        var previousVersion = data.Version;
+        var previousGroups = data.Groups.ToList();
+        var unassigned = data.Items.Where(item => item.GroupId is null).ToList();
+        try
+        {
+            NormalizeGroupMembership(data, utcNow());
+            var payload = encryptionUsesEnvelope
+                ? encryptionService.EncryptObject(data, encryptionKey!, MasterPasswordService.VaultContext)
+                : encryptionService.EncryptObject(data, encryptionKey!);
+            EnsureOpen();
+            storageService.SaveStateVerified(storageService.LoadConfig(), payload, (_, _) => EnsureOpen(), () => EnsureOpen());
+        }
+        catch
+        {
+            if (ReferenceEquals(data, vaultData))
+            {
+                data.Version = previousVersion;
+                data.Groups = previousGroups;
+                foreach (var item in unassigned) item.GroupId = null;
+            }
+            throw;
+        }
     }
 
     private void UpdateBackupHealth(
@@ -1559,8 +1653,17 @@ public sealed class VaultService : IDisposable
     private void PurgeExpiredTrash()
     {
         var cutoff = utcNow().AddDays(-30);
-        var removed = vaultData!.Items.RemoveAll(item => item.IsDeleted && item.DeletedAt is { } deletedAt && deletedAt <= cutoff);
-        if (removed > 0) SaveVault();
+        var data = vaultData!;
+        var previousItems = data.Items;
+        var retainedItems = previousItems.Where(item => !item.IsDeleted || item.DeletedAt is not { } deletedAt || deletedAt > cutoff).ToList();
+        if (retainedItems.Count == previousItems.Count) return;
+        data.Items = retainedItems;
+        try { SaveVault(); }
+        catch
+        {
+            if (ReferenceEquals(data, vaultData)) data.Items = previousItems;
+            throw;
+        }
     }
 
     private void RequireSensitiveTotp(string code)

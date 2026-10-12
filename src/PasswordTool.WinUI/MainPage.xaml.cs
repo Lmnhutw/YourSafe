@@ -31,7 +31,6 @@ public sealed partial class MainPage : Page
     private bool updatingAppearanceInputs = true;
     private bool updatingNavigation;
     private bool confirmingEditorDiscard;
-    private bool preservingEditorDuringTimeoutUnlock;
     private VaultItemEditorInput? editorBaseline;
     private readonly DispatcherTimer signInTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private bool hadSignIn;
@@ -48,18 +47,11 @@ public sealed partial class MainPage : Page
                 if (Interlocked.Exchange(ref lifecycleLockInProgress, 1) != 0) return;
                 try
                 {
-                    preservingEditorDuringTimeoutUnlock = ViewModel.CurrentRoute == AppRoute.ItemEditor
-                        && draftTotp is null && editorBaseline?.TotpConfiguration is null;
                     App.Services.GetRequiredService<DialogLifetime>().DismissAll();
-                    await ViewModel.LockTableAsync(preserveCurrentRoute: preservingEditorDuringTimeoutUnlock);
-                    if (preservingEditorDuringTimeoutUnlock && ViewModel.IsTableLocked)
-                        await ViewModel.UnlockTableAsync();
-                    if (preservingEditorDuringTimeoutUnlock && ViewModel.IsTableLocked)
-                    {
-                        ViewModel.Navigate(AppRoute.Vault);
-                        ApplyRoute(AppRoute.Vault);
-                    }
-                    else if (preservingEditorDuringTimeoutUnlock) preservingEditorDuringTimeoutUnlock = false;
+                    ClearEditor();
+                    ViewModel.Navigate(AppRoute.Vault);
+                    ApplyRoute(AppRoute.Vault);
+                    await ViewModel.LockTableAsync();
                 }
                 finally { Interlocked.Exchange(ref lifecycleLockInProgress, 0); }
             }
@@ -435,23 +427,16 @@ public sealed partial class MainPage : Page
             if (ViewModel.IsTableLocked)
             {
                 await ViewModel.UnlockTableAsync();
-                if (!ViewModel.IsTableLocked && preservingEditorDuringTimeoutUnlock)
-                {
-                    preservingEditorDuringTimeoutUnlock = false;
-                    ViewModel.Navigate(AppRoute.ItemEditor);
-                    ApplyRoute(AppRoute.ItemEditor);
-                    EditorItemTitle.Focus(FocusState.Programmatic);
-                }
                 return;
             }
             App.Services.GetRequiredService<DialogLifetime>().DismissAll();
+            ClearEditor();
+            ClearSettingsInputs();
+            ClearBackupInputs();
             var locking = ViewModel.LockTableAsync();
             var version = ViewModel.LifecycleVersion;
             await locking;
             if (version != ViewModel.LifecycleVersion) return;
-            ClearEditor();
-            ClearSettingsInputs();
-            ClearBackupInputs();
             ApplyShellState();
             if (!ViewModel.IsTableLocked) MasterPasswordInput.Focus(FocusState.Programmatic);
         }
@@ -813,7 +798,7 @@ public sealed partial class MainPage : Page
         if (ViewModel.FlowState != AppFlowState.Unlocked) CloseTotpPanel();
         if (ViewModel.IsTableLocked)
         {
-            if (!preservingEditorDuringTimeoutUnlock) ClearEditor();
+            ClearEditor();
             ClearSettingsInputs(); ClearBackupInputs();
             App.Services.GetRequiredService<DialogLifetime>().DismissAll();
         }
@@ -1353,6 +1338,7 @@ public sealed partial class MainPage : Page
         BackupPassphrase.Password = string.Empty;
         BackupPassphraseConfirmation.Password = string.Empty;
         SnapshotMasterPassword.Password = string.Empty;
+        SnapshotPreviousMasterPassword.Password = string.Empty;
     }
 
     private async void CopyUsernameRowButton_Click(object sender, RoutedEventArgs e)
@@ -1606,8 +1592,14 @@ public sealed partial class MainPage : Page
 
     private async void RestoreSnapshotButton_Click(object sender, RoutedEventArgs e)
     {
-        if (!await ViewModel.Backup.RestoreSnapshotAsync(SnapshotMasterPassword.Password)) return;
-        SnapshotMasterPassword.Password = string.Empty;
+        bool restored;
+        try { restored = await ViewModel.Backup.RestoreSnapshotAsync(SnapshotMasterPassword.Password, SnapshotPreviousMasterPassword.Password); }
+        finally
+        {
+            SnapshotMasterPassword.Password = string.Empty;
+            SnapshotPreviousMasterPassword.Password = string.Empty;
+        }
+        if (!restored) return;
         await ViewModel.LockCommand.ExecuteAsync(null);
         ClearEditor();
         ClearSettingsInputs();

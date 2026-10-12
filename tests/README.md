@@ -24,6 +24,8 @@ The Windows pipe-peer test requires Windows. On another platform use the existin
 | `Test-WorkspaceUi.ps1` | Password generation/hash/verify/inspect, sensitive output reset, backup/settings geometry and locked/unlocked Add/Ctrl+N |
 | `Test-VaultUi.ps1` | Search/filter defaults, read-only details, duplication, group moves, Trash/Restore/delete and password-only table re-unlock |
 | `Test-TotpFlyoutUi.ps1` | Code grouping, timer renewal, setup validation and accessible help |
+| `Test-EditorLockSecurityUi.ps1` | Real one-minute timeout with/without draft TOTP, draft dismissal, cancelled/incorrect re-unlock and a fresh empty editor |
+| `Test-AutofillNativeIntegration.ps1` | Installed extension and real NativeHost/WinUI approval using isolated browser profiles; `-NativeHostOnly` checks real process transport/cancellation/competing clients |
 
 `Test-ComboBoxUi.ps1` and `Test-DialogButtonsUi.ps1` were merged into Appearance. `Test-PasswordToolUi.ps1` and `Test-RequestedLayoutUi.ps1` were merged into Workspace; generation and successful verification now run once per batch. Each script accepts `-WinAppPath` when WinApp CLI is not on PATH.
 
@@ -38,5 +40,7 @@ Remove-Item Env:PASSWORDTOOL_UI_TEST_DIRECTORY
 ```
 
 Use a fresh fixture for independent batches, and keep the app in the foreground for pointer/keyboard checks. Vault tests permanently delete only the copy they create. Scripts verify the exact `YourSafeDisposableUiTest` HelpText directory before driving the app and treat a WinApp wait timeout as failure even when its exit code is zero. Captures/results are ignored; Vault, Appearance and Workspace write under `<TestDirectory>/ui-results`, TOTP writes under `<TestDirectory>`.
+
+Editor Lock Security requires a separate disposable fixture with a one-minute vault duration **before app launch**; the regular ten-minute fixture deliberately exceeds its 75-second timeout bound. The batch writes under `<TestDirectory>/ui-results`. It verifies readable editor controls and navigation, while protected PasswordBox values and managed references are outside UIA's visibility. It never locks or suspends Windows; record simulated lifecycle tests and actual OS events separately.
 
 Review native screenshots for appearance assertions. Passing UI Automation properties alone does not verify colors, clipping, contrast or DPI behavior. Native scripts and the DOM smoke test also do not replace the installed-extension → NativeHost → desktop end-to-end check.

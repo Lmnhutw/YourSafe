@@ -803,6 +803,8 @@
                                     </ListView.ItemTemplate>
                                 </ListView>
                                 <PasswordBox x:Name="SnapshotMasterPassword" AutomationProperties.AutomationId="TxtSnapshotMasterPassword" AutomationProperties.Name="Master Password for snapshot restore" Header="Current Master Password" />
+                                <TextBlock Style="{StaticResource PasswordToolHintStyle}" Text="Your current Master Password authorizes replacing this vault. If the snapshot used a different password, enter it below to verify the snapshot." />
+                                <PasswordBox x:Name="SnapshotPreviousMasterPassword" AutomationProperties.AutomationId="TxtSnapshotPreviousMasterPassword" AutomationProperties.Name="Snapshot Master Password if different" Header="Snapshot Master Password (if different)" />
                                 <Button AutomationProperties.AutomationId="BtnRestoreSnapshot" HorizontalAlignment="Right" Click="RestoreSnapshotButton_Click" Content="Restore selected snapshot" />
                             </StackPanel>
                         </Border>

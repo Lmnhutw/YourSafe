@@ -693,13 +693,14 @@ public sealed class AppFlowCoordinator
     public async Task<OperationResult> RestoreSnapshotAsync(
         string snapshotId,
         string masterPassword,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? snapshotMasterPassword = null)
     {
         var version = LifecycleVersion;
         var result = await operations.RunAsync(() =>
         {
             if (!IsCurrentUnlock(version)) throw new OperationCanceledException();
-            var success = vaultService.TryRestoreSnapshot(snapshotId, masterPassword, out var message);
+            var success = vaultService.TryRestoreSnapshot(snapshotId, masterPassword, out var message, snapshotMasterPassword);
             return new OperationResult(success, message);
         }, cancellationToken).ConfigureAwait(false);
         if (version != LifecycleVersion) throw new OperationCanceledException();

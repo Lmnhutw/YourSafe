@@ -197,7 +197,8 @@ Forgot Master Password verifies the Recovery Key, collects a new Master Password
 - Changing a password keeps its latest 10 previous values inside the encrypted vault. Deleted items remain in Trash for 30 days unless restored or permanently deleted.
 - UpdatedAt records any item edit; PasswordChangedAt records only when the current password became active. Older vaults derive the latter from the newest valid password-history change, then UpdatedAt, then CreatedAt; impossible future dates are ignored.
 - Local Security Check is local-only: it scans active password entries for weak, exactly reused, and passwords at least 365 days old without returning a secret. Its dialog names affected items, supports protected **Edit selected item**, then rescans after the edit. It performs no network request and does not expose password values in its result.
-- State changes preserve up to five paired `.config` + `.storage` snapshots. Restore restores the pair and ends the current sign-in session; sign in again using the restored credentials.
+- State changes preserve up to five paired `.config` + `.storage` snapshots. Restore verifies the selected pair before replacing live files. The current Master Password authorizes replacement; supply the snapshot's Master Password when it differs. A successful restore ends the current sign-in session; sign in again using the restored credentials.
+- The [demo security verification record](docs/demo-security-verification.md) separates tested behavior from remaining browser, lifecycle and distribution checks.
 - Internal snapshots remain on the same disk. They can undo local changes but are not an external backup and do not protect against disk loss.
 
 ## Security model and limits

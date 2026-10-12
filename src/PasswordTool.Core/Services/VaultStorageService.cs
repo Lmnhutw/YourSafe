@@ -164,8 +164,9 @@ public sealed class VaultStorageService
             .ToList();
     }
 
-    public void RestoreSnapshot(string snapshotId, Action? beforeCommit = null)
+    public void RestoreSnapshot(string snapshotId, Action<AppConfig, string> verifyStagedState, Action? beforeCommit = null)
     {
+        ArgumentNullException.ThrowIfNull(verifyStagedState);
         if (string.IsNullOrWhiteSpace(snapshotId)
             || !string.Equals(Path.GetFileName(snapshotId), snapshotId, StringComparison.Ordinal)
             || snapshotId.IndexOfAny([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]) >= 0)
@@ -185,8 +186,11 @@ public sealed class VaultStorageService
         _ = DeserializeConfig(configJson);
         var vaultJson = ReadBoundedTextFile(vaultPath, MaxVaultFileBytes);
         ValidateVaultPayload(vaultJson);
-        SaveRawState(configJson, vaultJson, createSnapshot: true, verifyStagedState: null, beforeCommit);
-        DeleteTrustedUnlockToken();
+        SaveRawState(configJson, vaultJson, createSnapshot: true, verifyStagedState, () =>
+        {
+            beforeCommit?.Invoke();
+            DeleteTrustedUnlockToken();
+        });
     }
 
     private void SaveRawState(string configJson, string vaultJson, bool createSnapshot,
