@@ -2,7 +2,6 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using PasswordTool.Presentation;
-using Windows.ApplicationModel.DataTransfer;
 
 namespace PasswordTool_WinUI;
 
@@ -13,6 +12,7 @@ internal sealed class SensitiveClipboardService : ISensitiveClipboardService, ID
     private readonly object sync = new();
     private CancellationTokenSource? expiration;
     private byte[]? ownedValueHash;
+    private int ownedValueByteCount;
     private long ownershipGeneration;
     private uint ownedSequence;
     [DllImport("user32.dll")]
@@ -30,6 +30,8 @@ internal sealed class SensitiveClipboardService : ISensitiveClipboardService, ID
     private static extern bool EmptyClipboard();
     [DllImport("user32.dll")]
     private static extern nint SetClipboardData(uint format, nint memory);
+    [DllImport("user32.dll")]
+    private static extern nint GetClipboardData(uint format);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern uint RegisterClipboardFormat(string name);
     [DllImport("kernel32.dll")]
@@ -41,6 +43,8 @@ internal sealed class SensitiveClipboardService : ISensitiveClipboardService, ID
     private static extern bool GlobalUnlock(nint memory);
     [DllImport("kernel32.dll")]
     private static extern nint GlobalFree(nint memory);
+    [DllImport("kernel32.dll")]
+    private static extern nuint GlobalSize(nint memory);
     private bool disposed;
 
     public Task CopyAsync(string value, CancellationToken cancellationToken = default) =>
@@ -71,6 +75,7 @@ internal sealed class SensitiveClipboardService : ISensitiveClipboardService, ID
                 if (clearAutomatically)
                 {
                     ownedValueHash = HashValue(value);
+                    ownedValueByteCount = Encoding.Unicode.GetByteCount(value);
                     ownedSequence = sequence;
                     expiration = new CancellationTokenSource();
                     _ = ClearAfterDelayAsync(ClearDelay, expiration.Token);
@@ -91,11 +96,13 @@ internal sealed class SensitiveClipboardService : ISensitiveClipboardService, ID
             byte[]? expected;
             long expectedGeneration;
             uint expectedSequence;
+            int expectedByteCount;
             lock (sync)
             {
                 expected = ownedValueHash is null ? null : [.. ownedValueHash];
                 expectedGeneration = ownershipGeneration;
                 expectedSequence = ownedSequence;
+                expectedByteCount = ownedValueByteCount;
             }
 
             if (expected is null) return;
@@ -106,39 +113,55 @@ internal sealed class SensitiveClipboardService : ISensitiveClipboardService, ID
                 for (var attempt = 0; attempt < 3; attempt++)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    try
+                    lock (sync)
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        if (expectedGeneration != ownershipGeneration) return;
                         if (GetClipboardSequenceNumber() != expectedSequence || GetClipboardOwner() != App.WindowHandle)
                         { releaseOwnership = true; return; }
-                        var content = Clipboard.GetContent();
-                        if (!content.Contains(StandardDataFormats.Text)) { releaseOwnership = true; return; }
-                        var current = await content.GetTextAsync();
-                        var currentHash = HashValue(current);
-                        try
+                        if (OpenClipboard(App.WindowHandle))
                         {
-                            lock (sync)
+                            try
                             {
                                 cancellationToken.ThrowIfCancellationRequested();
-                                if (expectedGeneration != ownershipGeneration) return;
-                                if (!CryptographicOperations.FixedTimeEquals(currentHash, expected)) { releaseOwnership = true; return; }
-                                if (OpenClipboard(App.WindowHandle))
+                                if (expectedSequence != GetClipboardSequenceNumber() || GetClipboardOwner() != App.WindowHandle)
+                                { releaseOwnership = true; return; }
+                                // WinRT clipboard reads require focus; cleanup must also work while the browser is active.
+                                var memory = GetClipboardData(13);
+                                var byteCount = checked(expectedByteCount + 2);
+                                if (memory == 0 || GlobalSize(memory) < (nuint)byteCount)
+                                { releaseOwnership = true; return; }
+                                var pointer = GlobalLock(memory);
+                                if (pointer != 0)
                                 {
+                                    byte[]? bytes = null;
                                     try
                                     {
-                                        cancellationToken.ThrowIfCancellationRequested();
-                                        if (expectedSequence != GetClipboardSequenceNumber() || GetClipboardOwner() != App.WindowHandle)
+                                        bytes = new byte[byteCount];
+                                        Marshal.Copy(pointer, bytes, 0, bytes.Length);
+                                        if (bytes[^1] != 0 || bytes[^2] != 0)
                                         { releaseOwnership = true; return; }
-                                        if (EmptyClipboard()) { releaseOwnership = true; return; }
+                                        var currentHash = SHA256.HashData(bytes.AsSpan(0, expectedByteCount));
+                                        try
+                                        {
+                                            if (!CryptographicOperations.FixedTimeEquals(currentHash, expected))
+                                            { releaseOwnership = true; return; }
+                                            cancellationToken.ThrowIfCancellationRequested();
+                                            GlobalUnlock(memory);
+                                            pointer = 0;
+                                            if (EmptyClipboard()) { releaseOwnership = true; return; }
+                                        }
+                                        finally { CryptographicOperations.ZeroMemory(currentHash); }
                                     }
-                                    finally { CloseClipboard(); }
+                                    finally
+                                    {
+                                        if (bytes is not null) CryptographicOperations.ZeroMemory(bytes);
+                                        if (pointer != 0) GlobalUnlock(memory);
+                                    }
                                 }
                             }
+                            finally { CloseClipboard(); }
                         }
-                        finally { CryptographicOperations.ZeroMemory(currentHash); }
-                    }
-                    catch (COMException)
-                    {
-                        // A busy clipboard can also reject the WinRT read; retain ownership and retry.
                     }
                     if (attempt < 2) await Task.Delay(250, cancellationToken);
                 }
@@ -272,6 +295,7 @@ internal sealed class SensitiveClipboardService : ISensitiveClipboardService, ID
 
     private void ClearOwnedHash()
     {
+        ownedValueByteCount = 0;
         if (ownedValueHash is null) return;
         CryptographicOperations.ZeroMemory(ownedValueHash);
         ownedValueHash = null;
@@ -279,7 +303,7 @@ internal sealed class SensitiveClipboardService : ISensitiveClipboardService, ID
 
     private static byte[] HashValue(string value)
     {
-        var bytes = Encoding.UTF8.GetBytes(value);
+        var bytes = Encoding.Unicode.GetBytes(value);
         try { return SHA256.HashData(bytes); }
         finally { CryptographicOperations.ZeroMemory(bytes); }
     }

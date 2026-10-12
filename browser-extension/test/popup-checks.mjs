@@ -172,6 +172,13 @@ const recoverFill = await scenario(discovery([account]), { resumed: true,
   interaction: { ...state, action: 'select', accounts: [], busy: false, result: { filled: true } } });
 assert.match(recoverFill.elements.status.textContent, /Filled/);
 assert.equal(recoverFill.requests.length, 1);
+const recoverCopy = await scenario(discovery([account]), { resumed: true,
+  interaction: { ...state, action: 'copyTotp', busy: false, result: { copied: true } } });
+assert.equal(recoverCopy.elements.status.textContent, 'Copied the current code.');
+assert.equal(recoverCopy.elements['totp-code'].textContent, '—', 'Copy recovery does not retain or recover the copied secret');
+await recoverCopy.tick(1000);
+assert.equal(recoverCopy.elements.status.textContent, 'Copied the current code.');
+assert.deepEqual(recoverCopy.requests.map(request => request.action), ['resume'], 'Copy recovery never requests a code again');
 const cancelFill = await scenario(discovery([account]), { resumed: true, interaction: { ...state, action: 'select' } });
 cancelFill.elements.cancel.click();
 await settle();

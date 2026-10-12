@@ -2,17 +2,29 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
-import { mkdir, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 const execFileAsync = promisify(execFile);
 const extensionId = 'cmfnnjellknkpnbooenlahijcmalbifg';
 const passwordTitle = 'TOTP password account';
 const totpTitle = 'TOTP only account';
 const syntheticPassword = 'synthetic-test-password';
 const syntheticUsername = 'totp-password@example.test';
+function freshCodeDelay(now) {
+  const remaining = 30000 - now % 30000;
+  return remaining >= 20000 ? 0 : remaining + 100;
+}
+function sectionSelected(section, prefixes) {
+  return !prefixes.length || prefixes.some(prefix => prefix.startsWith(section) || section.startsWith(prefix));
+}
+function evidenceStatus(results, complete, error) {
+  return error || results.some(result => result.status === 'failed') ? 'failed'
+    : results.some(result => result.status === 'blocked') ? 'blocked' : complete ? 'verified' : 'running';
+}
 function fixture(mode) {
   const password = '<input id="password" type="password" autocomplete="current-password">';
   const username = '<input id="username" autocomplete="username">';
@@ -34,11 +46,25 @@ if (process.argv.includes('--self-check')) {
     assert(!html.includes(syntheticPassword));
   }
   assert(fixture('external-image').includes('</form><input type="image" form="login"'));
-  console.log('PASS: six synthetic E2E fixtures contain no password and prevent submit.');
+  assert.equal(freshCodeDelay(0), 0);
+  assert.equal(freshCodeDelay(10000), 0);
+  assert.equal(freshCodeDelay(29999), 101);
+  assert.equal(freshCodeDelay(30000), 0);
+  assert(sectionSelected('E08', ['E08-pending-editPassword']));
+  assert(sectionSelected('E08', ['E0']));
+  assert(!sectionSelected('E08', ['E11']));
+  assert.equal(evidenceStatus([{ status: 'verified' }], false), 'running');
+  assert.equal(evidenceStatus([{ status: 'verified' }], true, 'setup failed'), 'failed');
+  assert.equal(evidenceStatus([{ status: 'failed' }], true), 'failed');
+  assert.equal(evidenceStatus([{ status: 'blocked' }], true), 'blocked');
+  assert.equal(evidenceStatus([{ status: 'verified' }], true), 'verified');
+  assert.equal(safeFailure(new Error(`${syntheticPassword} ${syntheticUsername} 123456`)), '[synthetic password] [synthetic username] [digits]');
+  console.log('PASS: six secret-free E2E fixtures and controlled OTP-window timing.');
   process.exit(0);
 }
 const testDirectory = process.env.YOURSAFE_E2E_DIRECTORY;
 const executablePath = process.env.YOURSAFE_BROWSER_EXECUTABLE;
+const secondExecutablePath = process.env.YOURSAFE_SECOND_BROWSER_EXECUTABLE;
 const packagePath = process.env.YOURSAFE_PLAYWRIGHT_PACKAGE;
 const appPid = Number(process.env.YOURSAFE_APP_PID);
 assert(testDirectory && executablePath && packagePath && Number.isSafeInteger(appPid) && appPid > 0,
@@ -49,6 +75,7 @@ assert(Number.isInteger(port) && port >= 1024 && port <= 65535, 'Invalid fixture
 const root = resolve(testDirectory);
 const evidence = join(root, `extension-e2e-results-${randomUUID()}`);
 const selectedCases = (process.env.YOURSAFE_E2E_CASE_PREFIX ?? '').split(',').filter(Boolean);
+const expiryOnly = selectedCases.length > 0 && selectedCases.every(prefix => prefix.startsWith('E11'));
 const profile = join(root, `extension-e2e-profile-${randomUUID()}`);
 await mkdir(evidence, { recursive: true });
 await mkdir(profile, { recursive: true });
@@ -62,9 +89,16 @@ let browserCdp;
 let page;
 let caseId = 'setup';
 let version;
+let secondaryBrowserVersion;
 let clipboardDenied;
+let sourceHashes;
+let campaignComplete = false;
+let campaignError;
 const clipboardCases = new Set(['E05-copy-denied-no-clipboard-change', 'E05-approved-copy-and-E12-OTP-clipboard-clear',
-  'E12-OTP-same-text-replacement-survives-timer', 'E12-desktop-password-clipboard-timer-and-lock']);
+  'E05-approved-TOTP-only-copy-eight-digit', 'E05-copy-near-expiry-uses-current-code', 'E12-OTP-same-text-replacement-survives-timer', 'E12-desktop-password-clipboard-timer-and-lock']);
+for (const kind of ['OTP', 'password']) for (const replacement of ['same-text', 'changed-text']) for (const trigger of ['timer', 'lock']) {
+  clipboardCases.add(`E12-${kind}-${replacement}-replacement-survives-${trigger}`);
+}
 async function desktop(action, timeout = 20000) {
   console.log(`CONTROL ${caseId}: ${action}`);
   try {
@@ -76,6 +110,14 @@ async function desktop(action, timeout = 20000) {
     try { reason = JSON.parse(String(error.stdout ?? '').trim()).reason; } catch { }
     throw new Error(`Desktop ${action} failed: ${typeof reason === 'string' ? reason.slice(0, 1000) : 'helper failed or timed out'}`);
   }
+}
+function safeFailure(error) {
+  return (error instanceof Error ? error.message : 'Unknown error').replaceAll(syntheticPassword, '[synthetic password]')
+    .replaceAll(syntheticUsername, '[synthetic username]').replace(/\b\d{6,8}\b/g, '[digits]').slice(0, 2000);
+}
+async function writeEvidence() {
+  const status = evidenceStatus(results, campaignComplete, campaignError);
+  await writeFile(join(evidence, 'results.json'), JSON.stringify({ status, browser: version, secondaryBrowserVersion, sourceHashes, campaignError, results }, null, 2));
 }
 async function record(id, operation) {
   if (selectedCases.length && !selectedCases.some(prefix => id.startsWith(prefix))) return;
@@ -90,7 +132,7 @@ async function record(id, operation) {
     results.push({ id, status: 'verified', layer: 'installed-extension-nativehost-winui', durationMs: Date.now() - started });
     console.log(`PASS ${id}`);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
+    const message = safeFailure(error);
     if (message.includes('Clipboard unavailable (Windows error 5, open holder PID 0)')) {
       clipboardDenied = message;
       results.push({ id, status: 'blocked', layer: 'installed-extension-nativehost-winui', error: message });
@@ -99,26 +141,92 @@ async function record(id, operation) {
     }
     results.push({ id, status: 'failed', layer: 'installed-extension-nativehost-winui', error: message });
     throw error;
-  } finally { await writeFile(join(evidence, 'results.json'), JSON.stringify({ browser: version, results }, null, 2)); }
+  } finally { await writeEvidence(); }
 }
 async function load(mode = 'normal') {
   await page.goto(`http://127.0.0.1:${port}/${mode}`);
   await page.locator('#password').waitFor();
   await page.bringToFront();
 }
-async function openPopup() {
-  const existing = context.pages().find(candidate => !candidate.isClosed() && candidate.url() === `chrome-extension://${extensionId}/popup.html`);
+async function openPopup(targetContext = context, cdp = browserCdp, fixturePage = page) {
+  const existing = targetContext.pages().find(candidate => !candidate.isClosed() && candidate.url() === `chrome-extension://${extensionId}/popup.html`);
   if (existing) await existing.close();
-  const { targetInfos } = await browserCdp.send('Target.getTargets', { filter: [{ type: 'tab', exclude: false }] });
-  const tabs = targetInfos.filter(target => target.type === 'tab' && target.url === page.url());
+  const { targetInfos } = await cdp.send('Target.getTargets', { filter: [{ type: 'tab', exclude: false }] });
+  const tabs = targetInfos.filter(target => target.type === 'tab' && target.url === fixturePage.url());
   assert.equal(tabs.length, 1, 'The controlled fixture must identify exactly one tab target');
-  const ready = context.waitForEvent('page', { predicate: candidate => candidate.url() === `chrome-extension://${extensionId}/popup.html`, timeout: 10000 });
+  const ready = targetContext.waitForEvent('page', { predicate: candidate => candidate.url() === `chrome-extension://${extensionId}/popup.html`, timeout: 10000 });
   void ready.catch(() => {}); // Surface action-command failures without an abandoned event wait masking them.
-  await browserCdp.send('Extensions.triggerAction', { id: extensionId, targetId: tabs[0].targetId });
+  await cdp.send('Extensions.triggerAction', { id: extensionId, targetId: tabs[0].targetId });
   const popup = await ready;
   await popup.locator('#status').waitFor();
-  await popup.waitForFunction(() => ['ready', 'empty', 'error'].includes(document.getElementById('status')?.dataset.state ?? ''), undefined, { timeout: 12000 });
+  await popup.waitForFunction(() => ['ready', 'empty', 'success', 'error'].includes(document.getElementById('status')?.dataset.state ?? '')
+    && document.getElementById('accounts')?.getAttribute('aria-busy') === 'false', undefined, { timeout: 12000 });
   return popup;
+}
+async function copyApprovedCode(nearExpiry = false, title = passwordTitle) {
+  const delay = freshCodeDelay(Date.now());
+  if (!nearExpiry && delay) await new Promise(done => setTimeout(done, delay));
+  await choose('View TOTP', title);
+  await desktop('approve');
+  await page.bringToFront();
+  const popup = await openPopup();
+  assert.match(await popup.locator('#totp-code').innerText(), title === totpTitle ? /^\d{4} \d{4}$/ : /^\d{3} \d{3}$/, 'Approved View must be visible before Copy');
+  if (nearExpiry) {
+    await popup.waitForFunction(() => document.getElementById('totp-countdown')?.textContent === '1s', undefined, { timeout: 32000 });
+  }
+  await popup.locator('#totp-copy').click();
+  await desktop('waitApproval');
+  if (nearExpiry) await new Promise(done => setTimeout(done, 1500)); // Approve after the displayed code's window ended.
+  await desktop('approve');
+  await page.bringToFront();
+  const copied = await openPopup();
+  assert.match(await copied.locator('#status').innerText(), /Copied the current code/, 'Copy must complete after its separate approval');
+  await desktop(title === totpTitle ? 'clipboardAssertTotpOnly' : nearExpiry ? 'clipboardAssertCurrentOtp' : 'clipboardAssertNumeric');
+  await copied.close();
+  await emptyPassword();
+}
+async function stopExtensionWorker() {
+  const { targetInfos } = await browserCdp.send('Target.getTargets');
+  const workers = targetInfos.filter(target => target.type === 'service_worker' && target.url.startsWith(`chrome-extension://${extensionId}/`));
+  assert.equal(workers.length, 1, 'The isolated profile must have exactly one YourSafe worker');
+  const cdp = await context.newCDPSession(page);
+  try {
+    await cdp.send('ServiceWorker.enable');
+    await cdp.send('ServiceWorker.stopAllWorkers'); // Only the disposable browser profile is controlled.
+  } finally { await cdp.detach(); }
+  const { targetInfos: after } = await browserCdp.send('Target.getTargets');
+  assert(!after.some(target => target.targetId === workers[0].targetId), 'The original extension worker did not stop');
+}
+async function competingProfile(otherExecutable) {
+  const otherProfile = join(root, `extension-e2e-profile-${randomUUID()}`);
+  await mkdir(otherProfile, { recursive: true });
+  const otherContext = await chromium.launchPersistentContext(otherProfile, {
+    executablePath: otherExecutable, headless: false, viewport: null,
+    args: ['--enable-unsafe-extension-debugging'], ignoreDefaultArgs: ['--disable-extensions']
+  });
+  try {
+    secondaryBrowserVersion = otherContext.browser().version();
+    console.log(`SECOND BROWSER ${caseId}: ${secondaryBrowserVersion}`);
+    const otherCdp = await otherContext.browser().newBrowserCDPSession();
+    assert.equal((await otherCdp.send('Extensions.loadUnpacked', { path: resolve('dist/development') })).id, extensionId);
+    const otherPage = otherContext.pages()[0] ?? await otherContext.newPage();
+    await otherPage.goto(`http://127.0.0.1:${port}/normal`);
+    await load();
+    await choose();
+    await otherPage.bringToFront();
+    const second = await openPopup(otherContext, otherCdp, otherPage);
+    await account(second, passwordTitle).getByRole('button', { name: /^Fill / }).click();
+    await second.waitForFunction(() => document.getElementById('status')?.dataset.state === 'error'
+      && document.getElementById('accounts')?.getAttribute('aria-busy') === 'false');
+    assert.equal(await second.locator('.account').count(), 0, 'A competing client retained authority after its Fill was denied');
+    assert.equal(await otherPage.locator('#password').inputValue(), '');
+    assert.equal(await otherPage.evaluate(() => window.events.submit), 0);
+    await second.close();
+    await desktop('waitApproval'); // The first request remains the sole approval after the second was rejected.
+    await desktop('cancel');
+    await page.bringToFront();
+    await emptyPassword();
+  } finally { await otherContext.close(); }
 }
 function account(popup, title) { return popup.locator('.account').filter({ has: popup.locator('strong', { hasText: title }) }); }
 async function choose(action = 'Fill', title = passwordTitle, approvalExpected = true) {
@@ -146,12 +254,17 @@ const server = createServer((request, response) => {
 });
 try {
   console.log(`EVIDENCE: ${evidence}`);
+  sourceHashes = Object.fromEntries(await Promise.all([
+    ['runner', fileURLToPath(import.meta.url)], ['control', controlScript], ['worker', resolve('dist/development/worker.js')]
+  ].map(async ([name, path]) => [name, createHash('sha256').update(await readFile(path)).digest('hex')])));
   await desktop('signIn', 60000); // A fresh sign-in includes the real six-box Authenticator dialog.
   await desktop('lock');
   await desktop('unlock'); // Start each campaign with a fresh vault deadline, without renewing the login.
   await desktop('disable');
-  console.log('PACE: waiting for any prior campaign\'s protected-request window.');
-  await new Promise(done => setTimeout(done, 61000));
+  if (!expiryOnly) {
+    console.log('PACE: waiting for any prior campaign\'s protected-request window.');
+    await new Promise(done => setTimeout(done, 61000));
+  }
   await new Promise((ready, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', ready); });
   context = await chromium.launchPersistentContext(profile, {
     executablePath, headless: false, viewport: null,
@@ -250,42 +363,25 @@ try {
     await desktop('clipboardAssertSentinel');
     await emptyPassword();
   });
+  await record('E05-approved-TOTP-only-copy-eight-digit', async () => {
+    await load();
+    await copyApprovedCode(false, totpTitle);
+    await desktop('lock');
+    await desktop('clipboardAssertEmpty');
+    await desktop('unlock');
+  });
   await record('E05-approved-copy-and-E12-OTP-clipboard-clear', async () => {
     await load();
-    await choose('View TOTP');
-    await desktop('approve');
-    await page.bringToFront();
-    const popup = await openPopup();
-    await popup.locator('#totp-copy').click();
-    await desktop('waitApproval');
-    await desktop('approve');
-    await page.bringToFront();
-    const copied = await openPopup();
-    assert.match(await copied.locator('#status').innerText(), /Copied the current code/);
-    await desktop('clipboardAssertNumeric');
-    await copied.close();
-    await emptyPassword();
+    await copyApprovedCode();
     await new Promise(done => setTimeout(done, 31000)); // Exercise the actual sensitive-clipboard timer.
     await desktop('clipboardAssertEmpty');
   });
-  await record('E12-OTP-same-text-replacement-survives-timer', async () => {
+  await record('E05-copy-near-expiry-uses-current-code', async () => {
     await load();
-    await choose('View TOTP');
-    await desktop('approve');
-    await page.bringToFront();
-    const popup = await openPopup();
-    await popup.locator('#totp-copy').click();
-    await desktop('waitApproval');
-    await desktop('approve');
-    await page.bringToFront();
-    const copied = await openPopup();
-    assert.match(await copied.locator('#status').innerText(), /Copied the current code/);
-    await copied.close();
-    await desktop('clipboardAssertNumeric');
-    await desktop('clipboardReplaceSame');
-    await new Promise(done => setTimeout(done, 31000));
-    await desktop('clipboardAssertSentinel'); // Checks the helper-owned replacement by sequence and hash, without exposing it.
-    await desktop('clipboardClearSentinel');
+    await copyApprovedCode(true);
+    await desktop('lock');
+    await desktop('clipboardAssertEmpty');
+    await desktop('unlock');
   });
   await record('E05-password-account-view-does-not-fill', async () => {
     await load();
@@ -323,8 +419,10 @@ try {
     await filled();
   });
   // The following automated burst must respect the desktop's real 30/minute admission window.
-  console.log('PACE: waiting for the protected-request window before target and form cases.');
-  await new Promise(done => setTimeout(done, 61000));
+  if (['E07', 'E08', 'E09'].some(section => sectionSelected(section, selectedCases))) {
+    console.log('PACE: waiting for the protected-request window before target and form cases.');
+    await new Promise(done => setTimeout(done, 61000));
+  }
   for (const mutation of ['hash', 'reload', 'navigate', 'history']) {
     await record(`E07-pending-${mutation}`, async () => {
       await load();
@@ -403,8 +501,10 @@ try {
       await desktop(action === 'lock' ? 'unlock' : 'enable');
     });
   }
-  console.log('PACE: waiting for the protected-request window before credential edits.');
-  await new Promise(done => setTimeout(done, 61000));
+  if (sectionSelected('E08', selectedCases)) {
+    console.log('PACE: waiting for the protected-request window before credential edits.');
+    await new Promise(done => setTimeout(done, 61000));
+  }
   for (const action of ['editPassword', 'editUrl', 'removePassword']) {
     await record(`E08-pending-${action}`, async () => {
       await load();
@@ -443,6 +543,75 @@ try {
       await emptyPassword();
     });
   }
+  if (sectionSelected('E10', selectedCases)) {
+    await desktop('signIn', 60000);
+    await desktop('lock');
+    await desktop('unlock'); // Refresh the vault deadline before this independently paced section.
+  }
+  await record('E10-worker-restart-cancels-pending-approval', async () => {
+    await load();
+    const popup = await choose();
+    if (!popup.isClosed()) await popup.close();
+    await stopExtensionWorker();
+    await desktop('waitApprovalGone');
+    await page.bringToFront();
+    await emptyPassword();
+    const reopened = await openPopup();
+    assert.doesNotMatch(await reopened.locator('#status').innerText(), /^Filled/);
+    assert.equal(await reopened.locator('#totp-code').innerText(), '');
+    await desktop('assertNoApproval');
+    await reopened.close();
+    await choose();
+    await desktop('approve');
+    await page.bringToFront();
+    await filled(); // The restarted worker needs a new explicit action and desktop approval.
+  });
+  await record('E10-worker-restart-discards-displayed-code', async () => {
+    await load();
+    await choose('View TOTP', totpTitle);
+    await desktop('approve');
+    await page.bringToFront();
+    const view = await openPopup();
+    assert.match(await view.locator('#totp-code').innerText(), /^\d{4} \d{4}$/);
+    await view.close();
+    await stopExtensionWorker();
+    const reopened = await openPopup();
+    assert.equal(await reopened.locator('#totp-code').innerText(), '');
+    await desktop('assertNoApproval');
+    await reopened.close();
+    await emptyPassword();
+  });
+  await record('E10-isolated-profiles-compete-for-one-approval', async () => {
+    await competingProfile(executablePath);
+  });
+  if (secondExecutablePath) {
+    await record('E10-distinct-browsers-compete-for-one-approval', async () => {
+      assert.notEqual(resolve(secondExecutablePath).toLowerCase(), resolve(executablePath).toLowerCase(), 'Provide a distinct second browser executable');
+      await competingProfile(secondExecutablePath);
+    });
+  }
+  await record('E11-natural-vault-expiry-cancels-approval', async () => {
+    // Requires a separate disposable app whose persisted vault timeout was one minute before sign-in.
+    await desktop('signIn', 60000);
+    await desktop('lock');
+    await desktop('unlock');
+    await load();
+    await choose();
+    await desktop('waitExpired', 85000);
+    await desktop('assertNoApproval');
+    await page.bringToFront();
+    await emptyPassword();
+    const popup = await openPopup();
+    assert.match(await popup.locator('#status').innerText(), /locked|Unlock Vault/i);
+    assert.equal(await popup.locator('#totp-code').innerText(), '');
+    await popup.close();
+    await desktop('unlock');
+  });
+  if (sectionSelected('E12', selectedCases)) {
+    await desktop('signIn', 60000);
+    await desktop('lock');
+    await desktop('unlock');
+  }
   await record('E12-desktop-password-clipboard-timer-and-lock', async () => {
     await desktop('copyPassword');
     await desktop('clipboardAssertPassword');
@@ -454,10 +623,47 @@ try {
     await desktop('clipboardAssertEmpty');
     await desktop('unlock');
   });
+  for (const kind of ['OTP', 'password']) for (const replacement of ['same-text', 'changed-text']) for (const trigger of ['timer', 'lock']) {
+    await record(`E12-${kind}-${replacement}-replacement-survives-${trigger}`, async () => {
+      if (kind === 'OTP') {
+        await load();
+        await copyApprovedCode();
+      } else {
+        await desktop('copyPassword');
+        await desktop('clipboardAssertPassword');
+      }
+      await desktop(replacement === 'same-text' ? 'clipboardReplaceSame' : 'clipboardSetSentinel');
+      if (trigger === 'timer') await new Promise(done => setTimeout(done, 31000));
+      else await desktop('lock');
+      await desktop('clipboardAssertSentinel'); // Sequence and hash prove the external replacement survived cleanup.
+      await desktop('clipboardClearSentinel');
+      if (trigger === 'lock') await desktop('unlock');
+    });
+  }
+  await record('E14-desktop-close-cancels-pending-approval', async () => {
+    await load();
+    await choose();
+    await desktop('closeDesktop');
+    await page.bringToFront();
+    await emptyPassword();
+    const popup = await openPopup();
+    assert.equal(await popup.locator('#status').getAttribute('data-state'), 'error');
+    assert.equal(await popup.locator('.account').count(), 0);
+    assert.equal(await popup.locator('#totp-code').innerText(), '');
+    await popup.close();
+  });
   assert(results.length > 0, 'No E2E case matched the requested prefix');
+  campaignComplete = true;
   if (results.some(result => result.status === 'blocked')) process.exitCode = 2;
+} catch (error) {
+  campaignError = safeFailure(error);
+  if (!results.some(result => result.status === 'failed')) {
+    results.push({ id: `campaign-after-${caseId}`, status: 'failed', layer: 'campaign-control', error: campaignError });
+  }
+  console.error(`FAIL CAMPAIGN: ${campaignError}`);
+  process.exitCode = 1;
 } finally {
-  await context?.close();
-  if (server.listening) await new Promise(closed => server.close(closed));
-  await writeFile(join(evidence, 'results.json'), JSON.stringify({ browser: version, results }, null, 2));
+  const cleanup = await Promise.allSettled([context?.close(), server.listening ? new Promise(closed => server.close(closed)) : undefined]);
+  for (const outcome of cleanup) if (outcome.status === 'rejected') { campaignError ??= safeFailure(outcome.reason); process.exitCode = 1; }
+  await writeEvidence();
 }

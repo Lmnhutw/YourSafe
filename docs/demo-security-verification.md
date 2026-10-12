@@ -2,9 +2,97 @@
 
 Ngày ghi nhận: **2026-10-12**. Phạm vi: extension TypeScript → Native Messaging → NativeHost → Windows named pipe → WinUI approval → vault/storage.
 
-## Trạng thái tại thời điểm dừng
+## Lượt tiếp tục từ commit `af92805`
 
-Goal đang **paused theo yêu cầu người dùng**, chưa complete. R1–R4 đã triển khai và qua regression; R5 mới xác minh một phần. **Chưa chốt đủ điều kiện demo toàn bộ flow.**
+Người dùng đã yêu cầu tiếp tục các phần chưa hoàn thành trong commit gần nhất. Bằng chứng mới dưới đây được tách khỏi checkpoint cũ; không cộng các partial campaign để tuyên bố một lượt full green.
+
+| Phần đã kiểm tra lại | Kết quả mới | Phạm vi |
+| --- | --- | --- |
+| Core | **318/318 PASS** | Thêm opt-in snapshot UI fixture; seed thật chạy riêng **1/1 PASS**. Fixture chỉ chứa credentials giả. |
+| Presentation | **137/137 PASS** | Bao gồm OS pipe peer và lifecycle/clipboard mocks; không coi mocks là Windows lifecycle thật. |
+| HTTP API | **PASS** | Smoke thật cho roundtrip/no-store, policy, body/password/hash/KDF limits, malformed input, Host, concurrency và rate. API build còn một warning CA1416 hiện hữu, không có lỗi. |
+| DOM browser | **42 HTTP + 44 HTTPS PASS trên từng Chrome, Edge, Brave** | Chạy riêng từng browser; HTTPS dùng certificate giả trong isolated context, không sửa Windows trust. |
+| Historical snapshot WinUI | **7/7 PASS** | Hai password inputs; cancel/failure clearing được chứng minh bằng rejected reuse và unchanged pair; success kết thúc session; current replacement password bị từ chối, historical password + Authenticator được chấp nhận. Đã xem tám screenshots. |
+| Group deletion WinUI | **3/3 PASS** | Sửa phrase UI có chữ `the` khác phrase Core; xác nhận/cancel/delete thật trên group rỗng giả do batch tạo. Cancel giữ hashes; delete giữ mọi group và credentials fixture trước đó. Đã xem hai screenshots. |
+| NativeHost process → WinUI | **17/17 PASS** | Chạy lại executable adjacent Debug sau build, gồm global 30/minute admission across new hosts. |
+| Hai desktop Debug | **15/15 guarded control actions PASS** | Hai disposable directories khác nhau, integration cùng bật; lock/unlock/disable/close vẫn responsive. `.config`/`.storage` hashes cả hai giữ nguyên và cả hai process kết thúc. Không phải browser secret routing giữa hai vault hay production installation qualification. |
+| Runner checks | **PASS** | 13 JSON/error checks, 6 independently pinned SHA1/SHA256 OTP vectors, 8 read-only retry/no-mutation-retry checks; 14 snapshot parser checks; staging write failure/hash/path checks; clipboard wrong-owner negative checks không đọc/đổi clipboard có sẵn. |
+| Release scripts | **PASS** | Synthetic pipeline/qualification và Chrome/Edge/Brave registration contracts; không phải installer/signature acceptance thực tế. |
+| WinUI build | **0 warnings, 0 errors** | Debug x64 sau group-dialog và background clipboard cleanup fixes. NativeHost self-contained development publish thành công. |
+
+Runner đã sửa để giữ lỗi WinApp gốc thay vì lỗi thiếu `matchCount`, chỉ re-resolve một lần cho read-only `stale_element`, và không tự replay mutation. Clipboard helper kiểm tra owner/sequence ngay trong lock trước khi clear hoặc same-text replacement. Ca Copy gần hết hạn chỉ chấp nhận OTP của kỳ hiện tại. Development manifest được stage trước khi publish; wrapper khôi phục manifest, environment và cả value/type của Chrome/Edge/Brave registration, rồi đọc lại baseline để ghi report.
+
+Chrome, Edge và Brave đã hoàn tất **47/47 verified trên từng campaign**, overall `verified`, trên cùng build có background clipboard cleanup fix. Đã đối chiếu cả ba danh sách case IDs và source hashes giống nhau; không cộng partial runs. Scope chọn `E01,E02,E03,E04,E05,E06,E07,E08,E09,E10,E12,E14`; natural one-minute expiry E11 chạy riêng.
+
+| Campaign mới | Browser/version | Kết quả | Evidence |
+| --- | --- | --- | --- |
+| Edge main | Edge **155.0.4283.45**, Chrome phụ **154.0.8037.98** | **47/47 verified** | `test-results/security-resume-edge/extension-e2e-results-f46dd7b1-ac45-437b-bb88-783cb731adc1/results.json` |
+| Chrome main | Chrome **154.0.8037.98**, Edge phụ **155.0.4283.45** | **47/47 verified** | `test-results/security-resume-chrome/extension-e2e-results-c12dba71-bf4c-4c25-8a6e-1735a72477a7/results.json` |
+| Brave main | Brave/Chromium **155.0.8059.40**, Chrome phụ **154.0.8037.98** | **47/47 verified** | `test-results/security-resume-brave/extension-e2e-results-a3bb01a2-5419-4570-8f1d-adff077cd53b/results.json` |
+| Edge natural expiry | Edge **155.0.4283.45** | **1/1 verified** | `test-results/security-resume-expiry/extension-e2e-results-28250c4e-f0e0-4217-a713-89739ce753a3/results.json` |
+| Chrome natural expiry | Chrome **154.0.8037.98** | **1/1 verified** | `test-results/security-resume-expiry-chrome/extension-e2e-results-53a80fb4-208c-453b-b9f8-6236190e9a0e/results.json` |
+| Brave natural expiry | Brave/Chromium **155.0.8059.40** | **1/1 verified** | `test-results/security-resume-expiry-brave/extension-e2e-results-b87ec42e-0a59-46b4-80a9-669f6155df42/results.json` |
+
+Cả sáu lượt đã kiểm tra độc lập registration/manifest/environment restoration: các baseline comparisons đều true và không có cleanup failure. E11 dùng ba fixture được seed một phút trước process launch, đặt lại vault deadline rồi chờ tự hết hạn; approval bị hủy, field không có password, code panel rỗng và popup báo locked. Các lượt E11 mất khoảng 79 giây, không đổi Windows clock. Ba desktop E11 đã đóng bình thường sau từng lượt.
+
+Đã launch một desktop Debug thứ hai dùng **cùng marked disposable directory**: dialog `YourSafe is already running.` xuất hiện, dismiss dialog rồi tiến trình thứ hai kết thúc; tiến trình gốc và marker được giữ. Evidence: `test-results/security-resume-brave/ui-results/single-instance-ui.json`. Đây là runtime denial của duplicate Debug instance cùng fixture; không coi là qualification nhiều production installation hoặc các Debug fixture khác nhau.
+
+Sau browser campaigns, đã chạy thêm hai process Debug dùng **hai marked directories khác nhau**, `security-resume-edge` và `security-resume-chrome`. Cả hai sign-in và bật integration đồng thời; process thứ hai vẫn lock/unlock/disable/enable và đóng bình thường; process thứ nhất vẫn lock/unlock/disable và đóng bình thường. **15/15 guarded control actions PASS**, unchanged pair hashes, không có cleanup error. Command: `pwsh -NoProfile -File test-results/Test-CompetingDisposableDesktops.ps1`; source và report `test-results/security-resume-competing-desktops.json` là local ignored evidence. Scope là UI responsiveness khi hai development listeners cạnh tranh; không kiểm chứng browser chọn vault nào hoặc nhiều production installation.
+
+Windows clipboard mở được trong read-only probe ở session 2 / `WinSta0` / `Default` và các real copy/read checks của lượt Edge mới; error 5 của checkpoint cũ chưa tái hiện ở đây và chưa có bằng chứng để quy kết nguyên nhân của lỗi cũ.
+
+Lượt Edge `extension-e2e-results-d67ddd51-8775-4413-ac26-5bf7d96ea007` ghi **36 ca verified và một ca failed** tại password clipboard cleanup sau 30 giây; không gọi lượt này full green. Các ca đã đạt gồm remove-password/reset, queued deletion, ba image submitters, worker restart, hai profile và Chrome/Edge đồng thời. Ca password riêng đã tái chạy **1/1 PASS** trong `extension-e2e-results-8bb340f1-0a8c-4966-a644-8be4f9e449e5` sau sửa service chung; không cộng hai lượt để chốt acceptance.
+
+Cleanup trong `SensitiveClipboardService` đã bỏ WinRT `Clipboard.GetContent` để đọc bounded UTF-16 bytes và so sánh hash ngay trong native clipboard lock. Owner, sequence và generation vẫn được kiểm tra; buffers/hash được zero và handle được unlock trước khi clear. Thay đổi ảnh hưởng cùng boundary của password, OTP, recovery/setup và reveal/history copy, không đổi interface. [Microsoft ghi rõ WinRT Clipboard cần app có focus](https://learn.microsoft.com/en-us/uwp/api/windows.applicationmodel.datatransfer.clipboard). Đây là dependency không phù hợp với background cleanup; nguyên nhân đầy đủ của mọi lỗi clipboard ở checkpoint cũ vẫn chưa được chứng minh. Lượt Edge green gồm approved SHA256/eight-digit/sixty-second account copy, password/OTP cleanup, và toàn bộ tám same-text/changed-text × timer/lock replacement checks.
+
+Bằng chứng mới dùng local ignored artifacts:
+
+- Snapshot: `test-results/security-resume-snapshot/ui-results/snapshot-restore-20261012-141647-d66eb567/snapshot-restore-security-ui.json` và tám PNGs cạnh đó.
+- Group: `test-results/security-resume-edge/ui-results/group-deletion-confirmation-ui.json`.
+- NativeHost: `test-results/security-resume-edge/ui-results/native-host-process.json`.
+- Restoration: `ui-results/native-registration-cleanup.json` trong từng fixture của sáu campaign; cả ba keys, manifest và bảy environment values khớp baseline, không có cleanup failure.
+- Campaign index: `test-results/security-resume-summary.json`; kiểm tra lại sáu complete reports và hash của runner/control/development worker, clipboard source, WinUI DLL, adjacent NativeHost đều khớp files hiện tại.
+- Lượt đầu bị lỗi runner vẫn giữ riêng: Edge `extension-e2e-results-ce64fc26-0252-4896-a928-61fcacfc24a1/results.json` dừng sau E01 tại stale toggle query; snapshot `ui-results/snapshot-restore-security-ui-first-failed.json` và group `ui-results/group-deletion-confirmation-ui-first-failed.json` ghi selector failure trước khi sửa.
+
+Final cleanup: các desktop/PIDs đã ghi nhận và các isolated E2E browser processes đều kết thúc; không còn YourSafe/NativeHost process trong inventory cuối. `git diff --check` và parser checks cho các PowerShell runners PASS. Thay đổi vẫn uncommitted; không publish, sign hoặc đổi production registration.
+
+### Các gate còn lại của lượt hiện tại
+
+| Gate | Trạng thái và giới hạn |
+| --- | --- |
+| Windows lock/suspend thật | **Not run**. Cần người dùng cho phép trước vì làm gián đoạn desktop. Không coi table lock, natural vault expiry hoặc mocked lifecycle là OS lock/suspend. |
+| Queued write khi Windows lifecycle event đến trước UI callback | **Partially verified**. Presentation tests chặn write sau invalidation; chưa chứng minh timing của SystemEvents → WinUI dispatcher trên Windows thật. Không dùng clipboard timer/replacement PASS để thay thế gate này. |
+| Login expiry | **Partially verified**. Deadline 300 phút đã có clock-controlled tests; chưa chờ hết 300 phút trên installed-extension campaign. App không có logout button riêng; normal desktop close đi qua logout được kiểm tra trong E14. |
+| Nhiều desktop | **Partially verified**. Duplicate Debug instance cùng directory bị chặn thật; hai directories khác nhau có integration đồng thời vẫn lock/unlock/disable/close được, unchanged pair hashes. Chưa qualification browser secret routing giữa hai test vault hoặc nhiều production installation. |
+| Distribution | **Outside local demo scope**. Chưa chạy clean-machine installer/upgrade/uninstall, portable distribution, production signing hoặc browser-store registration. |
+
+Connected review đã trace callers của clipboard service, dialog confirmation, snapshot flow và các runner/error/cleanup paths. Không tìm thấy ASP.NET Core hay TypeScript production boundary cần thay đổi thêm trong lượt này; regression và HTTP/runtime checks được ghi riêng bên trên. GitNexus chưa index repository này nên caller/source tracing dùng `rg` và đọc source/tests trực tiếp.
+
+### Lệnh tái hiện các campaign mới
+
+Fixture phải chứa dữ liệu giả và app Debug có HelpText `YourSafeDisposableUiTest` với đúng directory/PID. Seed mỗi fixture mới bằng `Create_opt_in_disposable_ui_vault`, `PASSWORDTOOL_AUTOFILL_TEST_ORIGIN=http://127.0.0.1:55275`; main campaign dùng mặc định 30 phút, E11 dùng `PASSWORDTOOL_UI_TEST_VAULT_MINUTES=1` từ trước khi launch process mới. Không seed vào directory đã có vault.
+
+```powershell
+# Cùng lệnh và CasePrefix cho từng Chrome, Edge, Brave; mỗi browser có fixture/profile riêng.
+$env:YOURSAFE_SECOND_BROWSER_EXECUTABLE = '<different installed browser executable>'
+pwsh -NoProfile -File scripts/Test-AutofillNativeIntegration.ps1 `
+  -ProcessId <marked-app-pid> -TestDirectory '<fresh synthetic main fixture>' `
+  -BrowserExecutable '<installed browser executable>' -PlaywrightPackage '<installed playwright package>' `
+  -FixturePort 55275 -CasePrefix 'E01,E02,E03,E04,E05,E06,E07,E08,E09,E10,E12,E14' `
+  -AllowExistingRegistrationOverride
+
+# E11 chạy riêng trên mỗi browser với app mới đã cache setting một phút.
+pwsh -NoProfile -File scripts/Test-AutofillNativeIntegration.ps1 `
+  -ProcessId <marked-one-minute-app-pid> -TestDirectory '<fresh synthetic one-minute fixture>' `
+  -BrowserExecutable '<installed browser executable>' -PlaywrightPackage '<installed playwright package>' `
+  -FixturePort 55275 -CasePrefix 'E11' -AllowExistingRegistrationOverride
+```
+
+Executable đã dùng: Chrome `C:\Program Files\Google\Chrome\Application\chrome.exe`, Edge `C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`, Brave `C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe`. Playwright package: `C:\Users\lmnhu\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\node_modules\playwright`. Mỗi report lưu browser version và SHA-256 của runner/control/worker; `ui-results/runtime-build-hashes.json` lưu source clipboard service, WinUI DLL và adjacent NativeHost executable đã dùng.
+
+## Checkpoint trước khi tiếp tục
+
+Tại checkpoint cũ, goal đã **paused theo yêu cầu người dùng**, chưa complete. R1–R4 đã triển khai và qua regression; R5 mới xác minh một phần. **Checkpoint cũ chưa chốt đủ điều kiện demo toàn bộ flow.** Trạng thái sau khi tiếp tục nằm ở phần đầu báo cáo.
 
 Các app/browser test đã dừng. Đăng ký NativeHost development HKCU32 của Chrome và Edge đã được kiểm tra khôi phục đúng giá trị và kiểu dữ liệu ban đầu. Không thay đăng ký production, không sửa vault/profile thật, không thực hiện signing hay deployment.
 
@@ -119,7 +207,7 @@ DOM runner dùng `YOURSAFE_PLAYWRIGHT_PACKAGE` trỏ tới Playwright đã cài 
 
 Native/extension campaigns chạy qua `Test-AutofillNativeIntegration.ps1` với marked app PID, fixture directory, browser executable, installed Playwright package, `-FixturePort 55275` và temporary registration override đã được cho phép. Native 17-case lượt dùng `-NativeHostOnly`; Edge lượt bổ sung dùng `-CasePrefix 'E05-password,E05-code,E06,E07,E08,E09,E12-desktop'`. PIDs lúc chạy (21008, 42204, 55440) đã kết thúc, không tái sử dụng cho lượt mới.
 
-## Công việc còn lại để hoàn thành goal
+## Công việc còn lại tại checkpoint cũ
 
 | Ưu tiên | Việc còn phải sửa/điều tra | Kiểm chứng cần có |
 | --- | --- | --- |
@@ -131,7 +219,7 @@ Native/extension campaigns chạy qua `Test-AutofillNativeIntegration.ps1` với
 | 6 | Rà connected change và hoàn thiện tài liệu acceptance khi các gate đã qua. | Review các runner/error paths; cập nhật requirements/README và report bằng kết quả mới. Những đoạn tài liệu cũ nói verification deferred không phải trạng thái acceptance hiện tại. |
 | Ngoài local demo scope | Qualification distribution thực tế nếu chuẩn bị phát hành. | Installer clean install/upgrade/uninstall, portable behavior, signing độc lập và browser-store identities. Synthetic release PASS không thay thế các kiểm tra này. |
 
-## Giới hạn và rủi ro còn lại
+## Giới hạn ghi nhận tại checkpoint cũ
 
 - Chưa có installed-extension E2E full-green cho Chrome/Edge; goal chưa complete và demo toàn bộ flow chưa sign-off.
 - Timeout/lock xóa state/control/reference không đồng nghĩa guaranteed zeroization mọi managed/JavaScript string. UIA không chứng minh được việc xóa vật lý bộ nhớ.

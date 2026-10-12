@@ -24,7 +24,7 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
     public async Task<(string Confirmation, string TotpCode)?> ConfirmGroupDeletionAsync(
         string groupName, CancellationToken cancellationToken = default)
     {
-        var expected = $"Confirm delete all the data in \"{groupName}\"";
+        var expected = $"Confirm delete all data in \"{groupName}\"";
         var confirmation = new TextBox { Header = "Type the exact confirmation below" };
         var dialog = new AppContentDialog
         {
