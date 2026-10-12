@@ -612,7 +612,7 @@ public sealed partial class MainPage : Page
         panel.Children.Add(copyRow);
         panel.Children.Add(new TextBlock
         {
-            Text = "YourSafe attempts to clear the copied key after 30 seconds and when this dialog closes, while it still owns the clipboard value. Copy again to restart the countdown.\n\nPaste with Ctrl+V. YourSafe requests exclusion from Windows clipboard history; other applications may still read or retain the key.",
+            Text = "YourSafe tries to clear the copied key after 30 seconds or when you close this dialog, unless another app has replaced the clipboard contents. Copy again to restart the timer.\n\nPaste with Ctrl+V. YourSafe asks Windows not to save the key in clipboard history. Other apps may still read or keep the key.",
             TextWrapping = TextWrapping.Wrap
         });
         panel.Children.Add(saved);

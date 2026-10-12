@@ -23,7 +23,7 @@ const errors: Record<string, string> = {
   desktopUnavailable: 'YourSafe is not connected. Start the matching desktop app, then refresh. If it is running, check browser host registration.',
   ambiguousFields: 'Focus the username or password field you want to fill, then reopen YourSafe.',
   targetChanged: 'The page changed or access expired. Refresh and choose an account again.',
-  unavailable: 'Enable browser integration in YourSafe desktop Settings and approve the request there. Then refresh and try again.',
+  unavailable: "This request wasn't completed. Refresh to try again. If browser integration is off, enable it in YourSafe Settings.",
   unsupportedPage: 'Open an HTTPS sign-in page, then reopen YourSafe.'
 };
 const port = chrome.runtime.connect({ name: 'popup-session' });
@@ -33,6 +33,7 @@ let busy = false;
 let epoch = 0;
 let selected: { account: Credential; token: string } | undefined;
 let displayed: Totp | undefined;
+let codeExpired = false;
 let timer: ReturnType<typeof setInterval> | undefined;
 let authorizationToken: string | undefined;
 function setBusy(value: boolean): void {
@@ -49,6 +50,7 @@ function clearPanel(): void {
   clearInterval(timer);
   timer = undefined;
   displayed = undefined;
+  codeExpired = false;
   selected = undefined;
   accounts.hidden = false;
   panel.hidden = true;
@@ -118,10 +120,15 @@ function paintTotp(): void {
   const value = displayed;
   const now = Date.now();
   if (!value || now >= value.expiresAtUnixMs || now < value.expiresAtUnixMs - value.periodSeconds * 1000) {
+    if (value) codeExpired = now >= value.expiresAtUnixMs;
     displayed = undefined;
     code.textContent = '—';
     code.removeAttribute('aria-label');
-    countdown.textContent = 'Expired. Choose account to request a new code.';
+    countdown.textContent = busy ? 'Waiting for approval…' : codeExpired ? 'Expired' : '';
+    if (codeExpired && !busy && status.dataset.state !== 'success') {
+      const instruction = 'Code expired. Select Choose account, then View TOTP to request a new code. Copy requests the current code with a separate approval.';
+      if (status.textContent !== instruction) status.textContent = instruction;
+    }
     progress.value = 0;
     copy.disabled = busy || !selected;
     return;
@@ -147,7 +154,7 @@ async function readTotp(currentEpoch: number): Promise<void> {
     displayed = result;
     paintTotp();
     status.dataset.state = 'ready';
-    status.textContent = 'This approved code expires at the countdown. Copy requires a new desktop approval.';
+    status.textContent = 'This code expires when the timer reaches 0. Copy needs a separate approval in YourSafe.';
   } catch (error) { if (currentEpoch === epoch) failure(error); }
   finally {
     if (currentEpoch === epoch) {
@@ -231,7 +238,7 @@ async function discover(focusAccountId?: string): Promise<void> {
     authorizationToken = result.token;
     origin.textContent = result.origin;
     status.textContent = result.truncated ? 'Some accounts could not be listed. Open YourSafe on the desktop to see all accounts.'
-      : result.accounts.length ? 'Choose Fill or View TOTP for an account.' : 'No accounts available. Add a supported website address to the account in YourSafe, then refresh.';
+      : result.accounts.length ? 'Choose Fill or View TOTP for an account.' : 'No accounts match this website. In YourSafe, add or update an account with the website address shown above, then select Refresh.';
     status.dataset.state = result.accounts.length ? 'ready' : 'empty';
     for (const account of result.accounts) accounts.append(accountRow(account, result.token));
   } catch (error) { if (currentEpoch === epoch) failure(error); }
@@ -265,15 +272,15 @@ function renderSnapshot(value: unknown): void {
     panel.hidden = false;
     displayed = isTotp(value.result) ? value.result : undefined;
     timer = setInterval(paintTotp, 100);
-    paintTotp();
   }
   status.dataset.state = value.busy ? 'loading' : 'ready';
   status.textContent = value.busy ? 'Waiting for desktop approval. Cancel here or in YourSafe to stop this request.'
     : record(value.result) && 'filled' in value.result && value.result.filled === true ? 'Filled. Review the form before signing in. YourSafe does not submit it.'
     : record(value.result) && 'copied' in value.result && value.result.copied === true ? 'Copied the current code.'
-    : isTotp(value.result) ? 'This approved code expires at the countdown. Copy requires a new desktop approval.'
+    : isTotp(value.result) ? 'This code expires when the timer reaches 0. Copy needs a separate approval in YourSafe.'
     : 'Choose Fill or View TOTP for an account.';
   setBusy(value.busy);
+  if (!panel.hidden) paintTotp();
 }
 copy.addEventListener('click', () => {
   const active = selected;

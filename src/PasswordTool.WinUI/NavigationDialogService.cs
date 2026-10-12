@@ -13,7 +13,7 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
         var panel = new StackPanel { Spacing = 12 };
         panel.Children.Add(new TextBlock
         {
-            Text = "Enter your Master Password to continue. Secret item drafts are discarded when the vault locks.",
+            Text = "Enter your Master Password to continue. Unsaved changes to an item are cleared when the vault locks.",
             TextWrapping = TextWrapping.Wrap
         });
         panel.Children.Add(password);

@@ -28,11 +28,11 @@ internal sealed class AutofillApprovalService(DialogLifetime dialogs)
                     _ => throw new InvalidOperationException()
                 };
                 var disclosure = request.Action == AutofillAction.CopyTotp
-                    ? "Other applications may read the clipboard. YourSafe attempts to clear a still-owned copied value after 30 seconds."
+                    ? "Other apps may read the clipboard. YourSafe tries to clear the copied code after 30 seconds, unless another app has replaced the clipboard contents."
                     : "The extension can read the password or code shared with it. A destination website can read a filled password.";
                 var text = new TextBlock
                 {
-                    Text = $"Account: {request.Credential.Title}\nUsername: {request.Credential.Username}\nWebsite saved in vault: {request.Credential.Url}\n\n{action}\n\nWebsite reported by extension (not independently verified): {request.Origin}\n\n{disclosure}",
+                    Text = $"Account: {request.Credential.Title}\nUsername: {request.Credential.Username}\nWebsite saved in vault: {request.Credential.Url}\n\n{action}\n\nWebsite reported by the extension: {request.Origin}\nYourSafe cannot confirm this website address.\n\n{disclosure}",
                     TextWrapping = TextWrapping.Wrap
                 };
                 AutomationProperties.SetAutomationId(text, "TxtAutofillApprovalDetails");
