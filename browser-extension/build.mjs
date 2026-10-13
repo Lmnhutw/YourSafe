@@ -18,6 +18,7 @@ for (const size of [16, 32, 48, 128]) {
 }
 await writeFile(`${output}/manifest.json`, JSON.stringify({
   manifest_version: 3, name: production ? 'YourSafe' : 'YourSafe Development', version: '1.0.0',
+  description: 'Fill passwords and view verification codes from your local YourSafe desktop vault.',
   minimum_chrome_version: '127',
   ...(!production ? { key: (await readFile('development-key.txt', 'utf8')).trim() } : {}),
   permissions: ['nativeMessaging', 'webNavigation', 'activeTab', 'scripting'],
