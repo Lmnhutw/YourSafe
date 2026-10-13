@@ -241,7 +241,7 @@ function Invoke-InnoSetupBuild {
         throw 'Inno Setup compilation failed.'
     }
 
-    $expectedInstaller = Join-Path $safeInstallerDirectory "YourSafe-$Version-win-x64-setup.exe"
+    $expectedInstaller = Join-Path $safeInstallerDirectory 'YourSafe-setup.exe'
     if (-not (Test-Path -LiteralPath $expectedInstaller -PathType Leaf) -or (Get-Item -LiteralPath $expectedInstaller).Length -le 0) {
         throw "Inno Setup did not create the expected installer '$expectedInstaller'."
     }

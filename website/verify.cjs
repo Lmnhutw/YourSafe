@@ -39,11 +39,50 @@ const server = http.createServer((request, response) => {
 
 async function assertSlide(page, index) {
   const state = await page.locator(".showcase").evaluate((showcase) => ({
-    slides: [...showcase.querySelectorAll(".showcase-slide")].map((slide) => ({ hidden: slide.hidden, inert: slide.inert })),
+    slides: [...showcase.querySelectorAll(".showcase-slide")].map((slide) => ({ hidden: slide.hidden, inert: slide.inert, ariaHidden: slide.getAttribute('aria-hidden') })),
     current: [...showcase.querySelectorAll("[data-slide]")].map((button) => button.getAttribute("aria-current")),
   }));
-  assert.deepEqual(state.slides, [0, 1, 2].map((position) => ({ hidden: position !== index, inert: position !== index })));
+  state.slides.forEach((slide, position) => {
+    assert.equal(slide.inert, position !== index);
+    assert.equal(slide.ariaHidden, String(position !== index));
+    if (position === index) assert.equal(slide.hidden, false);
+  });
   assert.deepEqual(state.current, [0, 1, 2].map((position) => String(position === index)));
+}
+
+async function verifySliderMotion(browser, base) {
+  const context = await browser.newContext({ reducedMotion: 'no-preference' });
+  const page = await context.newPage();
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(base);
+    await page.locator('.showcase-autoplay').click();
+    await page.locator('[data-direction="1"]').click();
+    const motion = await page.locator('.showcase-slides').evaluate(stage => {
+      const animations = stage.getAnimations({ subtree: true });
+      animations.forEach(animation => { animation.pause(); animation.currentTime = 200; });
+      const bounds = stage.getBoundingClientRect();
+      return { frames: animations.map(animation => animation.effect.getKeyframes().map(frame => frame.transform)),
+        offsets: [...stage.querySelectorAll('.showcase-slide:not([hidden])')].map(slide => slide.getBoundingClientRect().x - bounds.x),
+        width: bounds.width };
+    });
+    assert.deepEqual(motion.frames, [['translateX(0px)', 'translateX(-100%)'], ['translateX(100%)', 'translateX(0px)']]);
+    assert.ok(motion.offsets.some(x => x < 0 && x > -motion.width) && motion.offsets.some(x => x > 0 && x < motion.width), 'both slides move across the stage');
+    await page.locator('.showcase-slides').evaluate(stage => stage.getAnimations({ subtree: true }).forEach(animation => animation.play()));
+    await page.waitForFunction(() => document.querySelector('.showcase-slides').getAnimations({ subtree: true }).length === 0);
+    assert.equal(await page.locator('.showcase-slide:not([hidden])').count(), 1, 'outgoing slide is removed after motion');
+    await page.locator('[data-direction="-1"]').click();
+    const reverse = await page.locator('.showcase-slides').evaluate(stage => stage.getAnimations({ subtree: true }).map(animation => animation.effect.getKeyframes().map(frame => frame.transform)));
+    assert.deepEqual(reverse, [['translateX(0px)', 'translateX(100%)'], ['translateX(-100%)', 'translateX(0px)']]);
+    await page.locator('[data-direction="1"]').click();
+    await page.locator('[data-direction="1"]').click();
+    await assertSlide(page, 2);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.waitForFunction(() => document.querySelector('.showcase-slides').getAnimations({ subtree: true }).length === 0);
+    assert.equal(await page.locator('.showcase-slide:not([hidden])').count(), 1, 'reduced motion cancels the transition');
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+  }
+  await context.close();
 }
 
 async function verifyPrivacyAndClosing(browser, base) {
@@ -51,24 +90,70 @@ async function verifyPrivacyAndClosing(browser, base) {
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  for (const width of [1920, 1440, 768, 390, 320]) {
+  for (const width of [1920, 1440, 1280, 1100, 1024, 961, 960, 768, 681, 680, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(base);
+    await page.evaluate(() => document.fonts.ready);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `home fits at ${width}`);
+    assert.equal(await page.locator('.site-nav a[href="./demo-login"]').textContent(), 'Demo');
+    assert.equal(await page.locator('.site-nav a[href="#extension"]').textContent(), 'Tiện ích');
+    assert.equal(await page.locator('.extension-actions .button').getAttribute('href'), '#');
+    assert.equal(await page.locator('.extension-actions .text-link').getAttribute('href'), './demo-login');
+    assert.equal(await page.locator('.closing-extension-actions a[href="#extension"]').count(), 1);
+    const extensionLayout = await page.locator('.feature-extension').evaluate(panel => {
+      const title = panel.querySelector('h3').getBoundingClientRect();
+      const bounds = panel.getBoundingClientRect();
+      const images = [...panel.querySelectorAll('.extension-visuals .product-image')].map(image => image.getBoundingClientRect());
+      const download = panel.querySelector('.extension-actions .button').getBoundingClientRect();
+      const demo = panel.querySelector('.extension-actions .text-link').getBoundingClientRect();
+      return {
+        imagesFit: images.length === 2 && images.every(image => image.top >= title.top && image.bottom <= bounds.bottom && image.left >= bounds.left && image.right <= bounds.right),
+        actionsBeside: download.right < demo.left && Math.abs((download.top + download.bottom) / 2 - (demo.top + demo.bottom) / 2) < 1,
+      };
+    });
+    assert.equal(extensionLayout.imagesFit, true, `extension images stay below title and inside panel at ${width}`);
+    if (width >= 1280) assert.equal(extensionLayout.actionsBeside, true, `download and demo actions sit beside each other at ${width}`);
+    if (width <= 960) {
+      await page.getByRole('button', { name: 'Menu' }).click();
+      assert.equal(await page.getByRole('link', { name: 'Demo', exact: true }).isVisible(), true);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `open menu fits at ${width}`);
+      await page.keyboard.press('Escape');
+    }
+    const socialsAbove = await page.locator('.footer-copyright').evaluate(element => {
+      return element.querySelector('.footer-socials').getBoundingClientRect().bottom <= element.querySelector('p').getBoundingClientRect().top;
+    });
+    assert.equal(socialsAbove, true, `footer icons above copyright at ${width}`);
     const link = page.locator('.faq-privacy a');
     assert.equal(await link.getAttribute('href'), './privacy');
     if (width > 960) {
+      const installHeadings = await page.locator('.install-steps h3').evaluateAll(headings => headings.map(heading => heading.getBoundingClientRect().top));
+      assert.ok(Math.max(...installHeadings) - Math.min(...installHeadings) < 1, `installation steps align at ${width}`);
       const layout = await page.evaluate(() => ({
         footer: document.querySelector('.site-footer').getBoundingClientRect().toJSON(),
         closing: document.querySelector('.closing-inner').getBoundingClientRect().toJSON(),
+        section: document.querySelector('.closing').getBoundingClientRect().toJSON(),
+        brand: document.querySelector('.footer-brand').getBoundingClientRect().toJSON(),
+        feedback: document.querySelector('.footer-feedback').getBoundingClientRect().toJSON(),
+        feedbackText: document.querySelector('.footer-feedback p').getBoundingClientRect().toJSON(),
       }));
       assert.ok(layout.footer.height < 160, `compact footer at ${width}`);
-      assert.ok(layout.closing.x < 65 && width - layout.closing.right < 65, `expanded CTA at ${width}`);
+      assert.ok(layout.section.height >= 464, `restored CTA height at ${width}`);
+      assert.ok(Math.abs(layout.closing.x - Math.min(width * 0.0525, 100)) < 1, `CTA desktop gutter at ${width}`);
+      assert.ok(Math.abs(layout.closing.x - (width - layout.closing.right)) < 1, `equal CTA outer spacing at ${width}`);
+      assert.ok(Math.abs(layout.brand.x - layout.closing.x) < 1 && Math.abs(layout.feedback.right - layout.closing.right) < 1, `footer aligns with CTA at ${width}`);
+      assert.ok(Math.abs(layout.feedbackText.right - layout.feedback.right) < 1, `feedback text uses its full column at ${width}`);
       assert.equal(layout.footer.width, width, `footer spans desktop at ${width}`);
     }
-    if ([1920, 390].includes(width)) {
+    if ([1920, 1440, 390].includes(width)) {
+      await page.locator('.feature-extension').screenshot({ path: path.join(root, `../.impeccable/review/extension-install-${width}.png`), style: '.site-header, .skip-link { visibility: hidden !important; }' });
       await page.locator('#faq').screenshot({ path: path.join(root, `../.impeccable/review/faq-${width}.png`) });
       await page.locator('.closing').screenshot({ path: path.join(root, `../.impeccable/review/closing-${width}.png`) });
       await page.locator('.site-footer').screenshot({ path: path.join(root, `../.impeccable/review/footer-${width}.png`) });
+    }
+    if ([1440, 390].includes(width)) {
+      await page.locator('.install-guide summary').click();
+      await page.locator('#install').screenshot({ path: path.join(root, `../.impeccable/review/install-simple-${width}.png`), style: '.site-header, .skip-link { visibility: hidden !important; }' });
+      await page.locator('.install-guide summary').click();
     }
     await link.click();
     assert.equal(page.url(), `${base}privacy`);
@@ -166,7 +251,7 @@ async function verifyDemo(browser, base) {
   page.on('pageerror', error => errors.push(error.message));
   page.on('response', response => { if (response.status() >= 400) errors.push(`${response.status()} ${response.url()}`); });
   await page.goto(base);
-  await page.locator('.closing-demo a').click();
+  await page.locator('.closing-demo a[href="./demo-login"]').click();
   assert.equal(page.url(), `${base}demo-login`);
   for (const width of [1440, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
@@ -377,7 +462,7 @@ async function verifyDemo(browser, base) {
         await assertImage(image);
       }
       assert.equal(await page.locator('a[href^="./assets/"]').count(), 0, 'product images have no click-through links');
-      for (const image of await page.locator('.app-figure .product-image').all()) {
+      for (const image of await page.locator('.app-figure .product-image:not([data-no-preview])').all()) {
         await image.hover();
         assert.equal(await page.locator('.image-preview').isVisible(), true, 'shared hover preview');
         const fits = await page.locator('.image-preview > *').evaluate(element => {
@@ -396,8 +481,23 @@ async function verifyDemo(browser, base) {
       await page.keyboard.press('Escape');
       assert.equal(await page.locator('.image-preview').isVisible(), false);
       await page.evaluate(() => document.activeElement.blur());
+      for (const image of await page.locator('.product-image[data-no-preview]').all()) {
+        await image.hover();
+        assert.equal(await image.getAttribute('tabindex'), null);
+        assert.equal(await page.locator('.image-preview').isVisible(), false, 'large images do not open a preview');
+      }
+      assert.equal(await page.locator('.product-image[data-no-preview]').count(), 2);
+      assert.equal(await page.locator('.hero-foot a').count(), 0);
+      assert.equal(await page.locator('.download-actions .download-extension[href="#"]').count(), 2);
+      for (const caption of await page.locator('figcaption, .visual-note, .showcase-footer p, .manual-demo').all()) {
+        const style = await caption.evaluate(element => {
+          const css = getComputedStyle(element);
+          return { size: css.fontSize, opacity: css.opacity, align: css.textAlign };
+        });
+        assert.deepEqual(style, { size: '12.8px', opacity: '0.85', align: 'center' });
+      }
       assert.equal(await page.locator('.storage-figure .button').count(), 0, 'no large illustration button');
-      assert.equal(await page.locator('.storage-replay span').textContent(), 'Bản sao mã hóa');
+      assert.equal(await page.locator('.storage-replay span').innerText(), 'Bản sao mã hóa');
       assert.equal(await page.locator('.storage-replay').isDisabled(), true, 'reduced motion shows static diagram');
       const storageFits = await page.locator('.storage-figure').evaluate(figure => {
         const bounds = figure.getBoundingClientRect();
@@ -411,7 +511,7 @@ async function verifyDemo(browser, base) {
       assert.equal(await page.locator(".product-image").count(), 7);
       await page.evaluate(() => scrollTo(0, 0));
       for (const href of await page
-        .locator('a[href^="#"]')
+        .locator('a[href^="#"]:not([href="#"])')
         .evaluateAll((links) =>
           links.map((link) => link.getAttribute("href")),
         )) {
@@ -434,7 +534,7 @@ async function verifyDemo(browser, base) {
         "./assets/app-logo.png",
       );
       assert.equal(await page.locator('.site-header > :last-child').getAttribute('class'), 'button button-primary header-download');
-      assert.equal(await page.locator('.site-nav a[href="./demo-login"]').textContent(), 'Đăng nhập thử');
+      assert.equal(await page.locator('.site-nav a[href="./demo-login"]').textContent(), 'Demo');
       if (width <= 960) {
         await page.getByRole("button", { name: "Menu" }).click();
         assert.equal(
@@ -522,32 +622,8 @@ async function verifyDemo(browser, base) {
     await assertSlide(page, 0);
     assert.equal(await page.locator('.showcase-autoplay').textContent(), 'Tự chuyển', 'reduced motion starts paused');
     await page.locator(".install-guide summary").click();
-    await page.evaluate(() => {
-      window.copiedCommand = "";
-      Object.defineProperty(navigator.clipboard, "writeText", {
-        configurable: true,
-        value: async (text) => {
-          window.copiedCommand = text;
-        },
-      });
-    });
-    await page.locator(".copy-button").click();
-    assert.equal(
-      await page.evaluate(() => window.copiedCommand),
-      "Get-FileHash .\\TEN-GOI-TAI.zip -Algorithm SHA256",
-    );
-    await page.evaluate(() =>
-      Object.defineProperty(navigator.clipboard, "writeText", {
-        value: async () => {
-          throw new Error("denied");
-        },
-      }),
-    );
-    await page.locator(".copy-button").click();
-    assert.match(
-      await page.locator(".copy-status").textContent(),
-      /Không sao chép/,
-    );
+    assert.match(await page.locator('.install-guide').innerText(), /Giải nén tất cả/);
+    assert.doesNotMatch(await page.locator('#install').innerText(), /SHA-256|PowerShell|SIGNED|checksums/);
     const noJs = await browser.newContext({
       javaScriptEnabled: false,
       viewport: { width: 390, height: 844 },
@@ -648,8 +724,8 @@ async function verifyDemo(browser, base) {
     await animated.emulateMedia({ reducedMotion: 'no-preference' });
     await new Promise(resolve => setTimeout(resolve, 50));
     await animated.clock.runFor(50);
-    await animated.locator('[data-slide="1"]').click();
-    assert.equal(await animated.locator("#showcase-desktop").evaluate((element) => getComputedStyle(element).animationName), "slide-in");
+    await animated.locator('[data-slide="2"]').click();
+    assert.equal(await animated.locator('.showcase-slides').evaluate(element => element.getAnimations({ subtree: true }).length), 2);
     await animated.locator(".feature-panel").first().scrollIntoViewIfNeeded();
     await animated.waitForFunction(() =>
       document.querySelector(".feature-panel").classList.contains("is-revealed"),
@@ -665,6 +741,7 @@ async function verifyDemo(browser, base) {
       true,
     );
     await verifyStorage(browser, base);
+    await verifySliderMotion(browser, base);
     await verifyPrivacyAndClosing(browser, base);
     await verifyDemo(browser, base);
     assert.deepEqual(errors, []);

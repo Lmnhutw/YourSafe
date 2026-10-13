@@ -25,7 +25,7 @@ if (Get-Command ISCC.exe -ErrorAction SilentlyContinue) {
 $zip = Join-Path $output "YourSafe-$Version-win-x64.zip"
 Compress-Archive -Path (Join-Path $publish '*') -DestinationPath $zip
 $artifacts = @(Get-Item $zip)
-$installer = Join-Path $output "installer/YourSafe-$Version-win-x64-setup.exe"
+$installer = Join-Path $output 'installer/YourSafe-setup.exe'
 if (Test-Path -LiteralPath $installer) { $artifacts += Get-Item $installer }
 $checksums = foreach ($artifact in $artifacts) {
     '{0}  {1}' -f (Get-FileHash -LiteralPath $artifact.FullName -Algorithm SHA256).Hash.ToLowerInvariant(), $artifact.Name

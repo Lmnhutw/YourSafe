@@ -13,7 +13,7 @@ git tag -a v1.0.0 -m "YourSafe 1.0.0"
 git push origin v1.0.0
 ```
 
-Use a new version for each release. The Windows runner installs .NET 10 and Inno Setup, runs the existing release pipeline checks, publishes the app, requires an installer EXE, and qualifies the artifacts before uploading the installer, portable ZIP, checksums, manifest, and signing status to GitHub Releases. Build or qualification failures stop publication. Users download `YourSafe-<version>-win-x64-setup.exe` from the repository's Releases page.
+Use a new version for each release. The Windows runner installs .NET 10 and Inno Setup, runs the existing release pipeline checks, publishes the app, requires an installer EXE, and qualifies the artifacts before uploading the installer, portable ZIP, checksums, manifest, and signing status to GitHub Releases. Build or qualification failures stop publication. Users download `YourSafe-setup.exe` from the repository's Releases page.
 
 Pushing a version tag explicitly authorizes this automatic distribution flow. This is an exception to the manual-only publication checklist below. Inno Setup is installed on the disposable GitHub runner; the controlled-machine instructions below still apply to local releases. The workflow uses the built-in `GITHUB_TOKEN` with `contents: write`; no personal token is required. Repository or organization policy must permit Actions to create releases.
 

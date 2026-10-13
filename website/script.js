@@ -20,24 +20,6 @@ if (
     .forEach((element) => observer.observe(element));
 }
 
-const copyButton = document.querySelector(".copy-button");
-const copyStatus = document.querySelector(".copy-status");
-if (navigator.clipboard && window.isSecureContext) {
-  copyButton.hidden = false;
-  copyButton.addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(
-        document.querySelector("#checksum-command").textContent,
-      );
-      copyStatus.textContent =
-        "Đã sao chép. Thay tên file trước khi chạy lệnh.";
-    } catch {
-      copyStatus.textContent =
-        "Không sao chép được. Hãy chọn và sao chép lệnh ở trên.";
-    }
-  });
-}
-
 const showcase = document.querySelector(".showcase");
 const slides = [...showcase.querySelectorAll(".showcase-slide")];
 const selectors = [...showcase.querySelectorAll("[data-slide]")];
@@ -46,6 +28,13 @@ const autoplayButton = showcase.querySelector(".showcase-autoplay");
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 let autoplayPaused = reducedMotion.matches;
 let autoplayTimer;
+let slideAnimations = [];
+
+function finishSlideTransition() {
+  slideAnimations.forEach(animation => animation.cancel());
+  slideAnimations = [];
+  slides.forEach((slide, index) => { slide.hidden = index !== currentSlide; });
+}
 
 function updateAutoplay() {
   window.clearInterval(autoplayTimer);
@@ -64,17 +53,34 @@ for (const event of ["mouseenter", "mouseleave", "focusin", "focusout"]) {
 }
 document.addEventListener("visibilitychange", updateAutoplay);
 reducedMotion.addEventListener("change", () => {
+  finishSlideTransition();
   autoplayPaused = reducedMotion.matches;
   updateAutoplay();
 });
 
 function showSlide(index, announce = true) {
+  const previousSlide = currentSlide;
+  const direction = Math.sign(index - previousSlide);
+  finishSlideTransition();
   currentSlide = (index + slides.length) % slides.length;
   slides.forEach((slide, position) => {
     slide.hidden = position !== currentSlide;
     slide.inert = position !== currentSlide;
+    slide.setAttribute("aria-hidden", String(position !== currentSlide));
     selectors[position].setAttribute("aria-current", String(position === currentSlide));
   });
+  if (currentSlide !== previousSlide) closePreview();
+  if (currentSlide !== previousSlide && !reducedMotion.matches) {
+    const previous = slides[previousSlide];
+    const current = slides[currentSlide];
+    previous.hidden = false;
+    const timing = { duration: 550, easing: "cubic-bezier(0.16, 1, 0.3, 1)" };
+    slideAnimations = [
+      previous.animate([{ transform: "translateX(0)" }, { transform: `translateX(${-direction * 100}%)` }], timing),
+      current.animate([{ transform: `translateX(${direction * 100}%)` }, { transform: "translateX(0)" }], timing),
+    ];
+    slideAnimations[0].onfinish = finishSlideTransition;
+  }
   if (announce) {
     showcase.querySelector(".showcase-status").textContent =
       `${currentSlide + 1} / ${slides.length}: ${slides[currentSlide].querySelector("h3").textContent}`;
@@ -141,7 +147,7 @@ function showPreview(image) {
   preview.hidden = false;
 }
 
-document.querySelectorAll(".product-image").forEach((image) => {
+document.querySelectorAll(".product-image:not([data-no-preview])").forEach((image) => {
   image.tabIndex = 0;
   image.addEventListener("mouseenter", () => {
     if (canHover.matches) showPreview(image);

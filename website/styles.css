@@ -515,6 +515,21 @@ code {
   line-height: 1.8;
 }
 
+.download-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.5rem;
+}
+
+.closing .download-actions .text-link {
+  color: var(--white);
+}
+
+.closing .download-actions a:focus-visible {
+  outline-color: var(--white);
+}
+
 .manual {
   display: flex;
   flex-direction: column;
@@ -592,7 +607,8 @@ code {
 
 .manual-demo {
   max-width: 42ch;
-  text-align: right;
+  text-align: center;
+  opacity: 0.85;
 }
 
 .manual-demo a {
@@ -615,16 +631,6 @@ code {
   color: var(--muted);
 }
 
-.hero-foot a {
-  color: var(--ink);
-  text-decoration: none;
-}
-
-.hero-foot a span {
-  display: inline-block;
-  margin-left: 1rem;
-}
-
 .section {
   max-width: 1600px;
   margin: auto;
@@ -633,7 +639,7 @@ code {
 
 .section-heading {
   display: grid;
-  grid-template-columns: 1.1fr 2fr;
+  grid-template-columns: 1.1fr 1fr;
   gap: clamp(2rem, 7vw, 2rem);
   align-items: end;
   margin-bottom: 3rem;
@@ -681,7 +687,6 @@ code {
 }
 
 .feature-heading > div > p {
-  color: var(--muted);
   max-width: 60ch;
 }
 
@@ -729,7 +734,7 @@ code {
 .feature-extension {
   display: grid;
   grid-template-columns: 0.9fr 1.1fr;
-  align-items: center;
+  align-items: start;
   gap: 3rem;
   padding: 3rem;
 }
@@ -744,8 +749,26 @@ code {
   padding-top: 1rem;
 }
 
+.extension-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.5rem;
+  margin-top: 1.25rem;
+}
+
+.extension-actions .button {
+  max-width: 100%;
+}
+
+.closing-extension-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+}
+
 .extension-copy .text-link {
-  margin-top: 1rem;
+  margin-top: 0;
 }
 
 .extension-visuals {
@@ -753,7 +776,8 @@ code {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.25rem;
   max-width: 540px;
-  margin: auto;
+  margin: 0 auto;
+  padding-top: 2.25rem;
 }
 
 .extension-visuals .app-figure {
@@ -772,6 +796,8 @@ code {
   grid-column: 1 / -1;
   color: var(--muted);
   font-size: 0.8rem;
+  opacity: 0.85;
+  text-align: center;
 }
 
 .feature-panel.is-revealed {
@@ -815,13 +841,17 @@ code {
 
 .showcase.is-enhanced .showcase-slides {
   height: 38rem;
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
 }
 
 .showcase.is-enhanced .showcase-slide {
+  position: absolute;
+  inset: 0;
   height: 100%;
   min-height: 0;
   margin: 0;
-  animation: slide-in 350ms var(--ease);
 }
 
 .manual-index {
@@ -892,7 +922,7 @@ code {
   object-fit: contain;
 }
 
-.product-image {
+.product-image:not([data-no-preview]) {
   cursor: zoom-in;
 }
 
@@ -945,6 +975,9 @@ code {
   font-size: 0.8rem;
   line-height: 1.5;
   color: #e2e9ff;
+  opacity: 0.85;
+  text-align: center;
+  width: 100%;
 }
 
 .showcase-link {
@@ -1151,10 +1184,24 @@ code {
 }
 
 @keyframes storage-copy {
-  0%, 8% { opacity: 0; transform: translate(0, 0); }
-  16% { opacity: 1; transform: translate(0, 0); }
-  72%, 85% { opacity: 1; transform: translate(var(--copy-x, 0px), var(--copy-y, 0px)); }
-  100% { opacity: 0; transform: translate(var(--copy-x, 0px), var(--copy-y, 0px)); }
+  0%,
+  8% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  16% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+  72%,
+  85% {
+    opacity: 1;
+    transform: translate(var(--copy-x, 0px), var(--copy-y, 0px));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--copy-x, 0px), var(--copy-y, 0px));
+  }
 }
 
 .storage-destination {
@@ -1230,7 +1277,7 @@ code {
 
 .storage-figure figcaption {
   margin-top: 1rem;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--muted);
 }
 
@@ -1254,20 +1301,8 @@ code {
   padding-right: 0;
 }
 
-.install-guide-grid .code-hint {
+.install-technical {
   margin-top: 1rem;
-}
-
-@keyframes slide-in {
-  from {
-    opacity: 0;
-    transform: translateX(7px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
 }
 
 .local-section {
@@ -1317,10 +1352,15 @@ code {
 
 .app-figure figcaption {
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   line-height: 1.7;
   margin-top: 1rem;
-  max-width: 62ch;
+}
+
+figcaption {
+  font-size: 0.8rem;
+  opacity: 0.85;
+  text-align: center;
 }
 
 .install {
@@ -1340,6 +1380,7 @@ code {
 .install-steps > li {
   counter-increment: step;
   display: grid;
+  align-content: start;
   grid-template-columns: 1fr;
   gap: 1rem;
   border-top: 1px solid var(--rule);
@@ -1368,21 +1409,6 @@ code {
   margin-top: 1rem;
 }
 
-.code-block {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  background: var(--tint);
-  margin-top: 1.2rem;
-  padding: 1rem;
-  border-radius: 4px;
-}
-
-.code-block code {
-  font-size: 0.85rem;
-}
-
 .copy-button {
   flex-shrink: 0;
   padding: 0.6rem 0.75rem;
@@ -1397,7 +1423,6 @@ code {
 .copy-button:hover {
   background: var(--white);
 }
-.code-hint,
 .copy-status {
   font-size: 0.85rem;
 }
@@ -1506,22 +1531,25 @@ details p {
 }
 
 .closing {
+  display: grid;
+  align-items: center;
   background: var(--accent);
   color: var(--white);
-  padding: 3rem clamp(1.25rem, 3vw, 4rem);
+  min-height: 29rem;
+  padding: 4.7rem clamp(1.25rem, 5.25vw, 6.25rem);
 }
 
 .closing-inner {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
   align-items: center;
-  justify-content: space-between;
-  gap: 3rem;
+  gap: clamp(2rem, 4vw, 4rem);
+  width: 100%;
   margin: auto;
 }
 
 .closing h2 {
-  font-size: clamp(2.2rem, 4vw, 3.8rem);
+  font-size: clamp(2.2rem, 3.6vw, 3.8rem);
 }
 
 .button-light {
@@ -1549,7 +1577,7 @@ details p {
   align-items: center;
   gap: 2rem;
   max-width: none;
-  padding: 1.5rem clamp(1.25rem, 3vw, 4rem);
+  padding: 1.5rem clamp(1.25rem, 5.25vw, 6.25rem);
   font-size: 0.85rem;
 }
 
@@ -1569,7 +1597,7 @@ details p {
   display: flex;
   justify-content: center;
   gap: 0.5rem;
-  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
 }
 
 .footer-socials a {
@@ -1595,10 +1623,15 @@ details p {
   min-width: 0;
   width: 100%;
   justify-self: end;
+  text-align: right;
 }
 
 .footer-feedback a {
   color: var(--accent);
+}
+
+.footer-feedback p {
+  max-width: none;
 }
 
 @keyframes cover-in {
@@ -1694,6 +1727,7 @@ details p {
   .footer-feedback {
     grid-column: 1 / -1;
     max-width: none;
+    text-align: left;
   }
 
   .showcase-extension .product-image {
@@ -1961,7 +1995,7 @@ details p {
 
   .manual-demo {
     max-width: none;
-    text-align: left;
+    text-align: center;
   }
 
   .hero-foot {
@@ -2003,6 +2037,7 @@ details p {
 
   .extension-visuals {
     gap: 0.75rem;
+    padding-top: 0;
   }
 
   .extension-visuals figcaption {
@@ -2042,15 +2077,6 @@ details p {
 
   .install-steps h3 {
     font-size: 1.1rem;
-  }
-
-  .code-block {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .code-block code {
-    word-break: break-word;
   }
 
   .faq {

@@ -64,7 +64,7 @@ jobs:
         run: |
           & ./scripts/Publish-WindowsRelease.ps1 -Version $env:RELEASE_VERSION -ChromeExtensionId $env:CHROME_EXTENSION_ID -EdgeExtensionId $env:EDGE_EXTENSION_ID -SigningMode Disabled
           $releaseDirectory = Join-Path 'artifacts/releases' $env:RELEASE_VERSION
-          $installer = Join-Path $releaseDirectory "installer/YourSafe-$env:RELEASE_VERSION-win-x64-setup.exe"
+          $installer = Join-Path $releaseDirectory 'installer/YourSafe-setup.exe'
           if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) {
             throw 'The required installer EXE was not produced.'
           }
@@ -78,7 +78,7 @@ jobs:
         run: |
           $releaseDirectory = Join-Path 'artifacts/releases' $env:RELEASE_VERSION
           $assets = @(
-            (Join-Path $releaseDirectory "installer/YourSafe-$env:RELEASE_VERSION-win-x64-setup.exe"),
+            (Join-Path $releaseDirectory 'installer/YourSafe-setup.exe'),
             (Join-Path $releaseDirectory "YourSafe-$env:RELEASE_VERSION-win-x64.zip"),
             (Join-Path $releaseDirectory 'checksums.sha256'),
             (Join-Path $releaseDirectory 'release-manifest.json'),
@@ -95,7 +95,7 @@ jobs:
         run: |
           & ./scripts/Publish-WindowsTestRelease.ps1 -Version $env:RELEASE_VERSION
           $releaseDirectory = Join-Path 'artifacts/test-releases' $env:RELEASE_VERSION
-          $installer = Join-Path $releaseDirectory "installer/YourSafe-$env:RELEASE_VERSION-win-x64-setup.exe"
+          $installer = Join-Path $releaseDirectory 'installer/YourSafe-setup.exe'
           if (-not (Test-Path -LiteralPath $installer)) { throw 'Test installer was not produced.' }
           $assets = @($installer, (Join-Path $releaseDirectory "YourSafe-$env:RELEASE_VERSION-win-x64.zip"), (Join-Path $releaseDirectory 'checksums.sha256'), (Join-Path $releaseDirectory 'release-status.txt'))
           gh release create $env:RELEASE_TAG @assets --verify-tag --prerelease --title "YourSafe $env:RELEASE_TAG" --generate-notes --notes 'Unsigned test build for Windows x64. Browser autofill registration is omitted until store extension IDs are available. Production qualification and interactive installer smoke testing have not been performed.'

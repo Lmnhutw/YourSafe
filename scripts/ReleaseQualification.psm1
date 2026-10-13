@@ -229,7 +229,7 @@ function Get-ExpectedDistributionArtifacts {
 
     $installerDirectory = Join-Path $ReleaseDirectory 'installer'
     if (Test-Path -LiteralPath $installerDirectory -PathType Container) {
-        $expectedInstallerName = "YourSafe-$Version-win-x64-setup.exe"
+        $expectedInstallerName = 'YourSafe-setup.exe'
         $installerFiles = @(Get-ChildItem -LiteralPath $installerDirectory -Force -File)
         $installerDirectories = @(Get-ChildItem -LiteralPath $installerDirectory -Force -Directory)
         if ($installerDirectories.Count -gt 0 -or $installerFiles.Count -ne 1 -or $installerFiles[0].Name -cne $expectedInstallerName) {
@@ -508,7 +508,7 @@ function Assert-InstallerTemplateContract {
         ArchitecturesAllowed = 'x64compatible'
         ArchitecturesInstallIn64BitMode = 'x64compatible'
         OutputDir = '{#OutputDir}'
-        OutputBaseFilename = 'YourSafe-{#AppVersion}-win-x64-setup'
+        OutputBaseFilename = 'YourSafe-setup'
         UsePreviousAppDir = 'yes'
     }
     foreach ($entry in $expectedSetup.GetEnumerator()) {
