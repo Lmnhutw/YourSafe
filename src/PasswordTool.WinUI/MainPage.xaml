@@ -803,6 +803,8 @@
                                     </ListView.ItemTemplate>
                                 </ListView>
                                 <PasswordBox x:Name="SnapshotMasterPassword" AutomationProperties.AutomationId="TxtSnapshotMasterPassword" AutomationProperties.Name="Master Password for snapshot restore" Header="Current Master Password" />
+                                <TextBlock Style="{StaticResource PasswordToolHintStyle}" Text="Enter your current Master Password to restore this snapshot. If the snapshot used a different Master Password, enter that password below. Otherwise, leave the second field blank." />
+                                <PasswordBox x:Name="SnapshotPreviousMasterPassword" AutomationProperties.AutomationId="TxtSnapshotPreviousMasterPassword" AutomationProperties.Name="Snapshot Master Password if different" Header="Snapshot Master Password (if different)" />
                                 <Button AutomationProperties.AutomationId="BtnRestoreSnapshot" HorizontalAlignment="Right" Click="RestoreSnapshotButton_Click" Content="Restore selected snapshot" />
                             </StackPanel>
                         </Border>
@@ -865,7 +867,7 @@
                             <StackPanel Spacing="12">
                                 <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Browser integration" />
                                 <ToggleSwitch AutomationProperties.AutomationId="TglBrowserIntegration" AutomationProperties.Name="Allow browser integration for this app session" Header="Allow browser integration for this app session" IsOn="{x:Bind ViewModel.Settings.BrowserIntegrationEnabled, Mode=TwoWay}" />
-                                <TextBlock Style="{StaticResource PasswordToolDescriptionStyle}" Text="Starts off. Enabling shares matching account names and usernames with the extension. Each password or verification-code request needs a separate approval on this desktop. Turning this off cancels pending requests and closes browser connections." TextWrapping="Wrap" />
+                                <TextBlock Style="{StaticResource PasswordToolDescriptionStyle}" Text="Off each time YourSafe starts. When enabled, the extension can see matching account names and usernames. Filling a password, viewing a code, or copying a code each requires your approval in YourSafe. Turning this off cancels pending requests and disconnects the extension." TextWrapping="Wrap" />
                             </StackPanel>
                         </Border>
 

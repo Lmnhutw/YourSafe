@@ -69,7 +69,7 @@ Both code actions require browser integration to be enabled, an approved request
 
 ## Verification
 
-Unit and static checks do not require browser registration. These commands are available for a later verification pass; building or passing mocks alone does not qualify live browser/desktop security. Run from the repository root:
+Unit and static checks do not require browser registration. Building or passing mocks alone does not qualify live browser/desktop security. Run from the repository root:
 
 ```powershell
 dotnet test .\tests\PasswordTool.Core.Tests
@@ -104,6 +104,46 @@ node test/browser-smoke.mjs
 
 No browser or automation dependency is downloaded by this smoke runner. Its ephemeral server serves only the synthetic HTML and test bundle on `127.0.0.1`. The isolated DOM test covers selected fields, fieldset-disabled and first-legend behavior, visibility/occlusion, form-action and submit overrides, and revalidation after username events. It is separate from live extension/desktop E2E. Building its bundle alone does not verify browser behavior.
 
+Image submitters are checked even when `form.elements` omits them, including external `form=` associations and image buttons added or changed by username events. To exercise HTTPS-to-HTTP downgrades on an actual HTTPS page, set both `YOURSAFE_TEST_TLS_KEY` and `YOURSAFE_TEST_TLS_CERT` to PEM files for the disposable loopback fixture and run the same smoke runner. Certificate errors are ignored only in that isolated test context.
+
+`npm.cmd run test:e2e` runs the installed development extension against the NativeHost and guarded WinUI approval controls. Build the extension and matching adjacent Debug desktop/NativeHost first, seed a new disposable vault with `PASSWORDTOOL_AUTOFILL_TEST_ORIGIN=http://127.0.0.1:49173`, launch it using `PASSWORDTOOL_UI_TEST_DIRECTORY`, and prepare owned development registration separately. The runner never edits Native Messaging registration or uses a personal browser profile.
+
+```powershell
+$env:YOURSAFE_E2E_DIRECTORY = 'absolute-path-to-the-running-disposable-vault'
+$env:YOURSAFE_APP_PID = 'disposable-YourSafe-process-id'
+$env:YOURSAFE_PLAYWRIGHT_PACKAGE = 'absolute-path-to-installed-playwright-package'
+$env:YOURSAFE_BROWSER_EXECUTABLE = 'absolute-path-to-installed-chrome-or-edge.exe'
+$env:YOURSAFE_E2E_CASE_PREFIX = 'E01,E02,E03,E04,E05,E06,E07,E08,E09,E10,E12,E14'
+npm.cmd run test:e2e:self-check
+npm.cmd run test:e2e
+```
+
+The browser must support CDP `Extensions.loadUnpacked` and `Extensions.triggerAction`; missing commands are a prerequisite failure. `triggerAction` opens the real extension action popup and grants its existing `activeTab` access; the runner does not call extension handlers directly. Each run creates a fresh `extension-e2e-profile-<uuid>` under the marked disposable directory. Results and screenshots are saved in `extension-e2e-results-<uuid>` there. Run separate campaigns for Chrome, Edge and Brave using independent fixtures/profiles. `YOURSAFE_E2E_CASE_PREFIX` selects comma-separated case-ID prefixes; a verified selected campaign covers only those cases. An empty selection attempts all applicable cases, including E11, which requires a separate one-minute fixture.
+
+The runner contains cases for integration-off/locked states, approved password forms, denied approval/deadline, separate six-digit/SHA1 and eight-digit/SHA256 TOTP copy actions, OTP/password clipboard timer and lock cleanup, same-text and changed-text replacement preservation, popup recovery without repeat filling, selected-target changes, background-tab isolation, image submit protection, worker restart and desktop closure. Near-expiry Copy uses a current-period-only synthetic OTP assertion; ordinary Copy allows the immediately previous period because the probe itself can cross a boundary. Worker cases require CDP `ServiceWorker.stopAllWorkers` and check that the original worker target actually stopped. The runner waits for the desktop's admission window between selected sections and refreshes the vault deadline before long lifecycle/clipboard sections; it does not weaken the rate limit. These are runner capabilities, not claims that a campaign passed.
+
+`results.json` records each case as `verified`, `blocked` or `failed`, plus an overall `running`, `verified`, `blocked` or `failed` status. Setup/control and cleanup errors prevent a verified overall result. Reports include SHA-256 hashes of the runner, guarded control script and tested development worker bundle, and browser versions. A blocked clipboard probe remains nonzero and does not count as a pass. Preserve each campaign independently; combining partial runs does not make one complete campaign green.
+
+E10 always has a same-browser, two-profile competing-request case. To add a simultaneous distinct-browser case, set `YOURSAFE_SECOND_BROWSER_EXECUTABLE` to the other installed browser before running the wrapper or Node runner, then clear it afterwards. For example, use Edge as the primary executable and Chrome as the second. The second browser also uses its own disposable profile and the same marked desktop; this does not test multiple desktop processes.
+
+From the repository root, `scripts/Test-AutofillNativeIntegration.ps1` guards the marked app and temporarily registers the adjacent development NativeHost for Chrome, Edge and Brave in HKCU32. It stages the development manifest before replacing it. In `finally` it restores the original registration values and value types, manifest bytes and process environment variables that it changed; an externally changed registration/manifest is preserved. `ui-results/native-registration-before.json` stores the baseline and `ui-results/native-registration-cleanup.json` records registration, manifest and environment comparisons plus cleanup errors. Inspect that report separately from browser results. Passing `-AllowExistingRegistrationOverride` requires prior authorization to replace another checkout's development registration for this test. Windows must be unlocked for the popup/clipboard campaign. Set `-FixturePort` to the loopback port used when seeding the fixture; direct Node runs must set the matching `YOURSAFE_E2E_PORT`. Choose an available port if Windows reserves the default 49173.
+
+```powershell
+pwsh -NoProfile -File scripts/AutofillTestControl.ps1 -SelfCheck
+pwsh -NoProfile -File scripts/Test-AutofillNativeIntegration.ps1 -SelfCheck
+
+pwsh -NoProfile -File scripts/Test-AutofillNativeIntegration.ps1 `
+  -ProcessId $appProcessId -TestDirectory $fixtureDirectory `
+  -BrowserExecutable $browserPath -PlaywrightPackage $playwrightPath `
+  -FixturePort 55275 -CasePrefix 'E01,E02,E03,E04,E05,E06,E07,E08,E09,E10,E12,E14'
+```
+
+The two PowerShell `-SelfCheck` modes test bounded UIA JSON/error handling and development-manifest staging respectively, without opening an app/browser or changing registration. `AutofillTestControl.ps1` also accepts `-WinAppPath` and `-TimeoutMs` for its guarded control actions. Its read-only UIA calls retry one `stale_element` result; mutating calls are not retried. The wrapper's `-CasePrefix` maps to the runner's selected scope. Its `-NativeHostOnly` mode runs `test/native-host-process.mjs` against the actual adjacent executable and marked WinUI app, covering malformed/truncated/oversized input, fragmented discovery, EOF/extra-frame/host-exit cancellation, competing clients and fresh approval for a second request on one host. These process tests are separate from browser E2E.
+
+Run E11 separately. Use `AutofillTestControl.ps1 -Action configureExpiry -ProcessId $appProcessId -TestDirectory $fixtureDirectory` to save a one-minute timeout through the marked app's Settings, then close and relaunch that disposable app before supplying its new PID: the duration is cached for the current process. Run the wrapper with `-CasePrefix 'E11'`. This case starts a fresh vault deadline, waits for natural vault expiry and checks cancellation without changing the Windows clock. It checks the vault-table timeout, not the five-hour login-session timeout. E14 closes the marked desktop and runs last; launch a new fixture/app for another campaign.
+
+Actual Windows lock/suspend, the natural five-hour login expiry, a queued real clipboard write invalidated by an OS event, browser secret routing with two test desktops, and installer/signing qualification still require their own evidence. E14 checks logout through normal desktop close. Separate UI checks verify duplicate-instance denial for the same disposable directory and lock/unlock/disable/close responsiveness with two different directories and integration enabled concurrently. See the [current demo verification record](../docs/demo-security-verification.md) for observed outcomes and remaining gates.
+
 Complete the following manual checklist separately on Chrome, Edge and Brave, using a disposable vault and synthetic credentials:
 
 - Happy path for a normal, password-only and dynamically rendered form; input/change fire and submit does not.
@@ -112,7 +152,7 @@ Complete the following manual checklist separately on Chrome, Edge and Brave, us
 - View/copy six- and eight-digit codes with leading zeros, non-default periods and algorithms; expiry hides codes without starting another request, and approved copy at a boundary uses the current desktop code.
 - Close the popup while desktop approval is pending, approve, and reopen it: recover the bounded result without replay. Cancel instead, or change the target: no secret may be delivered.
 - Switch selected accounts, expire the pending lifetime, lock desktop, disconnect the host, disable integration, or change the stored URL: future access requires fresh explicit approval.
-- Empty/hidden URL, non-loopback HTTP, a different subdomain/port and malformed/missing-scheme URLs do not match.
+- Empty URL, non-loopback HTTP, a different subdomain/port and malformed/missing-scheme URLs do not match. A valid stored URL hidden only in the desktop UI remains eligible, as documented above.
 - Multiple login forms require focus; hidden/disabled/readonly/new-password/offscreen/covered fields and unsafe form actions never receive passwords.
 - Before opening the toolbar popup, there must be no automatic content injection or website hint. Inspect activeTab-only access and the no-network CSP on each supported browser.
 - Navigate, replace the document, switch browser tabs/windows, change SPA routes or hashes during discovery/retrieval: no fill. Focus loss to the desktop approval window alone must preserve the pending request.

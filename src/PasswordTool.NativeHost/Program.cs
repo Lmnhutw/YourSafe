@@ -51,7 +51,7 @@ try
         }
     }
 }
-catch (Exception error) when (error is IOException or JsonException or System.Text.DecoderFallbackException or OperationCanceledException or UnauthorizedAccessException)
+catch (Exception error) when (error is IOException or InvalidDataException or JsonException or System.Text.DecoderFallbackException or OperationCanceledException or UnauthorizedAccessException)
 {
     // No payloads, stack traces, secrets or non-protocol output on stdout/stderr.
     return 1;

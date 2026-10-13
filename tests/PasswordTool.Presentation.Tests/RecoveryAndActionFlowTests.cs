@@ -156,6 +156,29 @@ public sealed class RecoveryAndActionFlowTests
         Assert.False(context.Vault.IsVaultUnlocked);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Pending_table_reunlock_cannot_revive_the_editor_after_a_lifecycle_lock(bool logout)
+    {
+        using var context = new Context();
+        context.Shell.Navigate(AppRoute.ItemEditor);
+        await context.Shell.LockTableAsync();
+        Assert.Equal(AppRoute.Vault, context.Shell.CurrentRoute);
+        context.Dialogs.PendingPassword = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var unlocking = context.Shell.UnlockTableAsync();
+        Assert.Equal(1, context.Dialogs.PasswordPrompts);
+        if (logout) await context.Shell.LogoutCommand.ExecuteAsync(null);
+        else await context.Shell.LockCommand.ExecuteAsync(null);
+        context.Dialogs.PendingPassword.SetResult(Context.Password);
+
+        Assert.False(await unlocking);
+        Assert.Equal(AppFlowState.Unlock, context.Shell.FlowState);
+        Assert.Equal(AppRoute.Vault, context.Shell.CurrentRoute);
+        Assert.False(context.Vault.IsVaultUnlocked);
+        Assert.Equal(!logout, context.Shell.IsSignedIn);
+    }
+
     [Fact]
     public async Task Signing_in_updates_the_editor_sign_in_binding()
     {

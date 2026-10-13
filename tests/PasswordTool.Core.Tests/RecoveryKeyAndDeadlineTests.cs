@@ -570,10 +570,20 @@ public sealed class RecoveryKeyAndDeadlineTests : IDisposable
     {
         var target = Environment.GetEnvironmentVariable("PASSWORDTOOL_UI_TEST_DIRECTORY");
         if (string.IsNullOrEmpty(target)) return;
+        var vaultMinutes = 30;
+        if (Environment.GetEnvironmentVariable("PASSWORDTOOL_UI_TEST_VAULT_MINUTES") is { Length: > 0 } duration)
+        {
+            Assert.True(int.TryParse(duration, out vaultMinutes), "The UI-test vault duration must be an integer.");
+            VaultSecuritySettings.Validate(10, 5, vaultMinutes);
+        }
         var storage = new VaultStorageService(target);
         Assert.False(storage.HasConfig || storage.HasVault);
         using var vault = new VaultService(storage, new EncryptionService(), totp);
         const string secret = "JBSWY3DPEHPK3PXP"; // Synthetic UI-test credentials only.
+        var autofillOrigin = Environment.GetEnvironmentVariable("PASSWORDTOOL_AUTOFILL_TEST_ORIGIN");
+        if (!string.IsNullOrWhiteSpace(autofillOrigin))
+            Assert.True(Uri.TryCreate(autofillOrigin, UriKind.Absolute, out var origin)
+                && (origin.Scheme == "https" || origin.Scheme == "http" && origin.IsLoopback));
         vault.InitializeNewVault(Password, secret, totp.GetCurrentCode(secret).Code, RecoveryKeyService.Generate(), true);
         var group = vault.AddGroup("Work", "#336699");
         for (var i = 0; i < 20; i++)
@@ -581,15 +591,18 @@ public sealed class RecoveryKeyAndDeadlineTests : IDisposable
         var passwordTotp = new VaultItem
         {
             Title = "TOTP password account", Username = "totp-password@example.test", Password = "synthetic-test-password",
-            Url = "https://example.com", GroupId = group.Id
+            Url = autofillOrigin ?? "https://example.com", GroupId = group.Id
         };
         passwordTotp.SetTotpConfiguration(new TotpConfiguration(secret, "Example", passwordTotp.Username));
         vault.AddItem(passwordTotp);
-        var onlyTotp = new VaultItem { Title = "TOTP only account", Username = "totp-only@example.test", Url = "https://example.com", GroupId = group.Id };
+        var onlyTotp = new VaultItem { Title = "TOTP only account", Username = "totp-only@example.test", Url = autofillOrigin ?? "https://example.com", GroupId = group.Id };
         onlyTotp.SetTotpConfiguration(new TotpConfiguration(secret, "Example", onlyTotp.Username, TotpAlgorithm.Sha256, 8, 60));
         vault.AddItem(onlyTotp);
+        if (!string.IsNullOrWhiteSpace(autofillOrigin))
+            vault.AddItem(new VaultItem { Title = "Autofill password only", Username = "password-only@example.test",
+                Password = "synthetic-test-password", Url = autofillOrigin, GroupId = group.Id });
         // UI batches need time to finish; deadline behavior uses the independent clock-controlled tests.
-        Assert.True(vault.TryUpdateSettings(Password, VaultLoginMode.Hybrid, new VaultSecuritySettings(10, 5, 30), out _));
+        Assert.True(vault.TryUpdateSettings(Password, VaultLoginMode.Hybrid, new VaultSecuritySettings(10, 5, vaultMinutes), out _));
     }
 
     [Fact]

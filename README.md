@@ -1,6 +1,6 @@
 # YourSafe (PasswordTool)
 
-> A local Windows vault for passwords and account recovery codes, plus a password-hash utility and optional Chrome/Edge autofill. Vault data stays on the device; the desktop application has no database, cloud sync, online account system, telemetry, or runtime network dependency.
+> A local Windows vault for passwords and account recovery codes, plus a password-hash utility and optional Chrome/Edge/Brave autofill. Vault data stays on the device; the desktop application has no database, cloud sync, online account system, telemetry, or runtime network dependency.
 
 YourSafe is the desktop product name; repository/project names and the vault directory retain `PasswordTool`. The desktop application uses WinUI 3. The former WinForms client and its UI-preview project were removed during the migration cutover.
 
@@ -16,7 +16,7 @@ YourSafe is the desktop product name; repository/project names and the vault dir
 | **Everyday organization** | Searches locally and organizes entries with favorites, groups displayed as tabs, and tags. |
 | **Password generation** | Generates cryptographically random passwords and readable passphrases with strength feedback. |
 | **Website TOTP** | Add or edit TOTP in a credential draft, then Save item. View current codes from the vault's 2FA action, Details, or the browser popup while the desktop vault is unlocked. |
-| **Browser autofill** | Session opt-in Chrome/Edge integration fills an account on its exact stored origin only after a separate one-shot desktop approval. |
+| **Browser autofill** | Session opt-in Chrome/Edge/Brave integration fills an account on its exact stored origin only after a separate one-shot desktop approval. |
 | **Migration** | Reviews and imports common browser or password-manager CSV exports without overwriting matching accounts. |
 | **Safety lifecycle** | Keeps password history, a 30-day Trash, paired encrypted snapshots, timed vault lock, and a local weak/reused/old-password check. |
 | **Hash utility** | Generates, verifies, and inspects password hashes, including clearly marked educational-only algorithms. |
@@ -197,7 +197,8 @@ Forgot Master Password verifies the Recovery Key, collects a new Master Password
 - Changing a password keeps its latest 10 previous values inside the encrypted vault. Deleted items remain in Trash for 30 days unless restored or permanently deleted.
 - UpdatedAt records any item edit; PasswordChangedAt records only when the current password became active. Older vaults derive the latter from the newest valid password-history change, then UpdatedAt, then CreatedAt; impossible future dates are ignored.
 - Local Security Check is local-only: it scans active password entries for weak, exactly reused, and passwords at least 365 days old without returning a secret. Its dialog names affected items, supports protected **Edit selected item**, then rescans after the edit. It performs no network request and does not expose password values in its result.
-- State changes preserve up to five paired `.config` + `.storage` snapshots. Restore restores the pair and ends the current sign-in session; sign in again using the restored credentials.
+- State changes preserve up to five paired `.config` + `.storage` snapshots. Restore verifies the selected pair before replacing live files. The current Master Password authorizes replacement; supply the snapshot's Master Password when it differs. A successful restore ends the current sign-in session; sign in again using the restored credentials.
+- The [demo security verification record](docs/demo-security-verification.md) separates tested behavior from remaining browser, lifecycle and distribution checks.
 - Internal snapshots remain on the same disk. They can undo local changes but are not an external backup and do not protect against disk loss.
 
 ## Security model and limits
@@ -286,7 +287,7 @@ tests/
   PasswordTool.Presentation.Tests/ # MVVM and orchestration tests
 docs/
   architecture.md          # boundaries, data flows, and developer rules
-browser-extension/         # standalone TypeScript Chrome/Edge extension
+browser-extension/         # standalone TypeScript Chrome/Edge/Brave extension
 website/                   # static Vietnamese landing page
 ```
 
@@ -294,4 +295,4 @@ For implementation details and rules for future changes, read [docs/architecture
 
 ## Browser autofill
 
-YourSafe includes a local C# NativeHost and a standalone TypeScript extension for Chrome and Edge. Integration starts disabled for each app session; enabling it in Settings starts the local pipe listeners and disabling it cancels their connections. Each password/OTP read or OTP copy requires a separate one-shot approval on the running, unlocked desktop. Stored URLs must match the exact supported origin; URL-empty items are denied. The extension uses activeTab access after explicit interaction, validates the destination fields and form, and never submits it. Discovery stays within a 64 KiB envelope and reports when the list is incomplete. See [browser-extension/README.md](browser-extension/README.md) and [the security requirements](docs/security-hardening-requirements.md) for boundaries and deferred qualification.
+YourSafe includes a local C# NativeHost and a standalone TypeScript extension for Chrome, Edge and Brave. Integration starts disabled for each app session; enabling it in Settings starts the local pipe listeners and disabling it cancels their connections. Each password/OTP read or OTP copy requires a separate one-shot approval on the running, unlocked desktop. Stored URLs must match the exact supported origin; URL-empty items are denied. The extension uses activeTab access after explicit interaction, validates the destination fields and form, and never submits it. Discovery stays within a 64 KiB envelope and reports when the list is incomplete. See [browser-extension/README.md](browser-extension/README.md), [the security requirements](docs/security-hardening-requirements.md) and [the demo verification record](docs/demo-security-verification.md) for boundaries, observed results and remaining qualification.

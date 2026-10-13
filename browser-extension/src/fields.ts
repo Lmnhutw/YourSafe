@@ -27,7 +27,9 @@ function safeForm(input: HTMLInputElement): boolean {
   const form = input.form;
   if (!form) return true;
   if (canonicalOrigin(form.action) !== origin) return false;
-  return [...form.elements].every(element => !(element instanceof HTMLButtonElement || element instanceof HTMLInputElement)
+  // form.elements omits image submitters, including ones associated through form=.
+  const images = [...document.querySelectorAll<HTMLInputElement>('input[type=image]')].filter(element => element.form === form);
+  return [...form.elements, ...images].every(element => !(element instanceof HTMLButtonElement || element instanceof HTMLInputElement)
     || !element.hasAttribute('formaction') || canonicalOrigin(element.formAction) === origin);
 }
 export function findFields(focused?: HTMLInputElement, selectedUsername?: HTMLInputElement): Fields | undefined {

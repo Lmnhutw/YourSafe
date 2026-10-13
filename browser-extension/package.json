@@ -8,7 +8,9 @@
     "build:production": "node build.mjs --production",
     "typecheck": "tsc --noEmit",
     "test": "node test/run.mjs",
-    "test:browser:build": "esbuild test/browser-smoke.ts --bundle --outfile=dist/test/browser-smoke.js"
+    "test:browser:build": "esbuild test/browser-smoke.ts --bundle --outfile=dist/test/browser-smoke.js",
+    "test:e2e:self-check": "node test/extension-e2e.mjs --self-check",
+    "test:e2e": "node test/extension-e2e.mjs"
   },
   "devDependencies": {
     "@types/chrome": "^0.1.0",

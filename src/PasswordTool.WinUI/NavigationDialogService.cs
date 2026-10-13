@@ -13,7 +13,7 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
         var panel = new StackPanel { Spacing = 12 };
         panel.Children.Add(new TextBlock
         {
-            Text = "Enter your Master Password to continue. Unsaved changes to an item may be lost if you cancel.",
+            Text = "Enter your Master Password to continue. Unsaved changes to an item are cleared when the vault locks.",
             TextWrapping = TextWrapping.Wrap
         });
         panel.Children.Add(password);
@@ -24,7 +24,7 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
     public async Task<(string Confirmation, string TotpCode)?> ConfirmGroupDeletionAsync(
         string groupName, CancellationToken cancellationToken = default)
     {
-        var expected = $"Confirm delete all the data in \"{groupName}\"";
+        var expected = $"Confirm delete all data in \"{groupName}\"";
         var confirmation = new TextBox { Header = "Type the exact confirmation below" };
         var dialog = new AppContentDialog
         {

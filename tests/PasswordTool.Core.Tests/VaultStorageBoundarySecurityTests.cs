@@ -52,7 +52,7 @@ public sealed class VaultStorageBoundarySecurityTests : IDisposable
         File.WriteAllBytes(Path.Combine(snapshot, ".config"), new byte[VaultStorageService.MaxMetadataFileBytes + 1]);
         File.WriteAllText(Path.Combine(snapshot, ".storage"), "{}");
         Assert.Throws<InvalidDataException>(() => storage.GetSnapshots());
-        Assert.Throws<InvalidDataException>(() => storage.RestoreSnapshot("test-snapshot"));
+        Assert.Throws<InvalidDataException>(() => storage.RestoreSnapshot("test-snapshot", (_, _) => { }));
     }
 
     [Fact]

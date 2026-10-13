@@ -10,6 +10,7 @@ public sealed class BackupViewModelTests : IDisposable
     private readonly VaultService service;
     private readonly VaultOperationRunner runner = new();
     private readonly Picker picker = new();
+    private readonly Dialogs dialogs = new();
     private readonly AppFlowCoordinator flow;
     private readonly VaultWorkspaceViewModel workspace;
     private readonly BackupViewModel model;
@@ -22,7 +23,7 @@ public sealed class BackupViewModelTests : IDisposable
         service.InitializeNewVault("a strong master password", secret, totp.GetCurrentCode(secret).Code, RecoveryKeyService.Generate(), true);
         flow = new AppFlowCoordinator(service, runner, totp);
         workspace = new VaultWorkspaceViewModel(flow);
-        model = new BackupViewModel(flow, picker, null!, new UserErrorMapper(), workspace);
+        model = new BackupViewModel(flow, picker, dialogs, new UserErrorMapper(), workspace);
     }
 
     [Theory]
@@ -158,11 +159,75 @@ public sealed class BackupViewModelTests : IDisposable
         Assert.False(shell.IsBackupReminderOpen);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Snapshot_restore_requires_current_authorization_and_passes_historical_password_to_core(bool provideHistoricalPassword)
+    {
+        const string original = "a strong master password";
+        const string replacement = "a replacement strong master password";
+        service.AddItem(new VaultItem { Title = "Historical item", Password = "synthetic password" });
+        Assert.True(service.TryChangeMasterPassword(original, replacement, out var error), error);
+        model.SelectedSnapshot = service.GetSnapshots().First();
+        var config = File.ReadAllText(service.ConfigPath);
+        Assert.Equal(provideHistoricalPassword, await model.RestoreSnapshotAsync(replacement, provideHistoricalPassword ? original : null));
+        if (provideHistoricalPassword)
+        {
+            Assert.Equal(AppFlowState.Unlock, flow.FlowState);
+            Assert.False(service.IsSignInSessionActive);
+            Assert.NotEqual(config, File.ReadAllText(service.ConfigPath));
+        }
+        else
+        {
+            Assert.Equal(config, File.ReadAllText(service.ConfigPath));
+            Assert.Equal(AppFlowState.Unlocked, flow.FlowState);
+            Assert.True(model.IsStatusOpen);
+            Assert.Contains("snapshot's Master Password", model.StatusMessage);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Cancelled_or_stale_snapshot_confirmation_cannot_replace_live_state(bool stale)
+    {
+        service.AddItem(new VaultItem { Title = "Snapshot item", Password = "synthetic password" });
+        service.AddItem(new VaultItem { Title = "Live item", Password = "synthetic password" });
+        model.SelectedSnapshot = service.GetSnapshots().First();
+        var config = File.ReadAllText(service.ConfigPath);
+        var payload = File.ReadAllText(service.VaultPath);
+        dialogs.Pending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var restore = model.RestoreSnapshotAsync("a strong master password");
+        if (stale)
+        {
+            await flow.LockAsync();
+            model.Clear();
+            Assert.True((await flow.UnlockAsync("a strong master password", "")).Success);
+        }
+        dialogs.Pending.SetResult(stale);
+        Assert.False(await restore);
+        Assert.Equal(config, File.ReadAllText(service.ConfigPath));
+        Assert.Equal(payload, File.ReadAllText(service.VaultPath));
+        Assert.Equal(2, service.GetItems().Count);
+    }
+
     public void Dispose()
     {
         service.Dispose();
         runner.Dispose();
         if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+    }
+
+    private sealed class Dialogs : IUserDialogService
+    {
+        public TaskCompletionSource<bool>? Pending { get; set; }
+        public Task<bool> ConfirmAsync(string title, string message, string confirmText, CancellationToken cancellationToken = default) =>
+            Pending?.Task ?? Task.FromResult(true);
+        public Task<(string Confirmation, string TotpCode)?> ConfirmGroupDeletionAsync(string groupName, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task ShowErrorAsync(string title, string message, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<string?> PromptTotpAsync(string title, string message, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<string?> PromptBackupPassphraseAsync(string title, string message, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task ShowSecretAsync(string title, string value, bool multiline, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     }
 
     private sealed class Picker : IFilePickerService

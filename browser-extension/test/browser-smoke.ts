@@ -63,6 +63,47 @@ try {
   check(!findFields(), 'submit button cross-origin override rejected');
   fixture.innerHTML = '<form id="login"><input type="password"></form><button form="login" formaction="https://untrusted.example/login">Submit</button>';
   check(!findFields(), 'external submit button override rejected');
+  for (const external of [false, true]) {
+    const image = '<input type="image" form="login" formaction="https://untrusted.example/login">';
+    fixture.innerHTML = `<form id="login"><input type="password">${external ? '' : image}</form>${external ? image : ''}`;
+    check(!findFields(), `${external ? 'external' : 'internal'} image submit cross-origin override rejected`);
+    const submitter = fixture.querySelector('input[type=image]');
+    if (!(submitter instanceof HTMLInputElement)) throw new Error('Missing image submitter');
+    submitter.formAction = location.href;
+    const safeImage = findFields();
+    if (!safeImage) throw new Error('Same-origin image submitter must remain eligible');
+    await fillFields(safeImage, '', 'synthetic-image-password');
+    check(safeImage.password.value === 'synthetic-image-password', `${external ? 'external' : 'internal'} same-origin image submit permits fill`);
+    submitter.formAction = location.origin + ':invalid';
+    check(!findFields(), 'invalid image submit target rejected');
+    if (location.protocol === 'https:') {
+      submitter.formAction = location.href.replace(/^https:/, 'http:');
+      check(!findFields(), `${external ? 'external' : 'internal'} HTTPS-to-HTTP image submit downgrade rejected`);
+    }
+  }
+  fixture.innerHTML = '<form id="login"><input type="password"></form><form id="other"></form><input type="image" form="other" formaction="https://untrusted.example/login">';
+  check(!!findFields(), 'unrelated image submitter does not block safe form');
+  for (const external of [false, true]) {
+    for (const mutation of ['add', 'change']) {
+      const image = '<input type="image" form="login">';
+      fixture.innerHTML = `<form id="login"><input autocomplete="username"><input type="password">${!external && mutation === 'change' ? image : ''}</form>${external && mutation === 'change' ? image : ''}`;
+      const imageMutation = findFields();
+      if (!imageMutation?.username || !imageMutation.password.form) throw new Error('Missing image-mutation fixture');
+      imageMutation.username.addEventListener('input', () => {
+        let submitter = fixture.querySelector('input[type=image]');
+        if (!submitter) {
+          submitter = document.createElement('input');
+          submitter.setAttribute('type', 'image');
+          submitter.setAttribute('form', 'login');
+          (external ? fixture : imageMutation.password.form)?.append(submitter);
+        }
+        submitter.setAttribute('formaction', 'https://untrusted.example/collect');
+      }, { once: true });
+      rejected = false;
+      try { await fillFields(imageMutation, 'synthetic', 'must-not-fill'); } catch { rejected = true; }
+      check(rejected && !imageMutation.password.value, `${mutation} ${external ? 'external' : 'internal'} image submit rejected after username events`);
+    }
+  }
   fixture.innerHTML = '<form><input autocomplete="username"><input type="password"></form>';
   const changedAction = findFields();
   if (!changedAction?.username || !changedAction.password.form) throw new Error('Missing action-change fixture');

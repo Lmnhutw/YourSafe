@@ -14,7 +14,7 @@ Run the checks for the boundary you changed. The Core and Presentation projects 
 | Browser registration | `pwsh -File scripts/Test-BrowserIntegration.ps1` | Production/development manifest boundaries and Chrome/Edge/Brave registration contracts |
 | Website | `node website/verify.cjs` | Site content, navigation, assets and release links |
 
-The Windows pipe-peer test requires Windows. On another platform use the existing `FullyQualifiedName!~Windows_pipe_peers` filter. The two opt-in Core fixture tests do nothing unless their fixture environment variable is set; preserve them because native tests and website captures use them. Unset those variables for a normal unit run.
+The Windows pipe-peer test requires Windows. On another platform use the existing `FullyQualifiedName!~Windows_pipe_peers` filter. The three opt-in Core fixture tests do nothing unless their fixture environment variable is set; preserve them because native tests and website captures use them. Unset those variables for a normal unit run.
 
 ## Native UI batches
 
@@ -24,10 +24,14 @@ The Windows pipe-peer test requires Windows. On another platform use the existin
 | `Test-WorkspaceUi.ps1` | Password generation/hash/verify/inspect, sensitive output reset, backup/settings geometry and locked/unlocked Add/Ctrl+N |
 | `Test-VaultUi.ps1` | Search/filter defaults, read-only details, duplication, group moves, Trash/Restore/delete and password-only table re-unlock |
 | `Test-TotpFlyoutUi.ps1` | Code grouping, timer renewal, setup validation and accessible help |
+| `Test-EditorLockSecurityUi.ps1` | Real one-minute timeout with/without draft TOTP, draft dismissal, cancelled/incorrect re-unlock and a fresh empty editor |
+| `Test-SnapshotRestoreSecurityUi.ps1` | Current/historical password clearing after cancel/failure, paired restore, session end and restored sign-in credentials |
+| `Test-GroupDeletionConfirmationUi.ps1` | Exact displayed confirmation, cancel persistence and deletion of only the batch-created empty group |
+| `Test-AutofillNativeIntegration.ps1` | Installed extension and real NativeHost/WinUI approval using isolated browser profiles; `-NativeHostOnly` checks real process transport/cancellation/competing clients |
 
 `Test-ComboBoxUi.ps1` and `Test-DialogButtonsUi.ps1` were merged into Appearance. `Test-PasswordToolUi.ps1` and `Test-RequestedLayoutUi.ps1` were merged into Workspace; generation and successful verification now run once per batch. Each script accepts `-WinAppPath` when WinApp CLI is not on PATH.
 
-Seed a **new, empty** directory, then launch the Debug app with the same environment variable. The fixture contains only synthetic credentials and has a ten-minute table-lock timer so UI batches can finish.
+Seed a **new, empty** directory, then launch the Debug app with the same environment variable. The fixture contains only synthetic credentials and defaults to a thirty-minute vault duration so UI batches can finish. Set `PASSWORDTOOL_UI_TEST_VAULT_MINUTES=1` before the filtered seed for natural expiry/editor-lock batches; clear it afterward and launch a fresh process so the cached duration is correct.
 
 ```powershell
 $env:PASSWORDTOOL_UI_TEST_DIRECTORY = Join-Path $PWD 'test-results/ui-disposable'
@@ -38,5 +42,11 @@ Remove-Item Env:PASSWORDTOOL_UI_TEST_DIRECTORY
 ```
 
 Use a fresh fixture for independent batches, and keep the app in the foreground for pointer/keyboard checks. Vault tests permanently delete only the copy they create. Scripts verify the exact `YourSafeDisposableUiTest` HelpText directory before driving the app and treat a WinApp wait timeout as failure even when its exit code is zero. Captures/results are ignored; Vault, Appearance and Workspace write under `<TestDirectory>/ui-results`, TOTP writes under `<TestDirectory>`.
+
+Editor Lock Security requires a separate disposable fixture with a one-minute vault duration **before app launch**; the regular thirty-minute fixture deliberately exceeds its 75-second timeout bound. The batch writes under `<TestDirectory>/ui-results`. It verifies readable editor controls and navigation, while protected PasswordBox values and managed references are outside UIA's visibility. It never locks or suspends Windows; record simulated lifecycle tests and actual OS events separately.
+
+Snapshot Restore requires its own fresh fixture. Seed with `PASSWORDTOOL_SNAPSHOT_UI_TEST_DIRECTORY` and filter `FullyQualifiedName~Create_opt_in_disposable_snapshot_ui_vault`, clear that seed variable, then launch Debug with `PASSWORDTOOL_UI_TEST_DIRECTORY` pointing to the same directory. The batch is single-use: it checks the current pair and snapshot identity before replacing synthetic state, and saves each run under a separate `ui-results/snapshot-restore-<timestamp>-<id>` directory. Protected password clearing is tested by rejected reuse, rather than reading PasswordBox plaintext.
+
+`AutofillTestControl.ps1 -SelfCheck`, `Test-AutofillNativeIntegration.ps1 -SelfCheck` and `Test-SnapshotRestoreSecurityUi.ps1 -SelfCheck` verify runner parsing/timeout/error handling or manifest staging without driving a desktop or changing Native Messaging registration. Read-only stale-element queries may re-resolve once; actions that write or invoke controls are never automatically replayed.
 
 Review native screenshots for appearance assertions. Passing UI Automation properties alone does not verify colors, clipping, contrast or DPI behavior. Native scripts and the DOM smoke test also do not replace the installed-extension → NativeHost → desktop end-to-end check.

@@ -1,19 +1,19 @@
 :root { color-scheme: light dark; font: 13px/1.5 "Segoe UI", system-ui, sans-serif; --bg: #f7f9fc; --surface: #fff; --text: #15243c; --muted: #627087; --border: #dfe6ee; --accent: #204BDB; --tint: #edf1ff; }
 * { box-sizing: border-box; }
-body { width: 360px; max-height: 600px; display: flex; flex-direction: column; margin: 0; background: var(--bg); color: var(--text); }
+body { width: 360px; max-height: 600px; display: flex; flex-direction: column; overflow: hidden; margin: 0; background: var(--bg); color: var(--text); }
 header { display: flex; align-items: center; gap: 11px; padding: 20px; background: var(--surface); border-bottom: 1px solid var(--border); }
 .mark { display: block; width: 40px; height: 40px; border-radius: 12px; object-fit: cover; }
 h1 { margin: 0; font-size: 19px; line-height: 1.3; letter-spacing: -.5px; }
 .caption { font-size: 11px; color: var(--muted); }
 .badge { margin-left: auto; color: var(--accent); background: var(--tint); border-radius: 5px; padding: 3px 6px; font-size: 9px; font-weight: 700; letter-spacing: .8px; }
 header, footer { flex-shrink: 0; }
-main { padding: 18px 20px 22px; min-height: 0; overflow-y: auto; }
+main { padding: 18px 20px 22px; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
 .site { padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
 .eyebrow { font-size: 9px; font-weight: 700; letter-spacing: 1.2px; color: var(--muted); }
 .origin { margin: 4px 0 0; font-weight: 600; overflow-wrap: anywhere; }
 .origin:empty::before { content: "Checking this tab…"; color: var(--muted); font-weight: 400; }
 #status { margin: 16px 0 12px; color: var(--muted); overflow-wrap: anywhere; }
-#accounts { display: grid; gap: 8px; max-height: 260px; overflow-y: auto; padding: 3px; margin: -3px; }
+#accounts { display: grid; gap: 8px; padding: 3px; margin: -3px; }
 #accounts[hidden] { display: none; }
 button { font: inherit; color: var(--text); border: 1px solid var(--border); border-radius: 9px; background: var(--surface); cursor: pointer; min-height: 40px; padding: 9px 13px; overflow-wrap: anywhere; }
 button:hover { border-color: var(--accent); background: var(--tint); }
@@ -41,11 +41,12 @@ button:disabled { cursor: wait; opacity: .6; }
 #totp-progress { width: 100%; height: 8px; accent-color: var(--accent); }
 #totp-countdown { min-width: 58px; text-align: end; color: var(--muted); font-variant-numeric: tabular-nums; }
 ::selection { background: var(--accent); color: var(--surface); }
-footer { padding: 16px 20px 12px; background: var(--surface); border-top: 1px solid var(--border); }
-.actions { display: flex; gap: 9px; }
+footer { display: grid; gap: 8px; padding: 16px 20px 12px; background: var(--surface); border-top: 1px solid var(--border); }
+#cancel { width: 100%; }
+.actions { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 9px; }
 #refresh { color: var(--muted); }
-#show-app { flex: 1; background: #204BDB; border-color: #204BDB; color: #fff; font-weight: 600; }
+#show-app { background: #204BDB; border-color: #204BDB; color: #fff; font-weight: 600; }
 #show-app:hover { background: #193CB0; border-color: #193CB0; color: #fff; }
 #show-app span { margin-left: 8px; }
-.footnote { margin: 10px 0 0; color: var(--muted); font-size: 10px; text-align: center; }
+.footnote { margin: 2px 0 0; color: var(--muted); font-size: 10px; text-align: center; }
 @media (prefers-color-scheme: dark) { :root { --bg: #111923; --surface: #182332; --text: #e6edf5; --muted: #a6b4c7; --border: #2d3a4b; --accent: #a8bbff; --tint: #243459; } }

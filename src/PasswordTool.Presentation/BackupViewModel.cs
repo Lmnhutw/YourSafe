@@ -152,7 +152,7 @@ public sealed partial class BackupViewModel(
         });
     }
 
-    public async Task<bool> RestoreSnapshotAsync(string masterPassword)
+    public async Task<bool> RestoreSnapshotAsync(string masterPassword, string? snapshotMasterPassword = null)
     {
         if (SelectedSnapshot is not { } snapshot) return false;
         var restored = false;
@@ -160,7 +160,7 @@ public sealed partial class BackupViewModel(
         {
             if (!await dialogs.ConfirmAsync("Restore snapshot", "Replace your current vault and security settings with the selected snapshot and return to sign in?", "Restore")) return;
             EnsureCurrent(version);
-            var result = await flow.RestoreSnapshotAsync(snapshot.Id, masterPassword);
+            var result = await flow.RestoreSnapshotAsync(snapshot.Id, masterPassword, snapshotMasterPassword: snapshotMasterPassword);
             if (!result.Success) ShowStatus(result.Message);
             restored = result.Success;
         });

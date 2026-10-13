@@ -12,7 +12,7 @@
       <p id="totp-username" class="totp-username"></p>
       <p class="totp-label">Verification code</p>
       <div class="totp-value"><output id="totp-code" aria-live="off"></output><button id="totp-copy" type="button">Copy</button></div>
-      <div class="totp-timing"><progress id="totp-progress" max="30000" value="0" aria-label="Time until code changes"></progress><span id="totp-countdown"></span></div>
+      <div class="totp-timing"><progress id="totp-progress" max="30000" value="0" aria-label="Time until code expires"></progress><span id="totp-countdown"></span></div>
     </div>
   </main>
   <footer><button id="cancel" type="button" hidden>Cancel request</button><div class="actions"><button id="refresh" type="button">Refresh</button><button id="show-app" type="button">Show YourSafe <span aria-hidden="true">↗</span></button></div><p class="footnote">Approve each request in YourSafe on the desktop.</p></footer>
