@@ -27,7 +27,7 @@ window.addEventListener("pagehide", () => form.reset());
 form.querySelector("fieldset").disabled = false;
 
 const address = document.querySelector("#demo-address");
-const demoUrl = new URL("./demo-login.html", location.href).href;
+const demoUrl = new URL("./demo-login", location.href).href;
 address.href = demoUrl;
 address.textContent = demoUrl;
 

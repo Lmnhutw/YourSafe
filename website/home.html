@@ -32,7 +32,7 @@
         <a href="#features">Tính năng</a>
         <a href="#install">Cài đặt</a>
         <a href="#faq">Hỏi đáp</a>
-        <a href="./demo-login.html">Đăng nhập thử</a>
+        <a href="./demo-login">Đăng nhập thử</a>
         <a
           href="https://github.com/Lmnhutw/PasswordTool.Core">Mã nguồn <span
             aria-hidden="true">↗</span></a>
@@ -91,7 +91,7 @@
 
                   <div class="manual-bottom">
                     <span>Dữ liệu được lưu<br>trên máy của bạn.</span>
-                    <p class="manual-demo">Minh họa điền tài khoản trên trang đăng nhập thử. Popup dùng dữ liệu mô phỏng. <a href="./demo-login.html">Thử ngay →</a></p>
+                    <p class="manual-demo">Minh họa điền tài khoản trên trang đăng nhập thử. Popup dùng dữ liệu mô phỏng. <a href="./demo-login">Thử ngay →</a></p>
                   </div>
                 </article>
 
@@ -251,33 +251,34 @@
               href="https://github.com/Lmnhutw/PasswordTool.Core#security-model-and-limits">Tìm
               hiểu cách bảo vệ dữ liệu <span
                 aria-hidden="true">↗</span></a></div>
-          <figure class="storage-figure"><svg class="storage-diagram"
-              viewBox="0 0 600 390" role="img"
-              aria-labelledby="storage-title storage-description"><title
-                id="storage-title">Kho lưu trữ trên Windows và bản sao lưu trên thiết bị
-                khác</title><desc id="storage-description">YourSafe lưu kho được
-                mã hóa trên máy Windows. Người dùng tự xuất một bản sao lưu có
-                mật khẩu riêng sang USB hoặc thiết bị khác; không có đồng bộ tự
-                động.</desc><rect class="diagram-machine" x="18" y="18"
-                width="564" height="212" rx="16" /><path class="diagram-icon"
-                d="M49 53h37v27H49zM60 88h15M67 80v8" /><text x="103" y="76"
-                class="diagram-label">Máy Windows của bạn</text><rect
-                class="diagram-vault" x="49" y="110" width="502" height="91"
-                rx="10" /><path class="diagram-icon"
-                d="M76 153v-10a10 10 0 0 1 20 0v10M73 153h26v24H73z" /><text
-                x="121" y="149" class="diagram-label">Kho YourSafe được mã
-                hóa</text><text x="121" y="177" class="diagram-small">Mật khẩu ·
-                Mã xác thực · Mã khôi phục</text><path class="diagram-arrow"
-                d="M300 231v65m-7-7 7 7 7-7" /><rect class="diagram-ground"
-                x="181" y="242" width="238" height="31" rx="4" /><text x="300"
-                y="263" text-anchor="middle" class="diagram-small">Bạn tự xuất
-                bản sao lưu</text><rect class="diagram-backup" x="49" y="311"
-                width="502" height="61" rx="10" /><path class="diagram-icon"
-                d="M76 328h18v27H76zM81 322v6m8-6v6" /><text x="121" y="336"
-                class="diagram-label">USB hoặc thiết bị khác</text><text x="121"
-                y="358" class="diagram-small">Bản sao lưu có mật khẩu
-                riêng</text></svg><figcaption>Sơ đồ lưu trữ. Bản sao trên cùng ổ
-              đĩa không bảo vệ dữ liệu khi ổ đĩa hỏng.</figcaption></figure>
+          <figure class="storage-figure" aria-labelledby="storage-title">
+            <h3 id="storage-title">Kho gốc trên máy.<br>Bản sao ở nơi khác.</h3>
+            <div class="storage-flow">
+              <div class="storage-computer">
+                <div class="storage-screen">
+                  <div class="storage-device-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v13H3zM8 21h8m-4-4v4" /></svg>Máy Windows của bạn</div>
+                  <div class="storage-vault"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3M5 10h14v12H5z" /></svg><strong>Kho YourSafe<br>được mã hóa</strong></div>
+                  <ul class="storage-contents"><li>Mật khẩu</li><li>Mã xác thực</li><li>Mã khôi phục</li></ul>
+                </div>
+                <div class="storage-stand" aria-hidden="true"></div>
+                <p class="storage-origin">Kho gốc vẫn ở trên máy</p>
+              </div>
+              <div class="storage-transfer">
+                <p>Bạn chủ động<br>xuất bản sao</p>
+                <div class="storage-track" aria-hidden="true">
+                  <svg class="storage-arrow" viewBox="0 0 24 24"><path d="M3 12h18m-6-6 6 6-6 6" /></svg>
+                  <span class="storage-packet"><svg viewBox="0 0 24 24"><path d="M5 3h9l5 5v13H5zM14 3v6h5M9 14h6v5H9zM10 14v-2a2 2 0 0 1 4 0v2" /></svg></span>
+                </div>
+              </div>
+              <div class="storage-destination">
+                <div class="storage-usb" aria-hidden="true"><div class="storage-usb-plug"></div><div class="storage-usb-body"><svg viewBox="0 0 24 24"><path d="M12 21V3m-3 3 3-3 3 3M12 16l-5-5V8m5 5 5-5V5" /><circle cx="7" cy="6" r="2" /><path d="M15 2h4v3h-4z" /></svg></div></div>
+                <strong>USB hoặc<br>thiết bị khác</strong>
+                <button class="storage-replay" type="button" aria-label="Xem lại cách tạo bản sao mã hóa" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h9l5 5v13H5zM14 3v6h5M9 14h6v5H9zM10 14v-2a2 2 0 0 1 4 0v2" /></svg><span>Bản sao mã hóa</span></button>
+                <p class="storage-backup-note">Mật khẩu sao lưu riêng</p>
+              </div>
+            </div>
+            <figcaption>Sơ đồ minh họa việc chủ động sao lưu. Cất bản sao trên USB hoặc thiết bị khác để dự phòng khi máy hoặc ổ đĩa hỏng.</figcaption>
+          </figure>
         </div>
       </section>
       <section class="section install" id="install"
@@ -370,7 +371,7 @@
               <div class="closing-demo">
                 <h3>Đã cài YourSafe?</h3>
                 <p>Thử điền mật khẩu với tiện ích YourSafe.</p>
-                <a class="text-link" href="./demo-login.html">Thử ngay <span aria-hidden="true">→</span></a>
+                <a class="text-link" href="./demo-login">Thử ngay <span aria-hidden="true">→</span></a>
               </div>
             </div></div></section>
     </main>

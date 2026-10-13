@@ -19,9 +19,9 @@ const mime = {
 const server = http.createServer((request, response) => {
   const pathname = new URL(request.url, "http://localhost").pathname;
   const relative =
-    pathname.replace(/^\/PasswordTool\.Core\//, "/").replace(/^\//, "") ||
-    "index.html";
-  const file = path.resolve(root, relative);
+    pathname.replace(/^\/(?:YourSafe|PasswordTool\.Core)\//, "/").replace(/^\//, "") ||
+    "home";
+  const file = path.resolve(root, path.extname(relative) ? relative : `${relative}.html`);
   if (
     !file.startsWith(root + path.sep) ||
     !fs.existsSync(file) ||
@@ -68,6 +68,53 @@ async function swipe(page, start, end, cancel = false) {
   }, { start, end, cancel });
 }
 
+async function verifyStorage(browser, base) {
+  const context = await browser.newContext({ reducedMotion: 'no-preference', viewport: { width: 1440, height: 900 } });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto(base);
+  assert.equal(await page.locator('.storage-figure').evaluate(element => element.classList.contains('is-playing')), false, 'storage waits until visible');
+  await page.locator('.storage-packet').evaluate(packet => {
+    window.storageIterations = 0;
+    window.storageEnds = 0;
+    packet.addEventListener('animationiteration', () => window.storageIterations++);
+    packet.addEventListener('animationend', () => window.storageEnds++);
+  });
+  await page.locator('.storage-figure').scrollIntoViewIfNeeded();
+  await page.waitForFunction(() => document.querySelector('.storage-figure').classList.contains('is-playing'));
+  assert.equal(await page.locator('.storage-replay').isDisabled(), true, 'no overlapping replay');
+  const origin = await page.locator('.storage-screen').boundingBox();
+  await page.waitForFunction(() => !document.querySelector('.storage-figure').classList.contains('is-playing'));
+  assert.deepEqual(await page.evaluate(() => [window.storageIterations, window.storageEnds]), [2, 1], 'exactly three cycles then stop');
+  assert.deepEqual(await page.locator('.storage-screen').boundingBox(), origin, 'original vault stays in place');
+  assert.equal(await page.locator('.storage-replay').isEnabled(), true);
+  await page.locator('.storage-replay').focus();
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => document.querySelector('.storage-figure').classList.contains('is-playing'));
+  await page.waitForFunction(() => !document.querySelector('.storage-figure').classList.contains('is-playing'));
+  assert.deepEqual(await page.evaluate(() => [window.storageIterations, window.storageEnds]), [4, 2], 'keyboard text action replays three cycles');
+  await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
+  await page.locator('.storage-figure').scrollIntoViewIfNeeded();
+  assert.equal(await page.locator('.storage-figure').evaluate(element => element.classList.contains('is-playing')), false, 'scrolling back does not restart autoplay');
+  await page.locator('.storage-replay').click();
+  await page.waitForFunction(() => document.querySelector('.storage-figure').classList.contains('is-playing'));
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.waitForFunction(() => !document.querySelector('.storage-figure').classList.contains('is-playing'));
+  assert.equal(await page.locator('.storage-replay').isDisabled(), true, 'reduced motion cancels and disables replay');
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.waitForFunction(() => !document.querySelector('.storage-replay').disabled);
+  await page.locator('.storage-replay').click();
+  const path = await page.locator('.storage-packet').evaluate(packet => ({ x: packet.style.getPropertyValue('--copy-x'), y: parseFloat(packet.style.getPropertyValue('--copy-y')) }));
+  assert.equal(path.x, '0px', 'mobile copy moves vertically');
+  assert.ok(path.y > 0);
+  await page.waitForFunction(() => !document.querySelector('.storage-figure').classList.contains('is-playing'));
+  assert.deepEqual(errors, []);
+  await context.close();
+  console.log('PASS: storage starts on visibility, three finite cycles, original retained, keyboard/click text replay, no autoplay on re-entry, reduced-motion cancellation and vertical mobile path.');
+}
+
 async function verifyDemo(browser, base) {
   const { buildSync } = require('../browser-extension/node_modules/esbuild');
   const extensionFields = buildSync({ entryPoints: [path.join(root, '../browser-extension/src/fields.ts')],
@@ -80,10 +127,10 @@ async function verifyDemo(browser, base) {
   page.on('response', response => { if (response.status() >= 400) errors.push(`${response.status()} ${response.url()}`); });
   await page.goto(base);
   await page.locator('.closing-demo a').click();
-  assert.equal(page.url(), `${base}demo-login.html`);
+  assert.equal(page.url(), `${base}demo-login`);
   for (const width of [1440, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
-    await page.goto(`${base}demo-login.html`);
+    await page.goto(`${base}demo-login`);
     await page.evaluate(() => document.fonts.ready);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `demo overflow at ${width}`);
     assert.equal(await page.getByLabel('Tên đăng nhập').inputValue(), '');
@@ -95,7 +142,7 @@ async function verifyDemo(browser, base) {
     if ([1440, 390].includes(width)) await page.screenshot({ path: path.join(root, `../.impeccable/review/demo-${width}.png`), fullPage: true });
   }
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto(`${base}demo-login.html`);
+  await page.goto(`${base}demo-login`);
   await page.addScriptTag({ url: `${base}extension-fields.js` });
   await page.evaluate(() => document.fonts.ready);
   const requests = [];
@@ -127,33 +174,35 @@ async function verifyDemo(browser, base) {
     await page.getByRole('button', { name: 'Thử lại', exact: true }).click();
   }
   assert.deepEqual(requests, [], 'filling, submit and reset never send credentials or navigate');
-  assert.equal(page.url(), `${base}demo-login.html`);
+  assert.equal(page.url(), `${base}demo-login`);
   assert.deepEqual(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length, cookies: document.cookie })), { local: 0, session: 0, cookies: '' });
   await page.evaluate(() => Object.defineProperty(navigator.clipboard, 'writeText', { configurable: true, value: async text => { window.copiedAddress = text; } }));
   await page.getByRole('button', { name: 'Sao chép', exact: true }).click();
-  assert.equal(await page.evaluate(() => window.copiedAddress), `${base}demo-login.html`);
+  assert.equal(await page.evaluate(() => window.copiedAddress), `${base}demo-login`);
   await page.evaluate(() => Object.defineProperty(navigator.clipboard, 'writeText', { value: async () => { throw new Error('denied'); } }));
   await page.getByRole('button', { name: 'Sao chép', exact: true }).click();
   assert.match(await page.locator('#address-status').textContent(), /Không sao chép được/);
   await page.getByLabel('Tên đăng nhập').fill('temporary-demo');
   await page.getByRole('link', { name: 'Về trang chủ' }).click();
-  assert.equal(page.url(), `${base}index.html`);
+  assert.equal(page.url(), `${base}home`);
   await page.goBack();
   assert.equal(await page.getByLabel('Tên đăng nhập').inputValue(), '', 'leaving the page clears inputs');
-  await page.goto(new URL('/demo-login.html', base).href);
-  assert.equal(await page.locator('#demo-address').textContent(), new URL('/demo-login.html', base).href);
+  await page.goto(new URL('/demo-login', base).href);
+  assert.equal(await page.locator('#demo-address').textContent(), new URL('/demo-login', base).href);
+  await page.goto(`${base}demo-login.html`);
+  assert.equal(await page.locator('#demo-address').textContent(), `${base}demo-login`, 'legacy HTML entry displays the clean demo URL');
   assert.deepEqual(errors, []);
   await context.close();
   const noJs = await browser.newContext({ javaScriptEnabled: false });
   const plain = await noJs.newPage();
-  await plain.goto(`${base}demo-login.html`);
+  await plain.goto(`${base}demo-login`);
   assert.equal(await plain.getByRole('button', { name: 'Đăng nhập', exact: true }).isDisabled(), true);
   assert.equal(await plain.getByLabel('Tên đăng nhập').isDisabled(), true, 'no-JS cannot submit secrets');
   await noJs.close();
   const blockedJs = await browser.newContext();
   await blockedJs.route('**/demo-login.js', route => route.abort());
   const blocked = await blockedJs.newPage();
-  await blocked.goto(`${base}demo-login.html`);
+  await blocked.goto(`${base}demo-login`);
   assert.equal(await blocked.getByLabel('Tên đăng nhập').isDisabled(), true, 'missing script cannot submit secrets');
   await blockedJs.close();
   console.log('PASS: demo CTA/base paths, 1440/768/390/320 layouts, actual extension field detection/fill, keyboard submit, arbitrary/empty input, reset/focus, no secret requests/storage, copy success/failure and no-JS/script-failure safety.');
@@ -163,7 +212,7 @@ async function verifyDemo(browser, base) {
   let browser;
   try {
     await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const base = `http://127.0.0.1:${server.address().port}/PasswordTool.Core/`;
+    const base = `http://127.0.0.1:${server.address().port}/YourSafe/`;
     browser = await chromium.launch({
       headless: true,
       channel: process.platform === "win32" ? "msedge" : undefined,
@@ -195,6 +244,10 @@ async function verifyDemo(browser, base) {
       await page.goto(base);
       await page.evaluate(() => document.fonts.ready);
       if ([1440, 390].includes(width)) await page.locator('.site-header').screenshot({ path: path.join(root, `../.impeccable/review/header-${width}.png`) });
+      const compactHeader = await page.locator('.site-header').boundingBox();
+      const compactDownload = await page.locator('.header-download').boundingBox();
+      assert.ok(compactHeader.height <= 72, `compact header at ${width}`);
+      assert.ok(compactDownload.height >= 44 && compactDownload.height <= 45, `compact accessible download at ${width}`);
       assert.equal(await page.locator("h1").textContent(), "YourSafe.");
       assert.equal(
         await page.evaluate(
@@ -211,7 +264,7 @@ async function verifyDemo(browser, base) {
       await assertSlide(page, 0);
       assert.equal(await page.locator('.manual-bottom svg').count(), 0, 'large footer arrow removed');
       assert.equal(await page.locator('.manual-demo').count(), 1, 'demo caption moved once');
-      assert.equal(await page.locator('.manual-demo a').getAttribute('href'), './demo-login.html');
+      assert.equal(await page.locator('.manual-demo a').getAttribute('href'), './demo-login');
       assert.equal(await page.locator('.extension-context figcaption').count(), 0, 'old caption removed');
       const footerFits = await page.locator('.manual-bottom').evaluate((footer) => {
         const article = footer.closest('.showcase-slide').getBoundingClientRect();
@@ -284,7 +337,7 @@ async function verifyDemo(browser, base) {
         await assertImage(image);
       }
       assert.equal(await page.locator('a[href^="./assets/"]').count(), 0, 'product images have no click-through links');
-      for (const image of await page.locator('.app-figure .product-image, .storage-diagram').all()) {
+      for (const image of await page.locator('.app-figure .product-image').all()) {
         await image.hover();
         assert.equal(await page.locator('.image-preview').isVisible(), true, 'shared hover preview');
         const fits = await page.locator('.image-preview > *').evaluate(element => {
@@ -303,6 +356,18 @@ async function verifyDemo(browser, base) {
       await page.keyboard.press('Escape');
       assert.equal(await page.locator('.image-preview').isVisible(), false);
       await page.evaluate(() => document.activeElement.blur());
+      assert.equal(await page.locator('.storage-figure .button').count(), 0, 'no large illustration button');
+      assert.equal(await page.locator('.storage-replay span').textContent(), 'Bản sao mã hóa');
+      assert.equal(await page.locator('.storage-replay').isDisabled(), true, 'reduced motion shows static diagram');
+      const storageFits = await page.locator('.storage-figure').evaluate(figure => {
+        const bounds = figure.getBoundingClientRect();
+        return [...figure.querySelectorAll('.storage-screen, .storage-device-title, .storage-vault, .storage-destination, .storage-replay')].every(element => {
+          const item = element.getBoundingClientRect();
+          return item.left >= bounds.left && item.right <= bounds.right + 1;
+        });
+      });
+      assert.equal(storageFits, true, `storage scene fits at ${width}`);
+      if ([1440, 390].includes(width)) await page.locator('.storage-figure').screenshot({ path: path.join(root, `../.impeccable/review/storage-${width}.png`) });
       assert.equal(await page.locator(".product-image").count(), 7);
       await page.evaluate(() => scrollTo(0, 0));
       for (const href of await page
@@ -329,7 +394,7 @@ async function verifyDemo(browser, base) {
         "./assets/app-logo.png",
       );
       assert.equal(await page.locator('.site-header > :last-child').getAttribute('class'), 'button button-primary header-download');
-      assert.equal(await page.locator('.site-nav a[href="./demo-login.html"]').textContent(), 'Đăng nhập thử');
+      assert.equal(await page.locator('.site-nav a[href="./demo-login"]').textContent(), 'Đăng nhập thử');
       if (width <= 960) {
         await page.getByRole("button", { name: "Menu" }).click();
         assert.equal(
@@ -456,6 +521,8 @@ async function verifyDemo(browser, base) {
       assert.equal(await plain.locator(".hero-copy .button-primary").isVisible(), true);
       assert.equal(await plain.locator('.footer-feedback a[href^="https:"]').getAttribute('href'), 'https://github.com/Lmnhutw/PasswordTool.Core/issues/new');
       assert.equal(await plain.locator(".showcase-controls").isVisible(), false);
+      assert.equal(await plain.locator('.storage-contents li').count(), 3, 'static storage labels without JavaScript');
+      assert.equal(await plain.locator('.storage-replay').isDisabled(), true);
       for (const slide of await plain.locator(".showcase-slide").all()) assert.equal(await slide.isVisible(), true);
       for (const image of await plain.locator(".product-image").all()) {
         await image.scrollIntoViewIfNeeded();
@@ -557,6 +624,7 @@ async function verifyDemo(browser, base) {
       ),
       true,
     );
+    await verifyStorage(browser, base);
     await verifyDemo(browser, base);
     assert.deepEqual(errors, []);
     console.log(`Observed layout shifts: ${JSON.stringify(layoutScores)}`);

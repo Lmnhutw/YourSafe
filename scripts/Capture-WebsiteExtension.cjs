@@ -12,7 +12,7 @@ const logo = fs.readFileSync(path.join(root, 'website/assets/app-logo.png')).toS
 const html = fs.readFileSync(path.join(source, 'popup.html'), 'utf8').replace('<link rel="stylesheet" href="popup.css">', `<style>${css}</style>`).replace('icons/app-logo.png', `data:image/png;base64,${logo}`).replace('<script src="popup.js"></script>', '');
 
 async function captureLoginContext(browser) {
-  const site = 'https://lmnhutw.github.io/PasswordTool.Core/';
+  const site = 'https://lmnhutw.github.io/YourSafe/';
   const page = await browser.newPage({ viewport: { width: 1600, height: 900 }, colorScheme: 'light', reducedMotion: 'reduce' });
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -38,19 +38,19 @@ async function captureLoginContext(browser) {
     main{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:24px;padding:24px;height:852px;box-sizing:border-box}
     iframe{width:100%;height:100%;border:0;border-radius:12px;background:#f5f6f2}
     aside iframe{height:520px;background:#f7f9fc}</style>
-    <header><span>lmnhutw.github.io/PasswordTool.Core/demo-login.html</span><span>Minh họa · dữ liệu demo</span></header>
-    <main><iframe title="Trang đăng nhập thử" src="${site}demo-login.html"></iframe><aside><iframe title="Popup YourSafe" src="${site}popup-preview.html"></iframe></aside></main></html>`;
+    <header><span>lmnhutw.github.io/YourSafe/demo-login</span><span>Minh họa · dữ liệu demo</span></header>
+    <main><iframe title="Trang đăng nhập thử" src="${site}demo-login"></iframe><aside><iframe title="Popup YourSafe" src="${site}popup-preview.html"></iframe></aside></main></html>`;
   const files = new Map([
-    ['demo-login.html', 'text/html'], ['demo-login.js', 'text/javascript'], ['styles.css', 'text/css'],
+    ['demo-login', 'text/html'], ['demo-login.js', 'text/javascript'], ['navigation.js', 'text/javascript'], ['styles.css', 'text/css'],
     ['assets/BeVietnamPro-Regular.ttf', 'font/ttf'], ['assets/BeVietnamPro-Bold.ttf', 'font/ttf'], ['assets/app-logo.png', 'image/png']
   ]);
   await page.route(`${site}**`, route => {
-    const relative = new URL(route.request().url()).pathname.slice('/PasswordTool.Core/'.length);
+    const relative = new URL(route.request().url()).pathname.slice('/YourSafe/'.length);
     if (relative === 'context-preview.html') return route.fulfill({ contentType: 'text/html', body: wrapper });
     if (relative === 'popup-preview.html') return route.fulfill({ contentType: 'text/html', body: html + '<script src="./popup-preview.js"></script>' });
     if (relative === 'popup-preview.js') return route.fulfill({ contentType: 'text/javascript', body: script });
     if (!files.has(relative)) return route.abort();
-    return route.fulfill({ contentType: files.get(relative), body: fs.readFileSync(path.join(root, 'website', relative)) });
+    return route.fulfill({ contentType: files.get(relative), body: fs.readFileSync(path.join(root, 'website', relative === 'demo-login' ? 'demo-login.html' : relative)) });
   });
   await page.goto(`${site}context-preview.html`);
   const demo = page.frameLocator('iframe[title="Trang đăng nhập thử"]');

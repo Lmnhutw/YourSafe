@@ -141,7 +141,7 @@ function showPreview(image) {
   preview.hidden = false;
 }
 
-document.querySelectorAll(".product-image, .storage-diagram").forEach((image) => {
+document.querySelectorAll(".product-image").forEach((image) => {
   image.tabIndex = 0;
   image.addEventListener("mouseenter", () => {
     if (canHover.matches) showPreview(image);
@@ -157,3 +157,46 @@ document.querySelectorAll(".product-image, .storage-diagram").forEach((image) =>
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closePreview();
 });
+
+const storage = document.querySelector(".storage-figure");
+const storageTrack = storage.querySelector(".storage-track");
+const storagePacket = storage.querySelector(".storage-packet");
+const storageReplay = storage.querySelector(".storage-replay");
+
+new ResizeObserver(() => {
+  const vertical = window.matchMedia("(max-width: 680px)").matches;
+  storagePacket.style.setProperty("--copy-x", vertical ? "0px" : `${storageTrack.clientWidth - storagePacket.offsetWidth}px`);
+  storagePacket.style.setProperty("--copy-y", vertical ? `${storageTrack.clientHeight - storagePacket.offsetHeight}px` : "0px");
+}).observe(storageTrack);
+
+function playStorage() {
+  if (reducedMotion.matches) return;
+  storageReplay.disabled = true;
+  storage.classList.add("is-playing");
+}
+
+storagePacket.addEventListener("animationend", (event) => {
+  if (event.animationName !== "storage-copy") return;
+  storage.classList.remove("is-playing");
+  storageReplay.disabled = false;
+});
+storageReplay.addEventListener("click", playStorage);
+reducedMotion.addEventListener("change", () => {
+  storage.classList.remove("is-playing");
+  storageReplay.disabled = reducedMotion.matches;
+});
+
+if (!reducedMotion.matches) {
+  storageReplay.disabled = false;
+  if ("IntersectionObserver" in window) {
+    const storageObserver = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        playStorage();
+        storageObserver.disconnect();
+      }
+    }, { threshold: 0.35 });
+    storageObserver.observe(storage);
+  } else {
+    playStorage();
+  }
+}
