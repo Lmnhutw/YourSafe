@@ -666,7 +666,6 @@ code {
 .feature-panel > p:not(.eyebrow),
 .extension-copy > p:not(.eyebrow) {
   color: var(--muted);
-  margin-top: 0.75rem;
 }
 .feature-overview,
 .feature-extension {
@@ -686,7 +685,8 @@ code {
   margin-bottom: 2rem;
 }
 
-.feature-heading > div > p {
+.feature-heading .des-text {
+  color: var(--muted);
   max-width: 60ch;
 }
 
@@ -1028,14 +1028,26 @@ code {
 }
 
 .showcase-arrows button {
-  border-color: var(--rule);
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
   width: 44px;
-  font-size: 1.1rem;
 }
 
-.showcase-arrows .showcase-autoplay {
-  width: auto;
-  font-size: 0.8rem;
+.showcase-arrows button:hover {
+  background: transparent;
+}
+
+.showcase-arrows svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .showcase-slide :focus-visible {
@@ -1312,13 +1324,12 @@ code {
 .local-layout {
   display: grid;
   grid-template-columns: 0.9fr 1.1fr;
-  gap: 4rem;
-  align-items: center;
+  gap: 2rem 4rem;
+  align-items: start;
 }
 
-.local-copy p {
-  color: var(--muted);
-  margin-top: 1.4rem;
+.local-heading {
+  grid-column: 1 / -1;
 }
 
 .local-copy .text-link {

@@ -50,30 +50,31 @@ async function assertSlide(page, index) {
   assert.deepEqual(state.current, [0, 1, 2].map((position) => String(position === index)));
 }
 
-async function verifySliderMotion(browser, base) {
+async function verifySliderFade(browser, base) {
   const context = await browser.newContext({ reducedMotion: 'no-preference' });
   const page = await context.newPage();
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(base);
-    await page.locator('.showcase-autoplay').click();
+    assert.equal(await page.locator('.showcase-autoplay').count(), 0);
     await page.locator('[data-direction="1"]').click();
     const motion = await page.locator('.showcase-slides').evaluate(stage => {
       const animations = stage.getAnimations({ subtree: true });
       animations.forEach(animation => { animation.pause(); animation.currentTime = 200; });
       const bounds = stage.getBoundingClientRect();
-      return { frames: animations.map(animation => animation.effect.getKeyframes().map(frame => frame.transform)),
+      return { frames: animations.map(animation => animation.effect.getKeyframes().map(frame => frame.opacity)),
         offsets: [...stage.querySelectorAll('.showcase-slide:not([hidden])')].map(slide => slide.getBoundingClientRect().x - bounds.x),
-        width: bounds.width };
+        opacity: [...stage.querySelectorAll('.showcase-slide:not([hidden])')].map(slide => Number(getComputedStyle(slide).opacity)) };
     });
-    assert.deepEqual(motion.frames, [['translateX(0px)', 'translateX(-100%)'], ['translateX(100%)', 'translateX(0px)']]);
-    assert.ok(motion.offsets.some(x => x < 0 && x > -motion.width) && motion.offsets.some(x => x > 0 && x < motion.width), 'both slides move across the stage');
+    assert.deepEqual(motion.frames, [['1', '0'], ['0', '1']]);
+    assert.ok(motion.offsets.every(x => Math.abs(x) < 1), 'fade does not move the slides horizontally');
+    assert.ok(motion.opacity.every(value => value > 0 && value < 1), 'both slides crossfade');
     await page.locator('.showcase-slides').evaluate(stage => stage.getAnimations({ subtree: true }).forEach(animation => animation.play()));
     await page.waitForFunction(() => document.querySelector('.showcase-slides').getAnimations({ subtree: true }).length === 0);
     assert.equal(await page.locator('.showcase-slide:not([hidden])').count(), 1, 'outgoing slide is removed after motion');
     await page.locator('[data-direction="-1"]').click();
-    const reverse = await page.locator('.showcase-slides').evaluate(stage => stage.getAnimations({ subtree: true }).map(animation => animation.effect.getKeyframes().map(frame => frame.transform)));
-    assert.deepEqual(reverse, [['translateX(0px)', 'translateX(100%)'], ['translateX(-100%)', 'translateX(0px)']]);
+    const reverse = await page.locator('.showcase-slides').evaluate(stage => stage.getAnimations({ subtree: true }).map(animation => animation.effect.getKeyframes().map(frame => frame.opacity)));
+    assert.deepEqual(reverse, [['1', '0'], ['0', '1']]);
     await page.locator('[data-direction="1"]').click();
     await page.locator('[data-direction="1"]').click();
     await assertSlide(page, 2);
@@ -390,7 +391,7 @@ async function verifyDemo(browser, base) {
       assert.equal(await page.locator('.manual-bottom svg').count(), 0, 'large footer arrow removed');
       assert.equal(await page.locator('.manual-demo').count(), 1, 'demo caption moved once');
       assert.equal(await page.locator('.manual-demo a').getAttribute('href'), './demo-login');
-      assert.equal(await page.locator('.extension-context figcaption').count(), 0, 'old caption removed');
+      assert.equal(await page.locator('.extension-context figcaption').count(), 1, 'preview caption belongs to its full-width figure');
       const footerFits = await page.locator('.manual-bottom').evaluate((footer) => {
         const article = footer.closest('.showcase-slide').getBoundingClientRect();
         const caption = footer.querySelector('.manual-demo').getBoundingClientRect();
@@ -620,7 +621,13 @@ async function verifyDemo(browser, base) {
     }
     await page.waitForTimeout(5500);
     await assertSlide(page, 0);
-    assert.equal(await page.locator('.showcase-autoplay').textContent(), 'Tự chuyển', 'reduced motion starts paused');
+    assert.equal(await page.locator('.showcase-autoplay').count(), 0, 'no stop button');
+    assert.equal(await page.locator('.showcase-arrows button svg').count(), 2);
+    for (const arrow of await page.locator('.showcase-arrows button').all()) {
+      assert.equal(await arrow.evaluate(element => getComputedStyle(element).borderTopWidth), '0px', 'arrows have no box outline');
+      await arrow.hover();
+      assert.equal(await arrow.evaluate(element => getComputedStyle(element).backgroundColor), 'rgba(0, 0, 0, 0)', 'arrow hover keeps the background clear');
+    }
     await page.locator(".install-guide summary").click();
     assert.match(await page.locator('.install-guide').innerText(), /Giải nén tất cả/);
     assert.doesNotMatch(await page.locator('#install').innerText(), /SHA-256|PowerShell|SIGNED|checksums/);
@@ -691,13 +698,9 @@ async function verifyDemo(browser, base) {
     await animated.evaluate(() => document.activeElement.blur());
     await animated.clock.runFor(5000);
     await assertSlide(animated, 2);
-    await animated.locator('.showcase-autoplay').click();
-    await animated.mouse.move(0, 0);
-    await animated.evaluate(() => document.activeElement.blur());
+    await animated.locator('[data-slide="2"]').focus();
     await animated.clock.runFor(10000);
     await assertSlide(animated, 2);
-    assert.equal(await animated.locator('.showcase-autoplay').textContent(), 'Tự chuyển');
-    await animated.locator('.showcase-autoplay').click();
     await animated.mouse.move(0, 0);
     await animated.evaluate(() => document.activeElement.blur());
     await animated.clock.runFor(5000);
@@ -718,7 +721,7 @@ async function verifyDemo(browser, base) {
     // Media-query change events arrive on a rendering frame before virtual time advances.
     await new Promise(resolve => setTimeout(resolve, 50));
     await animated.clock.runFor(50);
-    assert.equal(await animated.locator('.showcase-autoplay').textContent(), 'Tự chuyển');
+    assert.equal(await animated.locator('.showcase-slides').evaluate(element => element.getAnimations({ subtree: true }).length), 0, 'reduced motion cancels fades');
     await animated.clock.runFor(10000);
     await assertSlide(animated, 1);
     await animated.emulateMedia({ reducedMotion: 'no-preference' });
@@ -741,7 +744,7 @@ async function verifyDemo(browser, base) {
       true,
     );
     await verifyStorage(browser, base);
-    await verifySliderMotion(browser, base);
+    await verifySliderFade(browser, base);
     await verifyPrivacyAndClosing(browser, base);
     await verifyDemo(browser, base);
     assert.deepEqual(errors, []);

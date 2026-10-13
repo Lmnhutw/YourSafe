@@ -24,9 +24,7 @@ const showcase = document.querySelector(".showcase");
 const slides = [...showcase.querySelectorAll(".showcase-slide")];
 const selectors = [...showcase.querySelectorAll("[data-slide]")];
 let currentSlide = 0;
-const autoplayButton = showcase.querySelector(".showcase-autoplay");
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-let autoplayPaused = reducedMotion.matches;
 let autoplayTimer;
 let slideAnimations = [];
 
@@ -38,29 +36,21 @@ function finishSlideTransition() {
 
 function updateAutoplay() {
   window.clearInterval(autoplayTimer);
-  autoplayButton.textContent = autoplayPaused ? "Tự chuyển" : "Dừng";
-  autoplayButton.setAttribute("aria-label", autoplayPaused ? "Bật tự chuyển slide" : "Dừng tự chuyển slide");
-  if (autoplayPaused || document.hidden || showcase.matches(":hover") || showcase.contains(document.activeElement)) return;
+  if (reducedMotion.matches || document.hidden || showcase.matches(":hover") || showcase.contains(document.activeElement)) return;
   autoplayTimer = window.setInterval(() => showSlide(currentSlide + 1, false), 5000);
 }
 
-autoplayButton.addEventListener("click", () => {
-  autoplayPaused = !autoplayPaused;
-  updateAutoplay();
-});
 for (const event of ["mouseenter", "mouseleave", "focusin", "focusout"]) {
   showcase.addEventListener(event, updateAutoplay);
 }
 document.addEventListener("visibilitychange", updateAutoplay);
 reducedMotion.addEventListener("change", () => {
   finishSlideTransition();
-  autoplayPaused = reducedMotion.matches;
   updateAutoplay();
 });
 
 function showSlide(index, announce = true) {
   const previousSlide = currentSlide;
-  const direction = Math.sign(index - previousSlide);
   finishSlideTransition();
   currentSlide = (index + slides.length) % slides.length;
   slides.forEach((slide, position) => {
@@ -74,10 +64,10 @@ function showSlide(index, announce = true) {
     const previous = slides[previousSlide];
     const current = slides[currentSlide];
     previous.hidden = false;
-    const timing = { duration: 550, easing: "cubic-bezier(0.16, 1, 0.3, 1)" };
+    const timing = { duration: 400, easing: "ease-in-out" };
     slideAnimations = [
-      previous.animate([{ transform: "translateX(0)" }, { transform: `translateX(${-direction * 100}%)` }], timing),
-      current.animate([{ transform: `translateX(${direction * 100}%)` }, { transform: "translateX(0)" }], timing),
+      previous.animate([{ opacity: 1 }, { opacity: 0 }], timing),
+      current.animate([{ opacity: 0 }, { opacity: 1 }], timing),
     ];
     slideAnimations[0].onfinish = finishSlideTransition;
   }
