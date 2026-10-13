@@ -214,22 +214,30 @@
                 class="text-link"
                 href="https://github.com/Lmnhutw/PasswordTool.Core/blob/main/browser-extension/README.md#development">Hướng
                 dẫn thử tiện ích <span aria-hidden="true">↗</span></a></div>
-            <div class="extension-visuals"><figure class="app-figure"><img
-                  aria-label="Xem ảnh đầy đủ chọn tài khoản trong tiện ích"><img
+            <div class="extension-visuals"><figure class="app-figure"><a
+                  href="./assets/homepage/extension-accounts.png" aria-label="Xem ảnh đầy đủ chọn tài khoản trong tiện ích"><img
                     class="product-image"
                     src="./assets/homepage/extension-accounts.png"
                     alt="Hai tài khoản demo phù hợp với github.com, có nút Fill và View TOTP."
                     width="720" height="1150"
-                    loading="lazy"></img><figcaption>Chọn tài khoản để
-                  điền.</figcaption></figure><figure class="app-figure"><img
-                  aria-label="Xem ảnh đầy đủ mã xác thực trong tiện ích"><img
+                    loading="lazy"></a><figcaption>Chọn tài khoản để
+                  điền.</figcaption></figure><figure class="app-figure"><a
+                  href="./assets/homepage/extension-code.png" aria-label="Xem ảnh đầy đủ mã xác thực trong tiện ích"><img
                     class="product-image"
                     src="./assets/homepage/extension-code.png"
                     alt="Tiện ích hiển thị mã xác thực demo 123 456, bộ đếm thời gian và nút Copy."
-                    width="720" height="1098" loading="lazy"></img><figcaption>Xem
+                    width="720" height="1098" loading="lazy"></a><figcaption>Xem
                   mã xác thực.</figcaption></figure><p class="visual-note">Giao
                 diện tiện ích thật từ source, dùng dữ liệu demo để minh
                 họa.</p></div>
+            <figure class="app-figure extension-context">
+              <a href="./assets/captures-inbox/08-extension-login-context.png" aria-label="Xem đầy đủ ảnh minh họa đăng nhập thử">
+                <img class="product-image" src="./assets/captures-inbox/08-extension-login-context.png"
+                  alt="Trang đăng nhập thử YourSafe với mật khẩu được che, cạnh popup tiện ích có tài khoản demo phù hợp."
+                  width="1600" height="900" loading="lazy">
+              </a>
+              <figcaption>Minh họa điền tài khoản trên trang đăng nhập thử. Popup dùng dữ liệu mô phỏng. <a href="./demo-login.html">Thử ngay →</a></figcaption>
+            </figure>
           </article>
         </div>
       </section>
@@ -313,8 +321,7 @@
                 tra chữ ký còn hợp lệ.</p><p>Mở PowerShell trong thư mục chứa
                 tệp tải. So sánh kết quả với mã của đúng tệp trong
                 <code>checksums.sha256</code>; hai mã phải giống nhau.</p><div
-                class="code-block"><code id="checksum-command">Get-FileHash
-                  .\TEN-GOI-TAI.zip -Algorithm SHA256</code><button
+                class="code-block"><code id="checksum-command">Get-FileHash .\TEN-GOI-TAI.zip -Algorithm SHA256</code><button
                   type="button" class="copy-button" hidden>Sao chép
                   lệnh</button></div><p class="code-hint">Thay
                 <code>TEN-GOI-TAI.zip</code> bằng tên tệp ZIP hoặc .exe bạn vừa
@@ -362,7 +369,13 @@
               cho Windows <svg viewBox="0 0 24 24" aria-hidden="true"><path
                   d="M4 12h16m-6-6 6 6-6 6" /></svg></a><p>Tải YourSafe và bắt
               đầu lưu mật khẩu trên Windows. Xem hướng dẫn cài đặt và trạng thái
-              bản tải ở trên.</p></div></div></section>
+              bản tải ở trên.</p>
+              <div class="closing-demo">
+                <h3>Đã cài YourSafe?</h3>
+                <p>Thử điền mật khẩu với tiện ích YourSafe.</p>
+                <a class="text-link" href="./demo-login.html">Thử ngay <span aria-hidden="true">→</span></a>
+              </div>
+            </div></div></section>
     </main>
     <footer class="site-footer"><a class="brand" href="#home"><img
           class="brand-logo" src="./assets/app-logo.png" alt width="40"

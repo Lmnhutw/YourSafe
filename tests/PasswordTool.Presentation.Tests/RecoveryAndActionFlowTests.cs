@@ -157,6 +157,25 @@ public sealed class RecoveryAndActionFlowTests
     }
 
     [Fact]
+    public async Task Signing_in_updates_the_editor_sign_in_binding()
+    {
+        using var context = new Context();
+        await context.Shell.LogoutCommand.ExecuteAsync(null);
+        var boundIsSignedIn = context.Shell.IsSignedIn;
+        context.Shell.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(ShellViewModel.IsSignedIn))
+                boundIsSignedIn = context.Shell.IsSignedIn;
+        };
+
+        await context.Shell.UnlockAsync(Context.Password, context.Totp.GetCurrentCode(context.Secret).Code);
+
+        Assert.True(boundIsSignedIn);
+        Assert.True(await context.Shell.BeginAddItemAsync());
+        Assert.Equal(AppRoute.ItemEditor, context.Shell.CurrentRoute);
+    }
+
+    [Fact]
     public async Task Adding_an_item_to_an_unlocked_vault_does_not_prompt_again()
     {
         using var context = new Context();

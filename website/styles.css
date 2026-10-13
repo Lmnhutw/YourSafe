@@ -132,6 +132,208 @@ code {
 .skip-link:focus {
   transform: translateY(0);
 }
+.extension-context {
+  grid-column: 1 / -1;
+}
+
+.closing-demo {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #ffffff66;
+}
+
+.closing-demo p {
+  margin: 0.35rem 0 0.8rem;
+}
+
+.closing-demo .text-link {
+  color: var(--white);
+}
+
+.closing-demo a:focus-visible {
+  outline-color: var(--white);
+}
+
+.demo-header {
+  border-bottom: 1px solid var(--rule);
+}
+
+.demo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 400px);
+  align-items: start;
+  gap: 2rem clamp(2rem, 5vw, 5rem);
+  max-width: 1280px;
+  margin: auto;
+  padding: 5rem var(--gutter);
+}
+
+.demo-intro {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.demo-intro h1 {
+  font-size: clamp(2rem, 3.5vw, 3.1rem);
+  line-height: 1.2;
+  letter-spacing: -0.035em;
+}
+
+.demo-intro h1 span {
+  color: var(--accent);
+}
+
+.demo-intro p {
+  color: var(--muted);
+  margin-top: 1rem;
+  max-width: 42ch;
+}
+
+.demo-panel {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  padding: 2rem;
+  border-radius: 16px;
+  background: var(--white);
+}
+
+.demo-panel h2 {
+  font-size: 1.65rem;
+  line-height: 1.3;
+  margin-bottom: 1.75rem;
+}
+
+.demo-fields {
+  display: grid;
+  gap: 1.4rem;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.demo-fields label {
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.demo-fields input {
+  width: 100%;
+  min-width: 0;
+  min-height: 52px;
+  border: 1px solid var(--muted);
+  border-radius: 4px;
+  padding: 0.65rem 0.8rem;
+  font: inherit;
+  font-size: 1rem;
+  color: var(--ink);
+  caret-color: var(--accent);
+  background: var(--white);
+}
+
+.demo-fields input:hover {
+  border-color: var(--accent);
+}
+
+.demo-fields:disabled {
+  opacity: 0.6;
+}
+
+.demo-fields:disabled .button {
+  cursor: default;
+}
+
+.demo-fields .button {
+  justify-content: space-between;
+  border: 0;
+}
+
+.demo-notice {
+  margin-top: 1.4rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.7;
+}
+
+.demo-guide {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.demo-steps {
+  display: grid;
+  gap: 1.25rem;
+  margin: 0;
+  padding-left: 1.35rem;
+}
+
+.demo-steps li {
+  padding-left: 0.3rem;
+}
+
+.demo-steps li::marker {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.demo-address {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.demo-address a {
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
+  color: var(--accent);
+}
+
+.demo-address .copy-button {
+  min-height: 44px;
+}
+
+.demo-guide .copy-status:empty {
+  display: none;
+}
+
+.demo-help {
+  margin-top: 2rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.demo-help a {
+  color: var(--accent);
+}
+
+.demo-mobile-note {
+  display: none;
+  margin-top: 0.75rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.demo-success-icon {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 1.5rem;
+  stroke: var(--accent);
+  stroke-width: 2;
+  fill: none;
+}
+
+.demo-success p {
+  color: var(--muted);
+  margin-bottom: 2rem;
+}
+
+.demo-success .button {
+  border: 0;
+}
+
 .site-header,
 .site-footer {
   display: flex;
@@ -1244,6 +1446,28 @@ details p {
 }
 
 @media (max-width: 680px) {
+  .demo {
+    grid-template-columns: minmax(0, 1fr);
+    padding-top: 2rem;
+    padding-bottom: 3rem;
+    gap: 2rem;
+  }
+
+  .demo-intro,
+  .demo-panel,
+  .demo-guide {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .demo-panel {
+    padding: 1.5rem;
+  }
+
+  .demo-mobile-note {
+    display: block;
+  }
+
   .site-header {
     padding-top: 1rem;
     padding-bottom: 1rem;

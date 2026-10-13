@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Thử điền tài khoản bằng tiện ích YourSafe. Không cần tài khoản thật.">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'; frame-src 'none'">
+    <meta name="theme-color" content="#204bdb">
+    <title>Đăng nhập thử — YourSafe</title>
+    <link rel="icon" href="./assets/app-logo.png" type="image/png" sizes="88x88">
+    <link rel="preload" href="./assets/BeVietnamPro-Bold.ttf" as="font" type="font/ttf" crossorigin>
+    <link rel="stylesheet" href="./styles.css">
+    <script src="./demo-login.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Đến nội dung chính</a>
+    <header class="site-header demo-header">
+      <a class="brand" href="./index.html" aria-label="YourSafe — trang chủ">
+        <img class="brand-logo" src="./assets/app-logo.png" alt="" width="40" height="40">
+        <span>YourSafe</span>
+      </a>
+      <a class="text-link" href="./index.html">Về trang chủ <span aria-hidden="true">←</span></a>
+    </header>
+    <main class="demo" id="main">
+      <div class="demo-intro">
+        <h1>Thử điền mật khẩu<br>cùng <span>YourSafe.</span></h1>
+        <p>Dùng tài khoản thử để xem tiện ích điền thông tin giúp bạn.</p>
+      </div>
+      <section class="demo-panel" aria-labelledby="login-title">
+        <div id="login-fields">
+          <h2 id="login-title">Đăng nhập thử</h2>
+          <form id="demo-form" action="./demo-login.html" method="post" novalidate>
+            <fieldset class="demo-fields" disabled>
+              <label for="demo-username">Tên đăng nhập
+                <input id="demo-username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false">
+              </label>
+              <label for="demo-password">Mật khẩu
+                <input id="demo-password" name="password" type="password" autocomplete="current-password">
+              </label>
+              <button class="button button-primary" type="submit">Đăng nhập <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6" /></svg></button>
+            </fieldset>
+          </form>
+          <p class="demo-notice">Chỉ là trang thử. Không cần tài khoản thật.<br>Thông tin bạn nhập không được gửi đi hay lưu lại.</p>
+          <noscript><p class="demo-notice">Trang thử hiện chưa hoạt động trong trình duyệt này.</p></noscript>
+        </div>
+        <div class="demo-success" id="login-success" hidden>
+          <svg class="demo-success-icon" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20" /><path d="m14 24 7 7 13-14" /></svg>
+          <h2 id="success-title" tabindex="-1">Đăng nhập thử thành công</h2>
+          <p>Bạn có thể thử lại với tài khoản khác.</p>
+          <button class="button button-primary" id="try-again" type="button">Thử lại <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6" /></svg></button>
+        </div>
+        <span class="sr-only" id="demo-status" role="status" aria-live="polite" aria-atomic="true"></span>
+      </section>
+      <div class="demo-guide">
+        <ol class="demo-steps">
+          <li>Mở YourSafe và bật kết nối trình duyệt.</li>
+          <li>Lưu một tài khoản thử với địa chỉ trang này.
+            <div class="demo-address">
+              <a id="demo-address" href="./demo-login.html">Địa chỉ trang thử</a>
+              <button class="copy-button" id="copy-address" type="button" hidden>Sao chép</button>
+            </div>
+            <span class="copy-status" id="address-status" role="status" aria-live="polite"></span>
+          </li>
+          <li>Mở tiện ích, chọn tài khoản và bấm <strong>Fill</strong>. Xác nhận trong YourSafe, rồi bấm <strong>Đăng nhập</strong>.</li>
+        </ol>
+        <p class="demo-help">Chưa cài tiện ích? <a href="./index.html#extension">Xem hướng dẫn</a></p>
+        <p class="demo-mobile-note">Thử tiện ích trên trình duyệt máy tính.</p>
+      </div>
+    </main>
+  </body>
+</html>

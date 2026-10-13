@@ -6,7 +6,7 @@
 
 - **Đã chụp từ YourSafe Debug bằng `winapp ui screenshot`:** `01`, `02`, `04`, `05`, `06`. Cửa sổ 1384×960; PNG giữ toàn bộ vùng cửa sổ native 1370×953. Đã xem từng ảnh để kiểm tra clipping và dữ liệu demo.
 - **Đã chụp giao diện extension thật từ source với transport giả:** `03`, `07`. Minh họa GitHub với tài khoản `example.test`; chưa phải bằng chứng Native Messaging hoặc autofill trực tiếp.
-- **Đang để chờ:** `08-extension-login-context.png`, cần ảnh browser thực tế có trang đăng nhập và popup extension cạnh nhau.
+- **Đã bổ sung — 2026-10-13:** `08-extension-login-context.png`, minh họa trang đăng nhập thử cạnh giao diện popup thật từ source. Tài khoản và phản hồi kết nối là dữ liệu mô phỏng; chưa phải bằng chứng kết nối Desktop thật. Chụp lại bằng `node scripts/Capture-WebsiteExtension.cjs --login-context`.
 - Kho demo gồm YouTube, Google, GitHub, Facebook, Netflix, Spotify, Microsoft và Discord, chia nhóm Personal/Work. URL là website thật; username, password, recovery codes và TOTP là dữ liệu giả. Netflix cố ý có mật khẩu demo yếu để minh họa Security Check.
 - Landing page đã dùng ảnh kho và editor vừa chụp. Các ảnh tạo mật khẩu, Security Check và Backup được giữ ở đây để xem/bổ sung về sau.
 

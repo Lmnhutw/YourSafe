@@ -55,7 +55,7 @@ async function assertImage(image) {
   assert.ok(state.naturalWidth > 0 && state.width > 0, "product image loaded and visible");
   assert.equal(state.declaredWidth, state.naturalWidth, "declared image width");
   assert.equal(state.declaredHeight, state.naturalHeight, "declared image height");
-  assert.ok(Math.abs(state.width / state.height - state.naturalWidth / state.naturalHeight) < 0.005, "native image aspect ratio");
+  assert.ok(state.fit === 'contain' || Math.abs(state.width / state.height - state.naturalWidth / state.naturalHeight) < 0.005, "native image aspect ratio or contained image in a fixed gallery stage");
   assert.ok(state.radius >= 8, "image itself has rounded edges");
   assert.notEqual(state.fit, "cover", "image is not cropped");
   assert.ok(state.alt.length > 20, "descriptive image alternative");
@@ -66,6 +66,97 @@ async function swipe(page, start, end, cancel = false) {
     stage.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch", isPrimary: true, clientX: start[0], clientY: start[1] }));
     stage.dispatchEvent(new PointerEvent(cancel ? "pointercancel" : "pointerup", { bubbles: true, pointerType: "touch", isPrimary: true, clientX: end[0], clientY: end[1] }));
   }, { start, end, cancel });
+}
+
+async function verifyDemo(browser, base) {
+  const { buildSync } = require('../browser-extension/node_modules/esbuild');
+  const extensionFields = buildSync({ entryPoints: [path.join(root, '../browser-extension/src/fields.ts')],
+    bundle: true, write: false, format: 'iife', globalName: 'YourSafeFields' }).outputFiles[0].text;
+  const context = await browser.newContext({ reducedMotion: 'reduce' });
+  await context.route(`${base}extension-fields.js`, route => route.fulfill({ contentType: 'text/javascript', body: extensionFields }));
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('response', response => { if (response.status() >= 400) errors.push(`${response.status()} ${response.url()}`); });
+  await page.goto(base);
+  await page.locator('.closing-demo a').click();
+  assert.equal(page.url(), `${base}demo-login.html`);
+  for (const width of [1440, 768, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`${base}demo-login.html`);
+    await page.evaluate(() => document.fonts.ready);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `demo overflow at ${width}`);
+    assert.equal(await page.getByLabel('Tên đăng nhập').inputValue(), '');
+    assert.equal(await page.getByLabel('Mật khẩu', { exact: true }).inputValue(), '');
+    assert.equal(await page.getByLabel('Mật khẩu', { exact: true }).getAttribute('type'), 'password');
+    const panel = await page.locator('.demo-panel').boundingBox();
+    const guide = await page.locator('.demo-guide').boundingBox();
+    assert.ok(width <= 680 ? panel.y < guide.y : guide.x < panel.x, `demo reading layout at ${width}`);
+    if ([1440, 390].includes(width)) await page.screenshot({ path: path.join(root, `../.impeccable/review/demo-${width}.png`), fullPage: true });
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`${base}demo-login.html`);
+  await page.addScriptTag({ url: `${base}extension-fields.js` });
+  await page.evaluate(() => document.fonts.ready);
+  const requests = [];
+  page.on('request', request => requests.push({ url: request.url(), body: request.postData() }));
+  // Exercise the extension's actual visibility, form-origin and field discovery/fill code.
+  assert.equal(await page.evaluate(async () => {
+    const fields = YourSafeFields.findFields();
+    if (!fields || fields.username?.id !== 'demo-username' || fields.password.id !== 'demo-password') return false;
+    await YourSafeFields.fillFields(fields, 'alex.demo@example.test', 'Demo-only-password!');
+    return true;
+  }), true);
+  assert.equal(await page.getByLabel('Tên đăng nhập').inputValue(), 'alex.demo@example.test');
+  assert.equal(await page.getByLabel('Mật khẩu', { exact: true }).inputValue(), 'Demo-only-password!');
+  assert.equal(await page.locator('#login-success').isVisible(), false, 'fill never submits');
+  await page.getByLabel('Mật khẩu', { exact: true }).press('Enter');
+  assert.equal(await page.locator('#login-success').isVisible(), true);
+  assert.equal(await page.locator('#demo-status').textContent(), 'Đăng nhập thử thành công');
+  assert.equal(await page.locator('#success-title').evaluate(element => element === document.activeElement), true);
+  await page.screenshot({ path: path.join(root, '../.impeccable/review/demo-success.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Thử lại', exact: true }).click();
+  assert.equal(await page.getByLabel('Tên đăng nhập').inputValue(), '');
+  assert.equal(await page.getByLabel('Mật khẩu', { exact: true }).inputValue(), '');
+  assert.equal(await page.getByLabel('Tên đăng nhập').evaluate(element => element === document.activeElement), true);
+  for (const [username, password] of [['not-an-email <demo>', 'x'], ['', '']]) {
+    await page.getByLabel('Tên đăng nhập').fill(username);
+    await page.getByLabel('Mật khẩu', { exact: true }).fill(password);
+    await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
+    assert.equal(await page.locator('#login-success').isVisible(), true, 'all demo values accepted');
+    await page.getByRole('button', { name: 'Thử lại', exact: true }).click();
+  }
+  assert.deepEqual(requests, [], 'filling, submit and reset never send credentials or navigate');
+  assert.equal(page.url(), `${base}demo-login.html`);
+  assert.deepEqual(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length, cookies: document.cookie })), { local: 0, session: 0, cookies: '' });
+  await page.evaluate(() => Object.defineProperty(navigator.clipboard, 'writeText', { configurable: true, value: async text => { window.copiedAddress = text; } }));
+  await page.getByRole('button', { name: 'Sao chép', exact: true }).click();
+  assert.equal(await page.evaluate(() => window.copiedAddress), `${base}demo-login.html`);
+  await page.evaluate(() => Object.defineProperty(navigator.clipboard, 'writeText', { value: async () => { throw new Error('denied'); } }));
+  await page.getByRole('button', { name: 'Sao chép', exact: true }).click();
+  assert.match(await page.locator('#address-status').textContent(), /Không sao chép được/);
+  await page.getByLabel('Tên đăng nhập').fill('temporary-demo');
+  await page.getByRole('link', { name: 'Về trang chủ' }).click();
+  assert.equal(page.url(), `${base}index.html`);
+  await page.goBack();
+  assert.equal(await page.getByLabel('Tên đăng nhập').inputValue(), '', 'leaving the page clears inputs');
+  await page.goto(new URL('/demo-login.html', base).href);
+  assert.equal(await page.locator('#demo-address').textContent(), new URL('/demo-login.html', base).href);
+  assert.deepEqual(errors, []);
+  await context.close();
+  const noJs = await browser.newContext({ javaScriptEnabled: false });
+  const plain = await noJs.newPage();
+  await plain.goto(`${base}demo-login.html`);
+  assert.equal(await plain.getByRole('button', { name: 'Đăng nhập', exact: true }).isDisabled(), true);
+  assert.equal(await plain.getByLabel('Tên đăng nhập').isDisabled(), true, 'no-JS cannot submit secrets');
+  await noJs.close();
+  const blockedJs = await browser.newContext();
+  await blockedJs.route('**/demo-login.js', route => route.abort());
+  const blocked = await blockedJs.newPage();
+  await blocked.goto(`${base}demo-login.html`);
+  assert.equal(await blocked.getByLabel('Tên đăng nhập').isDisabled(), true, 'missing script cannot submit secrets');
+  await blockedJs.close();
+  console.log('PASS: demo CTA/base paths, 1440/768/390/320 layouts, actual extension field detection/fill, keyboard submit, arbitrary/empty input, reset/focus, no secret requests/storage, copy success/failure and no-JS/script-failure safety.');
 }
 
 (async () => {
@@ -126,7 +217,7 @@ async function swipe(page, start, end, cancel = false) {
           await image.evaluate((img) => img.decode());
           await assertImage(image);
           const imageBounds = await image.boundingBox();
-          const captionBounds = await active.locator("figcaption").boundingBox();
+          const captionBounds = await active.locator(".showcase-footer").boundingBox();
           assert.ok(captionBounds.y >= imageBounds.y + imageBounds.height + 4, `showcase image and caption do not overlap at ${width}`);
         }
         assert.equal(await active.evaluate((article) => getComputedStyle(article).animationName), "none", "reduced-motion carousel");
@@ -148,15 +239,15 @@ async function swipe(page, start, end, cancel = false) {
       await assertSlide(page, 0);
       await swipe(page, [200, 100], [100, 110]);
       await assertSlide(page, 1);
-      assert.equal(await page.locator("#showcase-desktop .showcase-figure a").evaluate((link) => {
+      assert.equal(await page.locator("#showcase-desktop .showcase-link").evaluate((link) => {
         let prevented;
         link.addEventListener("click", (event) => { prevented = event.defaultPrevented; event.preventDefault(); }, { once: true });
         link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 0 }));
         return prevented;
       }), false, "keyboard activation after swipe permits image navigation");
-      assert.equal(await page.locator("#showcase-desktop .showcase-figure a").evaluate((link) => link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 }))), false, "accepted swipe suppresses image navigation");
+      assert.equal(await page.locator("#showcase-desktop .showcase-link").evaluate((link) => link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 }))), false, "accepted swipe suppresses image navigation");
       await swipe(page, [100, 100], [100, 100]);
-      assert.equal(await page.locator("#showcase-desktop .showcase-figure a").evaluate((link) => {
+      assert.equal(await page.locator("#showcase-desktop .showcase-link").evaluate((link) => {
         let prevented;
         link.addEventListener("click", (event) => { prevented = event.defaultPrevented; event.preventDefault(); }, { once: true });
         link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
@@ -180,7 +271,7 @@ async function swipe(page, start, end, cancel = false) {
         await image.evaluate((img) => img.decode());
         await assertImage(image);
       }
-      assert.equal(await page.locator(".product-image").count(), 6);
+      assert.equal(await page.locator(".product-image").count(), 7);
       await page.evaluate(() => scrollTo(0, 0));
       for (const href of await page
         .locator('a[href^="#"]')
@@ -349,6 +440,7 @@ async function swipe(page, start, end, cancel = false) {
       ),
       true,
     );
+    await verifyDemo(browser, base);
     assert.deepEqual(errors, []);
     console.log(`Observed layout shifts: ${JSON.stringify(layoutScores)}`);
     console.log(

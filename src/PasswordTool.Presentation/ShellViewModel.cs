@@ -601,6 +601,7 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(IsUnlocked));
         OnPropertyChanged(nameof(IsTableLocked));
+        OnPropertyChanged(nameof(IsSignedIn));
     }
 
     private async Task CompleteUnlockAsync(VaultUnlockResult result)

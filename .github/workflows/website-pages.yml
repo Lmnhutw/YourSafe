@@ -25,7 +25,7 @@ jobs:
       - name: Stage static website only
         run: |
           mkdir -p "$RUNNER_TEMP/passwordtool-site"
-          cp website/index.html website/styles.css website/script.js "$RUNNER_TEMP/passwordtool-site/"
+          cp website/index.html website/styles.css website/script.js website/demo-login.html website/demo-login.js "$RUNNER_TEMP/passwordtool-site/"
           cp -R website/assets "$RUNNER_TEMP/passwordtool-site/assets"
       - uses: actions/upload-pages-artifact@v3
         with:
