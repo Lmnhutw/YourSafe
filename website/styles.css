@@ -743,6 +743,11 @@ code {
   font-size: clamp(1.65rem, 2.5vw, 2.5rem);
 }
 
+.extension-copy .des-text {
+  margin-top: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
 .extension-note {
   font-size: 0.85rem;
   border-top: 1px solid var(--rule);
@@ -1059,16 +1064,34 @@ code {
   min-width: 0;
 }
 
-.storage-figure h3 {
+.storage-origin-title,
+.storage-backup-title {
+  align-self: start;
   font-size: clamp(1.3rem, 2vw, 1.7rem);
   line-height: 1.3;
-  margin-bottom: 2rem;
   letter-spacing: -0.025em;
+  text-align: center;
+}
+
+.storage-origin-title {
+  grid-area: origin-title;
+}
+
+.storage-backup-title {
+  grid-area: backup-title;
+  justify-self: end;
+}
+
+.storage-computer {
+  grid-area: computer;
 }
 
 .storage-flow {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(80px, 0.65fr) minmax(0, 1fr);
+  grid-template-areas:
+    "origin-title backup-title backup-title"
+    "computer transfer destination";
   align-items: center;
   gap: 1rem;
 }
@@ -1151,6 +1174,7 @@ code {
 }
 
 .storage-transfer {
+  grid-area: transfer;
   text-align: center;
   color: var(--muted);
   font-size: 0.8rem;
@@ -1217,6 +1241,7 @@ code {
 }
 
 .storage-destination {
+  grid-area: destination;
   text-align: center;
 }
 
@@ -1328,8 +1353,9 @@ code {
   align-items: start;
 }
 
-.local-heading {
+.local-layout > .eyebrow {
   grid-column: 1 / -1;
+  margin-bottom: 0;
 }
 
 .local-copy .text-link {
@@ -1870,6 +1896,12 @@ details p {
 
   .storage-flow {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "origin-title"
+      "computer"
+      "transfer"
+      "backup-title"
+      "destination";
     gap: 1.1rem;
   }
 
@@ -1877,6 +1909,10 @@ details p {
     width: 100%;
     max-width: 290px;
     margin: auto;
+  }
+
+  .storage-backup-title {
+    justify-self: center;
   }
 
   .storage-transfer {

@@ -194,6 +194,37 @@ async function swipe(page, start, end, cancel = false) {
   }, { start, end, cancel });
 }
 
+async function verifyStorageLayout(browser, base) {
+  const context = await browser.newContext({ reducedMotion: 'reduce' });
+  const page = await context.newPage();
+  for (const width of [1920, 1536, 1440, 1280, 1024, 961, 960, 768, 681, 680, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(base);
+    await page.evaluate(() => document.fonts.ready);
+    const layout = await page.locator('.storage-figure').evaluate(figure => {
+      const bounds = figure.getBoundingClientRect();
+      const items = [...figure.querySelectorAll('.storage-origin-title, .storage-computer, .storage-transfer, .storage-backup-title, .storage-destination')];
+      const boxes = items.map(item => item.getBoundingClientRect());
+      return {
+        fits: items.every((item, index) => boxes[index].left >= bounds.left - 1 && boxes[index].right <= bounds.right + 1 && item.scrollWidth <= item.clientWidth + 1),
+        inline: figure.querySelector('.storage-origin-title[style], .storage-backup-title[style]') !== null,
+        labels: figure.getAttribute('aria-labelledby').split(' ').every(id => document.querySelectorAll(`#${id}`).length === 1),
+        stacked: boxes.slice(1).every((box, index) => box.top >= boxes[index].bottom - 1),
+        aligned: Math.abs(boxes[0].top - boxes[3].top) < 1,
+      };
+    });
+    assert.equal(layout.fits, true, `storage titles and diagram fit at ${width}`);
+    assert.equal(layout.inline, false, 'static storage styles belong in CSS');
+    assert.equal(layout.labels, true, 'storage labels have unique IDs');
+    assert.equal(width <= 680 ? layout.stacked : layout.aligned, true, `storage heading order at ${width}`);
+    if ([1440, 768, 390].includes(width)) {
+      await page.locator('.storage-figure').screenshot({ path: path.join(root, `../.impeccable/review/storage-${width}.png`) });
+    }
+  }
+  await context.close();
+  console.log('PASS: storage headings, unique accessible labels, no inline CSS and responsive layout at 12 widths from 320 to 1920.');
+}
+
 async function verifyStorage(browser, base) {
   const context = await browser.newContext({ reducedMotion: 'no-preference', viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
@@ -365,6 +396,7 @@ async function verifyDemo(browser, base) {
         errors.push(`${response.status()} ${response.url()}`);
     });
     fs.mkdirSync(path.join(root, "../.impeccable/review"), { recursive: true });
+    await verifyStorageLayout(browser, base);
     for (const width of [1440, 768, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto(base);
