@@ -59,3 +59,4 @@ All future UI work must follow this contract and must not introduce a competing 
 - `website/` is a separate HTML/CSS/JavaScript surface; the WinUI rules above do not apply to its DOM.
 - Preserve its established semantic kebab-case classes (`site-header`, `button-primary`, `extension-visuals`). New classes belong to the responsible surface, such as `demo-panel`, `demo-fields`, and `closing-demo`.
 - Shared tokens and controls live in `website/styles.css`; page behavior stays in its own deferred script. Use static stylesheets, explicit labels, and stable class/ID selectors; do not add a framework or rename existing classes.
+- Shared header behavior lives in `website/navigation.js`. It runs in the head to set the pre-paint JavaScript marker and attaches menu and header-size handlers on `DOMContentLoaded`; other page scripts remain deferred.

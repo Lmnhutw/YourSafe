@@ -194,6 +194,7 @@ async function verifyDemo(browser, base) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto(base);
       await page.evaluate(() => document.fonts.ready);
+      if ([1440, 390].includes(width)) await page.locator('.site-header').screenshot({ path: path.join(root, `../.impeccable/review/header-${width}.png`) });
       assert.equal(await page.locator("h1").textContent(), "YourSafe.");
       assert.equal(
         await page.evaluate(
@@ -208,6 +209,17 @@ async function verifyDemo(browser, base) {
       assert.equal(await showcase.getAttribute("role"), "region");
       assert.equal(await showcase.getAttribute("tabindex"), "0");
       await assertSlide(page, 0);
+      assert.equal(await page.locator('.manual-bottom svg').count(), 0, 'large footer arrow removed');
+      assert.equal(await page.locator('.manual-demo').count(), 1, 'demo caption moved once');
+      assert.equal(await page.locator('.manual-demo a').getAttribute('href'), './demo-login.html');
+      assert.equal(await page.locator('.extension-context figcaption').count(), 0, 'old caption removed');
+      const footerFits = await page.locator('.manual-bottom').evaluate((footer) => {
+        const article = footer.closest('.showcase-slide').getBoundingClientRect();
+        const caption = footer.querySelector('.manual-demo').getBoundingClientRect();
+        const rows = footer.previousElementSibling.getBoundingClientRect();
+        return caption.bottom <= article.bottom && caption.left >= article.left && caption.right <= article.right && rows.bottom <= caption.top;
+      });
+      assert.equal(footerFits, true, `first slide caption fits at ${width}`);
       for (const index of [1, 2, 0]) {
         await page.locator(`[data-slide="${index}"]`).click();
         await assertSlide(page, index);
@@ -271,6 +283,26 @@ async function verifyDemo(browser, base) {
         await image.evaluate((img) => img.decode());
         await assertImage(image);
       }
+      assert.equal(await page.locator('a[href^="./assets/"]').count(), 0, 'product images have no click-through links');
+      for (const image of await page.locator('.app-figure .product-image, .storage-diagram').all()) {
+        await image.hover();
+        assert.equal(await page.locator('.image-preview').isVisible(), true, 'shared hover preview');
+        const fits = await page.locator('.image-preview > *').evaluate(element => {
+          const bounds = element.getBoundingClientRect();
+          return bounds.left >= 0 && bounds.top >= 0 && bounds.right <= innerWidth && bounds.bottom <= innerHeight;
+        });
+        assert.equal(fits, true, `preview fits viewport at ${width}`);
+        await image.click();
+        assert.equal(page.url(), base, 'clicking an image does not navigate');
+        await page.mouse.move(0, 0);
+        assert.equal(await page.locator('.image-preview').isVisible(), false, 'leaving closes preview');
+      }
+      await page.keyboard.press('Tab');
+      await page.keyboard.press('Shift+Tab');
+      assert.equal(await page.locator('.image-preview').isVisible(), true, 'keyboard image preview');
+      await page.keyboard.press('Escape');
+      assert.equal(await page.locator('.image-preview').isVisible(), false);
+      await page.evaluate(() => document.activeElement.blur());
       assert.equal(await page.locator(".product-image").count(), 7);
       await page.evaluate(() => scrollTo(0, 0));
       for (const href of await page
@@ -286,7 +318,7 @@ async function verifyDemo(browser, base) {
             'a[href="https://github.com/Lmnhutw/PasswordTool.Core/releases"]',
           )
           .count(),
-        3,
+        4,
       );
       assert.equal(
         await page.locator('.brand-logo[src="./assets/app-logo.png"]').count(),
@@ -296,7 +328,9 @@ async function verifyDemo(browser, base) {
         await page.locator('link[rel="icon"]').getAttribute("href"),
         "./assets/app-logo.png",
       );
-      if (width <= 680) {
+      assert.equal(await page.locator('.site-header > :last-child').getAttribute('class'), 'button button-primary header-download');
+      assert.equal(await page.locator('.site-nav a[href="./demo-login.html"]').textContent(), 'Đăng nhập thử');
+      if (width <= 960) {
         await page.getByRole("button", { name: "Menu" }).click();
         assert.equal(
           await page.locator(".menu-toggle").getAttribute("aria-expanded"),
@@ -326,6 +360,30 @@ async function verifyDemo(browser, base) {
         assert.equal(await page.locator(".menu-toggle").isVisible(), false);
         assert.equal(await page.locator("#site-nav").isVisible(), true);
       }
+      if (width <= 960) await page.locator('.menu-toggle').click();
+      for (const link of await page.locator('.site-nav a').all()) {
+        await page.mouse.move(0, 0);
+        assert.equal(await link.evaluate(element => getComputedStyle(element).textDecorationLine), 'none', 'no permanent navigation underline');
+        await link.hover();
+        assert.equal(await link.evaluate(element => getComputedStyle(element).textDecorationLine), 'underline', 'navigation underlines on hover');
+      }
+      await page.locator('.site-nav a[href="#features"]').click();
+      const header = await page.locator('.site-header').boundingBox();
+      const heading = await page.locator('#features').boundingBox();
+      assert.equal(header.y, 0, 'header sticks while scrolling');
+      assert.ok(heading.y >= header.height, `anchor clears sticky header at ${width}`);
+      assert.equal(await page.locator('.footer-brand p').textContent(), 'Lưu mật khẩu trên máy Windows của bạn.');
+      assert.equal(await page.locator('.footer-copyright strong').textContent(), '© 2026 YourSafe.');
+      assert.equal(await page.getByRole('link', { name: 'LinkedIn của Minh Nhựt' }).getAttribute('href'), 'https://www.linkedin.com/in/minhnhut0211/');
+      assert.equal(await page.locator('.footer-socials a').count(), 2);
+      const footerLayout = await page.locator('.site-footer').evaluate(footer => {
+        const brand = footer.querySelector('.footer-brand').getBoundingClientRect();
+        const copyright = footer.querySelector('.footer-copyright').getBoundingClientRect();
+        const form = footer.querySelector('.footer-feedback').getBoundingClientRect();
+        return innerWidth > 960 ? brand.right < copyright.left && copyright.right < form.left : form.top > brand.bottom && form.top > copyright.bottom;
+      });
+      assert.equal(footerLayout, true, `footer layout at ${width}`);
+      if ([1440, 390].includes(width)) await page.locator('.site-footer').screenshot({ path: path.join(root, `../.impeccable/review/footer-${width}.png`) });
       await page.locator("#faq summary").first().click();
       assert.equal(
         await page.locator("#faq details").first().getAttribute("open"),
@@ -354,7 +412,29 @@ async function verifyDemo(browser, base) {
     }
     await page.waitForTimeout(5500);
     await assertSlide(page, 0);
-    assert.equal(/setInterval|setTimeout/.test(fs.readFileSync(path.join(root, "script.js"), "utf8")), false, "showcase has no autoplay timer");
+    assert.equal(await page.locator('.showcase-autoplay').textContent(), 'Tự chuyển', 'reduced motion starts paused');
+    const message = 'Góp ý: ảnh & menu? #YourSafe\nCảm ơn!';
+    await page.locator('.feedback-email').evaluate(link => link.addEventListener('click', event => event.preventDefault(), { once: true }));
+    await page.locator('.feedback-email').click();
+    assert.equal(await page.locator('#feedback-body').evaluate(element => element.validity.valueMissing), true, 'empty feedback is rejected');
+    await page.getByLabel('Gửi góp ý').fill(message);
+    await page.locator('.feedback-email').evaluate(link => link.addEventListener('click', event => event.preventDefault(), { once: true }));
+    await page.locator('.feedback-email').click();
+    const email = new URL(await page.locator('.feedback-email').getAttribute('href'));
+    assert.equal(email.pathname, 'lmnhut0211@gmail.com');
+    assert.equal(email.searchParams.get('body'), message, 'email feedback is encoded');
+    assert.equal(email.searchParams.get('subject'), 'Góp ý YourSafe');
+    await context.route('https://github.com/Lmnhutw/PasswordTool.Core/issues/new?**', route => route.fulfill({ contentType: 'text/html', body: '<title>Local issue-form check</title>' }));
+    const issuePromise = context.waitForEvent('page');
+    await page.getByRole('button', { name: 'Tạo issue GitHub' }).click();
+    const issue = await issuePromise;
+    await issue.waitForLoadState();
+    const issueUrl = new URL(issue.url());
+    assert.equal(issueUrl.pathname, '/Lmnhutw/PasswordTool.Core/issues/new');
+    assert.equal(issueUrl.searchParams.get('body').replace(/\r\n/g, '\n'), message, 'GitHub feedback is encoded');
+    assert.equal(issueUrl.searchParams.get('title'), 'Góp ý YourSafe');
+    assert.equal(await issue.evaluate(() => opener === null), true, 'feedback popup cannot access the site');
+    await issue.close();
     await page.locator(".install-guide summary").click();
     await page.evaluate(() => {
       window.copiedCommand = "";
@@ -392,7 +472,8 @@ async function verifyDemo(browser, base) {
       await plain.goto(base);
       assert.equal(await plain.locator("#site-nav").isVisible(), true);
       assert.equal(await plain.locator(".menu-toggle").isVisible(), false);
-      assert.equal(await plain.locator(".button-primary").isVisible(), true);
+      assert.equal(await plain.locator(".hero-copy .button-primary").isVisible(), true);
+      assert.equal(await plain.locator('.footer-feedback').getAttribute('action'), 'https://github.com/Lmnhutw/PasswordTool.Core/issues/new');
       assert.equal(await plain.locator(".showcase-controls").isVisible(), false);
       for (const slide of await plain.locator(".showcase-slide").all()) assert.equal(await slide.isVisible(), true);
       for (const image of await plain.locator(".product-image").all()) {
@@ -417,13 +498,68 @@ async function verifyDemo(browser, base) {
     await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: 130, y: y + 4 }] });
     await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     await assertSlide(touchPage, 1);
+    await touchPage.locator('#showcase-desktop .product-image').tap();
+    assert.equal(await touchPage.locator('.image-preview').isVisible(), false, 'touch does not open a hover preview');
+    assert.equal(touchPage.url(), base);
     await touch.detach();
     const animatedContext = await browser.newContext({
       viewport: { width: 1440, height: 900 },
       reducedMotion: "no-preference",
     });
     const animated = await animatedContext.newPage();
+    await animated.clock.install();
+    await animated.clock.pauseAt(new Date());
     await animated.goto(base);
+    for (const index of [1, 2, 0]) {
+      await animated.clock.runFor(5000);
+      await assertSlide(animated, index);
+    }
+    assert.equal(await animated.locator('.showcase-status').textContent(), '', 'autoplay does not announce every slide');
+    await animated.locator('.showcase').hover();
+    await animated.clock.runFor(10000);
+    await assertSlide(animated, 0);
+    await animated.mouse.move(0, 0);
+    await animated.clock.runFor(5000);
+    await assertSlide(animated, 1);
+    await animated.locator('#showcase-desktop .showcase-link').focus();
+    await animated.clock.runFor(10000);
+    await assertSlide(animated, 1);
+    await animated.evaluate(() => document.activeElement.blur());
+    await animated.clock.runFor(5000);
+    await assertSlide(animated, 2);
+    await animated.locator('.showcase-autoplay').click();
+    await animated.mouse.move(0, 0);
+    await animated.evaluate(() => document.activeElement.blur());
+    await animated.clock.runFor(10000);
+    await assertSlide(animated, 2);
+    assert.equal(await animated.locator('.showcase-autoplay').textContent(), 'Tự chuyển');
+    await animated.locator('.showcase-autoplay').click();
+    await animated.mouse.move(0, 0);
+    await animated.evaluate(() => document.activeElement.blur());
+    await animated.clock.runFor(5000);
+    await assertSlide(animated, 0);
+    await animated.evaluate(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await animated.clock.runFor(10000);
+    await assertSlide(animated, 0);
+    await animated.evaluate(() => {
+      delete document.hidden;
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await animated.clock.runFor(5000);
+    await assertSlide(animated, 1);
+    await animated.emulateMedia({ reducedMotion: 'reduce' });
+    // Media-query change events arrive on a rendering frame before virtual time advances.
+    await new Promise(resolve => setTimeout(resolve, 50));
+    await animated.clock.runFor(50);
+    assert.equal(await animated.locator('.showcase-autoplay').textContent(), 'Tự chuyển');
+    await animated.clock.runFor(10000);
+    await assertSlide(animated, 1);
+    await animated.emulateMedia({ reducedMotion: 'no-preference' });
+    await new Promise(resolve => setTimeout(resolve, 50));
+    await animated.clock.runFor(50);
     await animated.locator('[data-slide="1"]').click();
     assert.equal(await animated.locator("#showcase-desktop").evaluate((element) => getComputedStyle(element).animationName), "slide-in");
     await animated.locator(".feature-panel").first().scrollIntoViewIfNeeded();
@@ -444,7 +580,7 @@ async function verifyDemo(browser, base) {
     assert.deepEqual(errors, []);
     console.log(`Observed layout shifts: ${JSON.stringify(layoutScores)}`);
     console.log(
-      "PASS: 1440/768/390/320 widths, native screenshot ratios/rounded edges, stable gallery bounds, carousel pagination/arrows/keyboard/swipe/focus/no autoplay, assets/base path, logo/favicon, menu, FAQ, clipboard, reveal, reduced motion and no-JS.",
+      "PASS: 1440/768/390/320 widths, sticky header/anchors/download/navigation hover, footer layout/socials/feedback encoding, image hover/keyboard/touch/no click-through, moved demo caption, native screenshot ratios/rounded edges, stable gallery bounds, carousel pagination/arrows/keyboard/swipe/focus/autoplay/stop/resume/hover/hidden/reduced-motion, assets/base path, logo/favicon, menu, FAQ, clipboard, reveal and no-JS.",
     );
   } finally {
     if (browser) await browser.close();

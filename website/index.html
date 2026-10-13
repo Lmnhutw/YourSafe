@@ -11,6 +11,9 @@
       sizes="88x88">
     <link rel="preload" href="./assets/BeVietnamPro-Bold.ttf" as="font"
       type="font/ttf" crossorigin>
+    <link rel="preload" href="./assets/BeVietnamPro-Regular.ttf" as="font"
+      type="font/ttf" crossorigin>
+    <script src="./navigation.js"></script>
     <link rel="stylesheet" href="./styles.css">
     <script src="./script.js" defer></script>
   </head>
@@ -29,10 +32,15 @@
         <a href="#features">Tính năng</a>
         <a href="#install">Cài đặt</a>
         <a href="#faq">Hỏi đáp</a>
-        <a class="nav-source"
+        <a href="./demo-login.html">Đăng nhập thử</a>
+        <a
           href="https://github.com/Lmnhutw/PasswordTool.Core">Mã nguồn <span
             aria-hidden="true">↗</span></a>
       </nav>
+      <a class="button button-primary header-download"
+        href="https://github.com/Lmnhutw/PasswordTool.Core/releases">Tải xuống
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5" /></svg>
+      </a>
     </header>
     <main id="main">
       <section class="hero" id="home" aria-labelledby="product-title">
@@ -83,9 +91,7 @@
 
                   <div class="manual-bottom">
                     <span>Dữ liệu được lưu<br>trên máy của bạn.</span>
-                    <svg viewBox="0 0 48 48" aria-hidden="true">
-                      <path d="M8 24h30M25 11l13 13-13 13" />
-                    </svg>
+                    <p class="manual-demo">Minh họa điền tài khoản trên trang đăng nhập thử. Popup dùng dữ liệu mô phỏng. <a href="./demo-login.html">Thử ngay →</a></p>
                   </div>
                 </article>
 
@@ -98,10 +104,7 @@
                   <div class="showcase-media"><img class="product-image"
                       src="./assets/homepage/desktop-vault.png"
                       alt="Giao diện kho mật khẩu YourSafe trên Windows với dữ liệu demo."
-                      width="1370" height="953"></div><div
-                    class="showcase-preview" aria-hidden="true"><img
-                      src="./assets/homepage/desktop-vault.png" alt width="1370"
-                      height="953"></div>
+                      width="1370" height="953"></div>
                   <div class="showcase-footer"><p>Quản lý tài khoản ngay trên
                       Windows. Ảnh dùng dữ liệu demo.</p><a
                       class="showcase-link" href="#features">Xem bên trong ứng
@@ -116,9 +119,6 @@
                   <div class="showcase-media"><img class="product-image"
                       src="./assets/homepage/extension-accounts.png"
                       alt="Tiện ích YourSafe hiển thị các tài khoản phù hợp với website."
-                      width="720" height="1150"></div><div
-                    class="showcase-preview" aria-hidden="true"><img
-                      src="./assets/homepage/extension-accounts.png" alt
                       width="720" height="1150"></div>
                   <div class="showcase-footer"><p>Chọn tài khoản để điền vào
                       trang đăng nhập.</p><a class="showcase-link"
@@ -136,6 +136,8 @@
                     aria-controls="showcase-extension">Extension</button>
                 </div>
                 <div class="showcase-arrows"><button type="button"
+                    class="showcase-autoplay"
+                    aria-label="Dừng tự chuyển slide">Dừng</button><button type="button"
                     data-direction="-1"
                     aria-label="Nội dung trước">←</button><button type="button"
                     data-direction="1"
@@ -172,7 +174,7 @@
                   class="product-image"
                   src="./assets/homepage/desktop-vault.png"
                   alt="Danh sách tài khoản demo trong YourSafe, có ô tìm kiếm và nhóm Personal và Work."
-                  width="1370" height="953" loading="lazy"></img>
+                  width="1370" height="953" loading="lazy">
                   </figure>
           </article>
           <article class="feature-panel feature-editor" data-reveal>
@@ -183,7 +185,7 @@
                   class="product-image"
                   src="./assets/homepage/desktop-editor.png"
                   alt="Màn hình sửa tài khoản demo của YourSafe, mật khẩu được che và các trường thông tin được chia nhóm."
-                  width="1370" height="953" loading="lazy"></img>
+                  width="1370" height="953" loading="lazy">
              </figure>
           </article>
           <article class="feature-panel feature-tools" data-reveal>
@@ -214,29 +216,24 @@
                 class="text-link"
                 href="https://github.com/Lmnhutw/PasswordTool.Core/blob/main/browser-extension/README.md#development">Hướng
                 dẫn thử tiện ích <span aria-hidden="true">↗</span></a></div>
-            <div class="extension-visuals"><figure class="app-figure"><a
-                  href="./assets/homepage/extension-accounts.png" aria-label="Xem ảnh đầy đủ chọn tài khoản trong tiện ích"><img
+            <div class="extension-visuals"><figure class="app-figure"><img
                     class="product-image"
                     src="./assets/homepage/extension-accounts.png"
                     alt="Hai tài khoản demo phù hợp với github.com, có nút Fill và View TOTP."
                     width="720" height="1150"
-                    loading="lazy"></a><figcaption>Chọn tài khoản để
-                  điền.</figcaption></figure><figure class="app-figure"><a
-                  href="./assets/homepage/extension-code.png" aria-label="Xem ảnh đầy đủ mã xác thực trong tiện ích"><img
+                    loading="lazy"><figcaption>Chọn tài khoản để
+                  điền.</figcaption></figure><figure class="app-figure"><img
                     class="product-image"
                     src="./assets/homepage/extension-code.png"
                     alt="Tiện ích hiển thị mã xác thực demo 123 456, bộ đếm thời gian và nút Copy."
-                    width="720" height="1098" loading="lazy"></a><figcaption>Xem
+                    width="720" height="1098" loading="lazy"><figcaption>Xem
                   mã xác thực.</figcaption></figure><p class="visual-note">Giao
                 diện tiện ích thật từ source, dùng dữ liệu demo để minh
                 họa.</p></div>
             <figure class="app-figure extension-context">
-              <a href="./assets/captures-inbox/08-extension-login-context.png" aria-label="Xem đầy đủ ảnh minh họa đăng nhập thử">
                 <img class="product-image" src="./assets/captures-inbox/08-extension-login-context.png"
                   alt="Trang đăng nhập thử YourSafe với mật khẩu được che, cạnh popup tiện ích có tài khoản demo phù hợp."
                   width="1600" height="900" loading="lazy">
-              </a>
-              <figcaption>Minh họa điền tài khoản trên trang đăng nhập thử. Popup dùng dữ liệu mô phỏng. <a href="./demo-login.html">Thử ngay →</a></figcaption>
             </figure>
           </article>
         </div>
@@ -377,11 +374,33 @@
               </div>
             </div></div></section>
     </main>
-    <footer class="site-footer"><a class="brand" href="#home"><img
-          class="brand-logo" src="./assets/app-logo.png" alt width="40"
-          height="40">YourSafe<span class="footer-dot"
-          aria-hidden="true">.</span></a><p>Lưu mật khẩu trên máy Windows của
-        bạn.</p><a href="https://github.com/Lmnhutw/PasswordTool.Core">Xem mã
-        nguồn <span aria-hidden="true">↗</span></a></footer>
+    <footer class="site-footer">
+      <div class="footer-brand">
+        <a class="brand" href="#home"><img class="brand-logo" src="./assets/app-logo.png" alt width="40" height="40">
+          <span>YourSafe<span class="footer-dot" aria-hidden="true">.</span></span></a>
+        <p>Lưu mật khẩu trên máy Windows của bạn.</p>
+      </div>
+      <div class="footer-copyright">
+        <p><strong>© 2026 YourSafe.</strong></p>
+        <div class="footer-socials">
+          <a href="https://www.linkedin.com/in/minhnhut0211/" aria-label="LinkedIn của Minh Nhựt" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM3 9h4v12H3V9Zm7 0h4v1.6C14.8 9.5 16 9 17.4 9 20.6 9 22 11 22 14.4V21h-4v-6.1c0-1.7-.5-2.8-1.9-2.8-1.5 0-2.1 1.1-2.1 2.8V21h-4V9Z" /></svg>
+          </a>
+          <a href="https://github.com/Lmnhutw/PasswordTool.Core" aria-label="Mã nguồn YourSafe trên GitHub" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .8a11.2 11.2 0 0 0-3.54 21.83c.56.1.77-.24.77-.54v-2.08c-3.13.68-3.8-1.33-3.8-1.33-.51-1.3-1.25-1.65-1.25-1.65-1.02-.7.08-.69.08-.69 1.13.08 1.72 1.16 1.72 1.16 1 1.71 2.62 1.22 3.26.93.1-.72.4-1.22.71-1.5-2.5-.28-5.13-1.25-5.13-5.56 0-1.23.44-2.24 1.15-3.02-.11-.29-.5-1.43.11-2.98 0 0 .94-.3 3.08 1.15A10.8 10.8 0 0 1 12 6.14c.95 0 1.9.13 2.8.38 2.14-1.45 3.07-1.15 3.07-1.15.62 1.55.23 2.69.12 2.98.71.78 1.15 1.79 1.15 3.02 0 4.32-2.64 5.27-5.15 5.55.4.35.76 1.03.76 2.08v3.09c0 .3.2.65.77.54A11.2 11.2 0 0 0 12 .8Z" /></svg>
+          </a>
+        </div>
+      </div>
+      <form class="footer-feedback" action="https://github.com/Lmnhutw/PasswordTool.Core/issues/new" method="get" target="_blank" rel="noopener noreferrer">
+        <label for="feedback-body">Gửi góp ý</label>
+        <input type="hidden" name="title" value="Góp ý YourSafe">
+        <textarea id="feedback-body" name="body" rows="3" maxlength="5000" required placeholder="Bạn muốn YourSafe cải thiện điều gì?"></textarea>
+        <div class="feedback-actions">
+          <button class="button button-primary" type="submit">Tạo issue GitHub</button>
+          <a class="feedback-email" href="mailto:lmnhut0211@gmail.com?subject=G%C3%B3p%20%C3%BD%20YourSafe">Gửi email ↗</a>
+        </div>
+      </form>
+    </footer>
+    <div class="image-preview" aria-hidden="true" hidden></div>
   </body>
 </html>

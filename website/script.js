@@ -1,37 +1,5 @@
 "use strict";
 
-const menuButton = document.querySelector(".menu-toggle");
-const navigation = document.querySelector(".site-nav");
-
-function closeMenu() {
-  navigation.classList.remove("is-open");
-  menuButton.setAttribute("aria-expanded", "false");
-}
-
-// The unenhanced navigation stays visible when JavaScript is unavailable.
-menuButton.hidden = false;
-navigation.classList.add("is-collapsible");
-menuButton.addEventListener("click", () => {
-  const open = navigation.classList.toggle("is-open");
-  menuButton.setAttribute("aria-expanded", String(open));
-});
-navigation.addEventListener("click", (event) => {
-  if (event.target.closest("a")) closeMenu();
-});
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && navigation.classList.contains("is-open")) {
-    closeMenu();
-    menuButton.focus();
-  }
-});
-const mobile = window.matchMedia("(max-width: 680px)");
-function updateMenu() {
-  menuButton.hidden = !mobile.matches;
-  closeMenu();
-}
-updateMenu();
-mobile.addEventListener("change", updateMenu);
-
 if (
   "IntersectionObserver" in window &&
   !window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -74,6 +42,31 @@ const showcase = document.querySelector(".showcase");
 const slides = [...showcase.querySelectorAll(".showcase-slide")];
 const selectors = [...showcase.querySelectorAll("[data-slide]")];
 let currentSlide = 0;
+const autoplayButton = showcase.querySelector(".showcase-autoplay");
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+let autoplayPaused = reducedMotion.matches;
+let autoplayTimer;
+
+function updateAutoplay() {
+  window.clearInterval(autoplayTimer);
+  autoplayButton.textContent = autoplayPaused ? "Tự chuyển" : "Dừng";
+  autoplayButton.setAttribute("aria-label", autoplayPaused ? "Bật tự chuyển slide" : "Dừng tự chuyển slide");
+  if (autoplayPaused || document.hidden || showcase.matches(":hover") || showcase.contains(document.activeElement)) return;
+  autoplayTimer = window.setInterval(() => showSlide(currentSlide + 1, false), 5000);
+}
+
+autoplayButton.addEventListener("click", () => {
+  autoplayPaused = !autoplayPaused;
+  updateAutoplay();
+});
+for (const event of ["mouseenter", "mouseleave", "focusin", "focusout"]) {
+  showcase.addEventListener(event, updateAutoplay);
+}
+document.addEventListener("visibilitychange", updateAutoplay);
+reducedMotion.addEventListener("change", () => {
+  autoplayPaused = reducedMotion.matches;
+  updateAutoplay();
+});
 
 function showSlide(index, announce = true) {
   currentSlide = (index + slides.length) % slides.length;
@@ -86,6 +79,7 @@ function showSlide(index, announce = true) {
     showcase.querySelector(".showcase-status").textContent =
       `${currentSlide + 1} / ${slides.length}: ${slides[currentSlide].querySelector("h3").textContent}`;
   }
+  updateAutoplay();
 }
 
 // Without JavaScript, all three articles remain visible and the controls stay hidden.
@@ -127,3 +121,51 @@ stage.addEventListener("pointerup", (event) => {
 stage.addEventListener("click", (event) => {
   if (swiped && event.detail > 0) { event.preventDefault(); swiped = false; }
 }, true);
+
+const preview = document.querySelector(".image-preview");
+const canHover = window.matchMedia("(hover: hover) and (pointer: fine)");
+
+function closePreview() {
+  preview.hidden = true;
+  preview.replaceChildren();
+}
+
+function showPreview(image) {
+  const copy = image.cloneNode(true);
+  copy.removeAttribute("class");
+  copy.removeAttribute("tabindex");
+  copy.removeAttribute("loading");
+  copy.removeAttribute("aria-labelledby");
+  for (const element of [copy, ...copy.querySelectorAll("[id]")]) element.removeAttribute("id");
+  preview.replaceChildren(copy);
+  preview.hidden = false;
+}
+
+document.querySelectorAll(".product-image, .storage-diagram").forEach((image) => {
+  image.tabIndex = 0;
+  image.addEventListener("mouseenter", () => {
+    if (canHover.matches) showPreview(image);
+  });
+  image.addEventListener("mouseleave", () => {
+    if (!image.matches(":focus-visible")) closePreview();
+  });
+  image.addEventListener("focus", () => {
+    if (image.matches(":focus-visible")) showPreview(image);
+  });
+  image.addEventListener("blur", closePreview);
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closePreview();
+});
+
+const feedback = document.querySelector(".footer-feedback");
+const feedbackBody = document.querySelector("#feedback-body");
+const feedbackEmail = feedback.querySelector(".feedback-email");
+feedbackEmail.addEventListener("click", (event) => {
+  if (!feedback.reportValidity()) {
+    event.preventDefault();
+    return;
+  }
+  const query = new URLSearchParams({ subject: "Góp ý YourSafe", body: feedbackBody.value });
+  feedbackEmail.href = `mailto:lmnhut0211@gmail.com?${query}`;
+});
