@@ -46,6 +46,46 @@ async function assertSlide(page, index) {
   assert.deepEqual(state.current, [0, 1, 2].map((position) => String(position === index)));
 }
 
+async function verifyPrivacyAndClosing(browser, base) {
+  const context = await browser.newContext({ reducedMotion: 'reduce' });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  for (const width of [1920, 1440, 768, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(base);
+    const link = page.locator('.faq-privacy a');
+    assert.equal(await link.getAttribute('href'), './privacy');
+    if (width > 960) {
+      const layout = await page.evaluate(() => ({
+        footer: document.querySelector('.site-footer').getBoundingClientRect().toJSON(),
+        closing: document.querySelector('.closing-inner').getBoundingClientRect().toJSON(),
+      }));
+      assert.ok(layout.footer.height < 160, `compact footer at ${width}`);
+      assert.ok(layout.closing.x < 65 && width - layout.closing.right < 65, `expanded CTA at ${width}`);
+      assert.equal(layout.footer.width, width, `footer spans desktop at ${width}`);
+    }
+    if ([1920, 390].includes(width)) {
+      await page.locator('#faq').screenshot({ path: path.join(root, `../.impeccable/review/faq-${width}.png`) });
+      await page.locator('.closing').screenshot({ path: path.join(root, `../.impeccable/review/closing-${width}.png`) });
+      await page.locator('.site-footer').screenshot({ path: path.join(root, `../.impeccable/review/footer-${width}.png`) });
+    }
+    await link.click();
+    assert.equal(page.url(), `${base}privacy`);
+    assert.equal(await page.title(), 'Chính sách quyền riêng tư — YourSafe');
+    assert.equal(await page.locator('.privacy h1').textContent(), 'Chính sách quyền riêng tư');
+    assert.equal(await page.locator('.privacy li').count(), 4);
+    assert.equal(await page.locator('.privacy a[href^="mailto:"]').getAttribute('href'), 'mailto:lmnhut0211@gmail.com');
+    await page.evaluate(() => document.fonts.ready);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `privacy fits at ${width}`);
+    if ([1440, 390].includes(width)) await page.screenshot({ path: path.join(root, `../.impeccable/review/privacy-${width}.png`), fullPage: true });
+    await page.getByRole('link', { name: 'Về hỏi đáp' }).click();
+    assert.equal(page.url(), `${base}home#faq`);
+  }
+  assert.deepEqual(errors, []);
+  await context.close();
+}
+
 async function assertImage(image) {
   const state = await image.evaluate((img) => {
     const bounds = img.getBoundingClientRect();
@@ -625,6 +665,7 @@ async function verifyDemo(browser, base) {
       true,
     );
     await verifyStorage(browser, base);
+    await verifyPrivacyAndClosing(browser, base);
     await verifyDemo(browser, base);
     assert.deepEqual(errors, []);
     console.log(`Observed layout shifts: ${JSON.stringify(layoutScores)}`);

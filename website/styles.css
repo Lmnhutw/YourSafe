@@ -1420,6 +1420,54 @@ code {
   border-top: 1px solid var(--rule);
 }
 
+.faq-privacy {
+  margin-top: 1.5rem;
+}
+
+.privacy {
+  max-width: 960px;
+  margin: auto;
+  padding: 3.5rem var(--gutter);
+}
+
+.privacy h1 {
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  line-height: 1.2;
+  letter-spacing: -0.035em;
+}
+
+.privacy-updated {
+  margin: 1rem 0 2rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.privacy section {
+  margin-top: 2rem;
+}
+
+.privacy h2 {
+  font-size: 1.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.privacy p + p {
+  margin-top: 0.75rem;
+}
+
+.privacy ul {
+  padding-left: 1.25rem;
+}
+
+.privacy li + li {
+  margin-top: 0.5rem;
+}
+
+.privacy a {
+  color: var(--accent);
+  overflow-wrap: anywhere;
+}
+
 details {
   border-bottom: 1px solid var(--rule);
 }
@@ -1460,15 +1508,15 @@ details p {
 .closing {
   background: var(--accent);
   color: var(--white);
-  padding: 4.7rem var(--gutter);
+  padding: 3rem clamp(1.25rem, 3vw, 4rem);
 }
 
 .closing-inner {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
   align-items: center;
   justify-content: space-between;
   gap: 3rem;
-  max-width: 1440px;
   margin: auto;
 }
 
@@ -1492,17 +1540,16 @@ details p {
 .closing p {
   color: #e2e9ff;
   font-size: 0.85rem;
-  max-width: 36ch;
   margin-top: 1rem;
 }
 
 .site-footer {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: start;
-  gap: 3rem;
-  padding-top: 3rem;
-  padding-bottom: 3rem;
+  align-items: center;
+  gap: 2rem;
+  max-width: none;
+  padding: 1.5rem clamp(1.25rem, 3vw, 4rem);
   font-size: 0.85rem;
 }
 
@@ -1511,20 +1558,18 @@ details p {
 }
 
 .footer-brand p {
-  margin-top: 0.75rem;
-  max-width: 28ch;
+  margin-top: 0.25rem;
 }
 
 .footer-copyright {
   text-align: center;
-  padding-top: 0.75rem;
 }
 
 .footer-socials {
   display: flex;
   justify-content: center;
   gap: 0.5rem;
-  margin-top: 0.75rem;
+  margin-top: 0.25rem;
 }
 
 .footer-socials a {
@@ -1549,9 +1594,7 @@ details p {
 .footer-feedback {
   min-width: 0;
   width: 100%;
-  max-width: 25rem;
   justify-self: end;
-  padding-top: 0.75rem;
 }
 
 .footer-feedback a {
@@ -1644,7 +1687,8 @@ details p {
 
   .site-footer {
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 2rem;
+    gap: 1.25rem;
+    align-items: start;
   }
 
   .footer-feedback {
@@ -1708,6 +1752,11 @@ details p {
 
   .faq {
     grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .closing-inner {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 2rem;
   }
 }
@@ -2018,14 +2067,13 @@ details p {
   }
 
   .closing-inner {
-    flex-direction: column;
-    align-items: flex-start;
+    grid-template-columns: minmax(0, 1fr);
     gap: 2rem;
   }
 
   .site-footer {
     grid-template-columns: minmax(0, 1fr);
-    gap: 2rem;
+    gap: 1.25rem;
   }
 
   .footer-copyright {
