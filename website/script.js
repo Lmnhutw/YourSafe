@@ -157,15 +157,3 @@ document.querySelectorAll(".product-image, .storage-diagram").forEach((image) =>
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closePreview();
 });
-
-const feedback = document.querySelector(".footer-feedback");
-const feedbackBody = document.querySelector("#feedback-body");
-const feedbackEmail = feedback.querySelector(".feedback-email");
-feedbackEmail.addEventListener("click", (event) => {
-  if (!feedback.reportValidity()) {
-    event.preventDefault();
-    return;
-  }
-  const query = new URLSearchParams({ subject: "Góp ý YourSafe", body: feedbackBody.value });
-  feedbackEmail.href = `mailto:lmnhut0211@gmail.com?${query}`;
-});

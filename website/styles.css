@@ -1371,49 +1371,14 @@ details p {
 }
 
 .footer-feedback {
-  display: grid;
-  gap: 0.75rem;
   min-width: 0;
   width: 100%;
   max-width: 25rem;
   justify-self: end;
+  padding-top: 0.75rem;
 }
 
-.footer-feedback label {
-  font-weight: 700;
-}
-
-.footer-feedback textarea {
-  width: 100%;
-  min-width: 0;
-  min-height: 6rem;
-  resize: vertical;
-  padding: 0.75rem;
-  border: 1px solid var(--rule);
-  border-radius: 4px;
-  background: var(--white);
-  color: var(--ink);
-  font: inherit;
-}
-
-.feedback-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 1rem;
-}
-
-.feedback-actions .button {
-  min-height: 44px;
-  padding: 0.65rem 0.85rem;
-  border: 0;
-  font-size: 0.8rem;
-}
-
-.feedback-email {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
+.footer-feedback a {
   color: var(--accent);
 }
 

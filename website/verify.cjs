@@ -376,11 +376,14 @@ async function verifyDemo(browser, base) {
       assert.equal(await page.locator('.footer-copyright strong').textContent(), '© 2026 YourSafe.');
       assert.equal(await page.getByRole('link', { name: 'LinkedIn của Minh Nhựt' }).getAttribute('href'), 'https://www.linkedin.com/in/minhnhut0211/');
       assert.equal(await page.locator('.footer-socials a').count(), 2);
+      assert.equal(await page.locator('.footer-feedback form, .footer-feedback textarea, .footer-feedback input, .footer-feedback button').count(), 0, 'feedback is plain text with links');
+      assert.equal(await page.locator('.footer-feedback a[href^="mailto:"]').getAttribute('href'), 'mailto:lmnhut0211@gmail.com');
+      assert.equal(await page.locator('.footer-feedback a[href^="https:"]').getAttribute('href'), 'https://github.com/Lmnhutw/PasswordTool.Core/issues/new');
       const footerLayout = await page.locator('.site-footer').evaluate(footer => {
         const brand = footer.querySelector('.footer-brand').getBoundingClientRect();
         const copyright = footer.querySelector('.footer-copyright').getBoundingClientRect();
-        const form = footer.querySelector('.footer-feedback').getBoundingClientRect();
-        return innerWidth > 960 ? brand.right < copyright.left && copyright.right < form.left : form.top > brand.bottom && form.top > copyright.bottom;
+        const feedback = footer.querySelector('.footer-feedback').getBoundingClientRect();
+        return innerWidth > 960 ? brand.right < copyright.left && copyright.right < feedback.left : feedback.top > brand.bottom && feedback.top > copyright.bottom;
       });
       assert.equal(footerLayout, true, `footer layout at ${width}`);
       if ([1440, 390].includes(width)) await page.locator('.site-footer').screenshot({ path: path.join(root, `../.impeccable/review/footer-${width}.png`) });
@@ -413,28 +416,6 @@ async function verifyDemo(browser, base) {
     await page.waitForTimeout(5500);
     await assertSlide(page, 0);
     assert.equal(await page.locator('.showcase-autoplay').textContent(), 'Tự chuyển', 'reduced motion starts paused');
-    const message = 'Góp ý: ảnh & menu? #YourSafe\nCảm ơn!';
-    await page.locator('.feedback-email').evaluate(link => link.addEventListener('click', event => event.preventDefault(), { once: true }));
-    await page.locator('.feedback-email').click();
-    assert.equal(await page.locator('#feedback-body').evaluate(element => element.validity.valueMissing), true, 'empty feedback is rejected');
-    await page.getByLabel('Gửi góp ý').fill(message);
-    await page.locator('.feedback-email').evaluate(link => link.addEventListener('click', event => event.preventDefault(), { once: true }));
-    await page.locator('.feedback-email').click();
-    const email = new URL(await page.locator('.feedback-email').getAttribute('href'));
-    assert.equal(email.pathname, 'lmnhut0211@gmail.com');
-    assert.equal(email.searchParams.get('body'), message, 'email feedback is encoded');
-    assert.equal(email.searchParams.get('subject'), 'Góp ý YourSafe');
-    await context.route('https://github.com/Lmnhutw/PasswordTool.Core/issues/new?**', route => route.fulfill({ contentType: 'text/html', body: '<title>Local issue-form check</title>' }));
-    const issuePromise = context.waitForEvent('page');
-    await page.getByRole('button', { name: 'Tạo issue GitHub' }).click();
-    const issue = await issuePromise;
-    await issue.waitForLoadState();
-    const issueUrl = new URL(issue.url());
-    assert.equal(issueUrl.pathname, '/Lmnhutw/PasswordTool.Core/issues/new');
-    assert.equal(issueUrl.searchParams.get('body').replace(/\r\n/g, '\n'), message, 'GitHub feedback is encoded');
-    assert.equal(issueUrl.searchParams.get('title'), 'Góp ý YourSafe');
-    assert.equal(await issue.evaluate(() => opener === null), true, 'feedback popup cannot access the site');
-    await issue.close();
     await page.locator(".install-guide summary").click();
     await page.evaluate(() => {
       window.copiedCommand = "";
@@ -473,7 +454,7 @@ async function verifyDemo(browser, base) {
       assert.equal(await plain.locator("#site-nav").isVisible(), true);
       assert.equal(await plain.locator(".menu-toggle").isVisible(), false);
       assert.equal(await plain.locator(".hero-copy .button-primary").isVisible(), true);
-      assert.equal(await plain.locator('.footer-feedback').getAttribute('action'), 'https://github.com/Lmnhutw/PasswordTool.Core/issues/new');
+      assert.equal(await plain.locator('.footer-feedback a[href^="https:"]').getAttribute('href'), 'https://github.com/Lmnhutw/PasswordTool.Core/issues/new');
       assert.equal(await plain.locator(".showcase-controls").isVisible(), false);
       for (const slide of await plain.locator(".showcase-slide").all()) assert.equal(await slide.isVisible(), true);
       for (const image of await plain.locator(".product-image").all()) {
@@ -580,7 +561,7 @@ async function verifyDemo(browser, base) {
     assert.deepEqual(errors, []);
     console.log(`Observed layout shifts: ${JSON.stringify(layoutScores)}`);
     console.log(
-      "PASS: 1440/768/390/320 widths, sticky header/anchors/download/navigation hover, footer layout/socials/feedback encoding, image hover/keyboard/touch/no click-through, moved demo caption, native screenshot ratios/rounded edges, stable gallery bounds, carousel pagination/arrows/keyboard/swipe/focus/autoplay/stop/resume/hover/hidden/reduced-motion, assets/base path, logo/favicon, menu, FAQ, clipboard, reveal and no-JS.",
+      "PASS: 1440/768/390/320 widths, sticky header/anchors/download/navigation hover, footer layout/socials/feedback links, image hover/keyboard/touch/no click-through, moved demo caption, native screenshot ratios/rounded edges, stable gallery bounds, carousel pagination/arrows/keyboard/swipe/focus/autoplay/stop/resume/hover/hidden/reduced-motion, assets/base path, logo/favicon, menu, FAQ, clipboard, reveal and no-JS.",
     );
   } finally {
     if (browser) await browser.close();
