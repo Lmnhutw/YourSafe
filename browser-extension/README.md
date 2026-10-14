@@ -25,6 +25,8 @@ Enable browser integration in the desktop Settings; it starts disabled each app 
 
 The extension uses `activeTab` and `scripting` instead of persistent website permissions. It injects its content script only into the selected top-level document after an explicit Fill action. It adds no automatic page hint. Its extension-page CSP forbids network connections, remote scripts, frames, and form submission.
 
+Chrome Web Store single-purpose text, permission justifications, data-category declarations, contact-email verification and Save Draft steps are in [CHROME-WEB-STORE.md](CHROME-WEB-STORE.md). These declarations describe the extension; the separate website's GA4 code is not bundled into it.
+
 When locked, use **Show YourSafe**, unlock on the desktop, then refresh and choose the account again. YourSafe must already be running; the host never launches a second desktop or unlocks a vault.
 
 Items with **No URL** (a null, empty or whitespace-only stored URL), invalid URLs, or unrelated origins are excluded from browser discovery and all secret actions. Add the exact supported website in the desktop before using browser integration. Discovery and secret retrieval recheck the stored URL, so changing it after discovery invalidates the old request.

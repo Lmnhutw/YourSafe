@@ -37,6 +37,98 @@ const server = http.createServer((request, response) => {
   fs.createReadStream(file).pipe(response);
 });
 
+async function offlineContext(browser, options) {
+  const context = await browser.newContext(options);
+  // Inspect the gtag queue locally without sending test traffic to the real GA4 property.
+  await context.route('https://www.googletagmanager.com/**', route => route.fulfill({ contentType: 'text/javascript', body: '' }));
+  return context;
+}
+
+async function verifyAnalytics(browser, base) {
+  const context = await offlineContext(browser, { reducedMotion: 'reduce', viewport: { width: 1440, height: 900 } });
+  const page = await context.newPage();
+  const queue = () => page.evaluate(() => window.dataLayer.map(command => Array.from(command)));
+  for (const route of ['', 'home', 'home.html', 'privacy']) {
+    await page.goto(`${base}${route}?private=do-not-track#private-fragment`);
+    const tag = page.locator('script[src^="https://www.googletagmanager.com/gtag/js"]');
+    assert.equal(await tag.count(), 1, 'one Google tag per document');
+    assert.equal(await tag.getAttribute('src'), 'https://www.googletagmanager.com/gtag/js?id=G-1GP0TS974S');
+    assert.equal(await tag.getAttribute('async'), '', 'Google tag loads asynchronously');
+    assert.equal(await page.locator('script[src="./analytics.js"]').getAttribute('defer'), '', 'local initialization does not block rendering');
+    const initial = await queue();
+    assert.equal(initial.length, 2, 'only js and config initialize analytics');
+    assert.equal(initial[0][0], 'js');
+    assert.equal(initial[1][0], 'config');
+    assert.equal(initial[1][1], 'G-1GP0TS974S');
+    assert.equal(initial[1][2].page_location, `${base}${route}`, 'page URL excludes query and fragment');
+    assert.equal(initial[1][2].allow_google_signals, false);
+    assert.equal(initial[1][2].allow_ad_personalization_signals, false);
+    assert.equal(initial[1][2].send_page_view, undefined, 'config sends the automatic page_view');
+    await page.addScriptTag({ url: `${base}analytics.js` });
+    assert.deepEqual(await queue(), initial, 'loading initialization twice does not duplicate config or listeners');
+    // Cancel navigation after the analytics handler has observed a real user click.
+    await page.evaluate(() => {
+      document.addEventListener('click', event => event.preventDefault());
+      document.addEventListener('auxclick', event => event.preventDefault());
+      document.querySelectorAll('details').forEach(details => { details.open = true; });
+    });
+    if (route !== 'privacy') {
+      await page.locator('[data-slide="2"]').click();
+      assert.equal(await page.locator('a[data-analytics-event="download_click"]').count(), 4);
+      assert.equal(await page.locator('a[data-analytics-event="github_click"]').count(), 5);
+      assert.equal(await page.locator('a[data-analytics-event="extension_click"]').count(), 7);
+      for (const selector of ['a[href$="/releases"]', 'a[href="#extension"]', 'a[href="#extension-help"]']) {
+        assert.equal(await page.locator(`${selector}:not([data-analytics-event])`).count(), 0, `all relevant ${selector} links are tracked`);
+      }
+    }
+    const links = page.locator('a[data-analytics-event]');
+    for (const link of await links.all()) {
+      const name = await link.getAttribute('data-analytics-event');
+      const location = await link.getAttribute('data-analytics-location');
+      const before = (await queue()).length;
+      await link.hover();
+      await link.evaluate(element => element.click());
+      assert.equal((await queue()).length, before, 'hover and programmatic clicks are not tracked');
+      await link.click();
+      const after = await queue();
+      assert.equal(after.length, before + 1, 'one event per real click');
+      const expected = { location };
+      if (name === 'download_click') expected.platform = 'windows';
+      if (name === 'extension_click') expected.browser = 'chrome_edge_brave';
+      assert.deepEqual(after.at(-1), ['event', name, expected], 'only fixed event metadata is collected');
+    }
+    if (route === 'privacy') {
+      for (const width of [390, 320]) {
+        await page.setViewportSize({ width, height: 844 });
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `analytics disclosure fits at ${width}`);
+      }
+    }
+    const before = (await queue()).length;
+    await links.first().press('Enter');
+    assert.equal((await queue()).length, before + 1, 'keyboard activation is tracked once');
+    await links.first().click({ button: 'middle' });
+    assert.equal((await queue()).length, before + 2, 'middle click is tracked once');
+    await page.locator('.brand').first().press('Enter');
+    assert.equal((await queue()).length, before + 2, 'unmarked links are not tracked');
+  }
+  await page.route('https://www.googletagmanager.com/**', route => route.abort());
+  await page.goto(`${base}home`, { referer: `${base}privacy?email=do-not-track` });
+  assert.equal((await queue())[1][2].page_referrer, new URL(base).origin, 'referrer only contains the origin');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator('.menu-toggle').click();
+  assert.equal(await page.locator('.site-nav').isVisible(), true, 'blocked analytics does not break navigation');
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => document.addEventListener('click', event => event.preventDefault()));
+  await page.locator('.header-download').press('Enter');
+  assert.equal((await queue()).at(-1)[1], 'download_click', 'clicks queue safely when Google is blocked');
+  await page.goto(`${base}demo-login`);
+  assert.equal(await page.locator('script[src*="analytics"], script[src*="googletagmanager"]').count(), 0, 'credential demo stays free of third-party analytics');
+  assert.match(await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content'), /connect-src 'none'/);
+  assert.ok(fs.readFileSync(path.join(root, '../.github/workflows/website-pages.yml'), 'utf8').includes('website/analytics.js'), 'Pages workflow publishes analytics script');
+  await context.close();
+  console.log('PASS: GA4 async tag, automatic page_view config, duplicate initialization guard, all download/repository/extension links, actual clicks only, fixed parameters, clean page URLs and protected demo.');
+}
+
 async function assertSlide(page, index) {
   const state = await page.locator(".showcase").evaluate((showcase) => ({
     slides: [...showcase.querySelectorAll(".showcase-slide")].map((slide) => ({ hidden: slide.hidden, inert: slide.inert, ariaHidden: slide.getAttribute('aria-hidden') })),
@@ -51,7 +143,7 @@ async function assertSlide(page, index) {
 }
 
 async function verifySliderFade(browser, base) {
-  const context = await browser.newContext({ reducedMotion: 'no-preference' });
+  const context = await offlineContext(browser, { reducedMotion: 'no-preference' });
   const page = await context.newPage();
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
@@ -87,7 +179,7 @@ async function verifySliderFade(browser, base) {
 }
 
 async function verifyPrivacyAndClosing(browser, base) {
-  const context = await browser.newContext({ reducedMotion: 'reduce' });
+  const context = await offlineContext(browser, { reducedMotion: 'reduce' });
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -195,7 +287,7 @@ async function swipe(page, start, end, cancel = false) {
 }
 
 async function verifyStorageLayout(browser, base) {
-  const context = await browser.newContext({ reducedMotion: 'reduce' });
+  const context = await offlineContext(browser, { reducedMotion: 'reduce' });
   const page = await context.newPage();
   for (const width of [1920, 1536, 1440, 1280, 1024, 961, 960, 768, 681, 680, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
@@ -226,7 +318,7 @@ async function verifyStorageLayout(browser, base) {
 }
 
 async function verifyStorage(browser, base) {
-  const context = await browser.newContext({ reducedMotion: 'no-preference', viewport: { width: 1440, height: 900 } });
+  const context = await offlineContext(browser, { reducedMotion: 'no-preference', viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -276,7 +368,7 @@ async function verifyDemo(browser, base) {
   const { buildSync } = require('../browser-extension/node_modules/esbuild');
   const extensionFields = buildSync({ entryPoints: [path.join(root, '../browser-extension/src/fields.ts')],
     bundle: true, write: false, format: 'iife', globalName: 'YourSafeFields' }).outputFiles[0].text;
-  const context = await browser.newContext({ reducedMotion: 'reduce' });
+  const context = await offlineContext(browser, { reducedMotion: 'reduce' });
   await context.route(`${base}extension-fields.js`, route => route.fulfill({ contentType: 'text/javascript', body: extensionFields }));
   const page = await context.newPage();
   const errors = [];
@@ -350,13 +442,13 @@ async function verifyDemo(browser, base) {
   assert.equal(await page.locator('#demo-address').textContent(), `${base}demo-login`, 'legacy HTML entry displays the clean demo URL');
   assert.deepEqual(errors, []);
   await context.close();
-  const noJs = await browser.newContext({ javaScriptEnabled: false });
+  const noJs = await offlineContext(browser, { javaScriptEnabled: false });
   const plain = await noJs.newPage();
   await plain.goto(`${base}demo-login`);
   assert.equal(await plain.getByRole('button', { name: 'Đăng nhập', exact: true }).isDisabled(), true);
   assert.equal(await plain.getByLabel('Tên đăng nhập').isDisabled(), true, 'no-JS cannot submit secrets');
   await noJs.close();
-  const blockedJs = await browser.newContext();
+  const blockedJs = await offlineContext(browser);
   await blockedJs.route('**/demo-login.js', route => route.abort());
   const blocked = await blockedJs.newPage();
   await blocked.goto(`${base}demo-login`);
@@ -374,9 +466,11 @@ async function verifyDemo(browser, base) {
       headless: true,
       channel: process.platform === "win32" ? "msedge" : undefined,
     });
+    await verifyAnalytics(browser, base);
+    if (process.argv.includes('--analytics-only')) return;
     const errors = [];
     const layoutScores = [];
-    const context = await browser.newContext({ reducedMotion: "reduce" });
+    const context = await offlineContext(browser, { reducedMotion: "reduce" });
     await context.addInitScript(() => {
       window.layoutShiftScore = 0;
       window.layoutShifts = [];
@@ -670,7 +764,7 @@ async function verifyDemo(browser, base) {
     await page.locator(".install-guide summary").click();
     assert.match(await page.locator('.install-guide').innerText(), /Giải nén tất cả/);
     assert.doesNotMatch(await page.locator('#install').innerText(), /SHA-256|PowerShell|SIGNED|checksums/);
-    const noJs = await browser.newContext({
+    const noJs = await offlineContext(browser, {
       javaScriptEnabled: false,
       viewport: { width: 390, height: 844 },
     });
@@ -694,7 +788,7 @@ async function verifyDemo(browser, base) {
       assert.equal(await plain.locator("details").first().getAttribute("open"), "");
       assert.equal(await plain.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     }
-    const touchContext = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, reducedMotion: "reduce" });
+    const touchContext = await offlineContext(browser, { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, reducedMotion: "reduce" });
     const touchPage = await touchContext.newPage();
     await touchPage.goto(base);
     await touchPage.locator(".showcase-slides").scrollIntoViewIfNeeded();
@@ -712,7 +806,7 @@ async function verifyDemo(browser, base) {
     assert.equal(await touchPage.locator('.image-preview').isVisible(), false, 'touch does not open a hover preview');
     assert.equal(touchPage.url(), base);
     await touch.detach();
-    const animatedContext = await browser.newContext({
+    const animatedContext = await offlineContext(browser, {
       viewport: { width: 1440, height: 900 },
       reducedMotion: "no-preference",
     });

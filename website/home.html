@@ -2,6 +2,8 @@
 <html lang="vi">
   <head>
     <meta charset="utf-8">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GP0TS974S"></script>
+    <script src="./analytics.js" defer></script>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description"
       content="Lưu mật khẩu, mã xác thực và mã khôi phục ngay trên máy Windows với YourSafe. Dùng được khi không có internet.">
@@ -29,17 +31,20 @@
         aria-expanded="false" hidden>Menu <span
           aria-hidden="true">+</span></button>
       <nav class="site-nav" id="site-nav" aria-label="Điều hướng chính">
-        <a href="#extension">Tiện ích</a>
+        <a href="#extension" data-analytics-event="extension_click"
+          data-analytics-location="header">Tiện ích</a>
         <a href="#features">Tính năng</a>
         <a href="#install">Cài đặt</a>
         <a href="#faq">Hỏi đáp</a>
         <a href="./demo-login">Demo</a>
         <a
-          href="https://github.com/Lmnhutw/PasswordTool.Core">Mã nguồn <span
+          href="https://github.com/Lmnhutw/PasswordTool.Core"
+          data-analytics-event="github_click" data-analytics-location="header">Mã nguồn <span
             aria-hidden="true">↗</span></a>
       </nav>
       <a class="button button-primary header-download"
-        href="https://github.com/Lmnhutw/PasswordTool.Core/releases">Tải xuống
+        href="https://github.com/Lmnhutw/PasswordTool.Core/releases"
+        data-analytics-event="download_click" data-analytics-location="header">Tải xuống
         <svg viewBox="0 0 24 24" aria-hidden="true"><path
             d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5" /></svg>
       </a>
@@ -55,10 +60,12 @@
               <p>Mật khẩu, mã xác thực và mã khôi phục — cùng một kho trên
                 Windows. Không cần tài khoản trực tuyến.</p>
               <div class="download-actions"><a class="button button-primary"
-                  href="https://github.com/Lmnhutw/PasswordTool.Core/releases">Tải
+                  href="https://github.com/Lmnhutw/PasswordTool.Core/releases"
+                  data-analytics-event="download_click" data-analytics-location="hero">Tải
                   cho Windows <svg viewBox="0 0 24 24" aria-hidden="true"><path
                       d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5" /></svg></a>
-                <a class="text-link download-extension" href="#extension">Khám
+                <a class="text-link download-extension" href="#extension"
+                  data-analytics-event="extension_click" data-analytics-location="hero">Khám
                   phá tiện ích
                   <span aria-hidden="true">↗</span></a>
               </div>
@@ -130,7 +137,8 @@
                       width="720" height="1150"></div>
                   <div class="showcase-footer"><p>Chọn tài khoản để điền vào
                       trang đăng nhập.</p><a class="showcase-link"
-                      href="#extension">Khám phá tiện ích</a></div>
+                      href="#extension" data-analytics-event="extension_click"
+                      data-analytics-location="hero">Khám phá tiện ích</a></div>
                 </article>
               </div>
               <div class="showcase-controls" hidden>
@@ -236,7 +244,8 @@
                 trình duyệt trong Cài đặt của YourSafe trên Windows.</p>
               <p class="extension-note">Dùng trên Chrome, Edge và Brave.</p>
               <div class="extension-actions">
-                <a class="button button-primary" href="#extension-help">Xem cách
+                <a class="button button-primary" href="#extension-help"
+                  data-analytics-event="extension_click" data-analytics-location="features">Xem cách
                   dùng tiện ích <svg
                     viewBox="0 0 24 24" aria-hidden="true"><path
                       d="M4 12h16m-6-6 6 6-6 6" /></svg></a>
@@ -298,7 +307,8 @@
                 tiếp tục sử dụng.</p>
             </details>
             <a class="text-link"
-              href="https://github.com/Lmnhutw/PasswordTool.Core#security-model-and-limits">Tìm
+              href="https://github.com/Lmnhutw/PasswordTool.Core#security-model-and-limits"
+              data-analytics-event="github_click" data-analytics-location="local">Tìm
               hiểu cách bảo vệ dữ liệu
               <span aria-hidden="true">↗</span>
             </a>
@@ -366,7 +376,8 @@
           <li><div><h3>Tải YourSafe</h3><p>Chọn bản Windows 64-bit trên
                 GitHub.
                 Dùng bộ cài .exe để bắt đầu.</p><a class="text-link"
-                href="https://github.com/Lmnhutw/PasswordTool.Core/releases">Xem
+                href="https://github.com/Lmnhutw/PasswordTool.Core/releases"
+                data-analytics-event="download_click" data-analytics-location="install">Xem
                 các bản tải <span aria-hidden="true">↗</span></a></div></li>
           <li><div><h3>Mở và cài đặt</h3><p>Mở tệp .exe vừa tải và làm theo
                 hướng dẫn. Sau đó mở YourSafe từ Start Menu.</p></div></li>
@@ -396,7 +407,8 @@
             khác.</p>
         </details>
         <a class="text-link install-technical"
-          href="https://github.com/Lmnhutw/YourSafe/blob/main/docs/release-operations.md">Thông
+          href="https://github.com/Lmnhutw/YourSafe/blob/main/docs/release-operations.md"
+          data-analytics-event="github_click" data-analytics-location="install">Thông
           tin kỹ thuật về bản tải <span aria-hidden="true">↗</span></a>
       </section>
       <section class="section faq" id="faq" aria-labelledby="faq-title">
@@ -440,7 +452,8 @@
               mở ứng dụng. Sau đó mở tiện ích trên trang đăng nhập, chọn tài
               khoản và bấm Fill. Xác nhận yêu cầu trong ứng dụng Windows;
               tiện ích chỉ điền thông tin, bạn tự bấm Đăng nhập. <a
-                href="#extension">Xem phần tiện ích trình
+                href="#extension" data-analytics-event="extension_click"
+                data-analytics-location="faq">Xem phần tiện ích trình
                 duyệt</a>.</p></details>
           <details><summary>Vì sao tiện ích không thấy tài khoản hoặc không
               điền
@@ -495,10 +508,12 @@
             bạn.<br>Quyền kiểm soát của bạn.</h2><div><div
               class="download-actions"><a
                 class="button button-light"
-                href="https://github.com/Lmnhutw/PasswordTool.Core/releases">Tải
+                href="https://github.com/Lmnhutw/PasswordTool.Core/releases"
+                data-analytics-event="download_click" data-analytics-location="closing">Tải
                 cho Windows <svg viewBox="0 0 24 24" aria-hidden="true"><path
                     d="M4 12h16m-6-6 6 6-6 6" /></svg></a>
-              <a class="text-link download-extension" href="#extension">Khám phá
+              <a class="text-link download-extension" href="#extension"
+                data-analytics-event="extension_click" data-analytics-location="closing">Khám phá
                 tiện ích
                 <span aria-hidden="true">↗</span></a></div><p>Tải YourSafe và
               bắt
@@ -509,7 +524,8 @@
                 lưu trữ
                 của bạn.</p>
               <div class="closing-extension-actions">
-                <a class="text-link" href="#extension">Khám phá tiện ích <span
+                <a class="text-link" href="#extension" data-analytics-event="extension_click"
+                  data-analytics-location="closing">Khám phá tiện ích <span
                     aria-hidden="true">↗</span></a>
                 <a class="text-link" href="./demo-login">Thử Demo <span
                     aria-hidden="true">↗</span></a>
@@ -534,6 +550,7 @@
                 d="M5 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM3 9h4v12H3V9Zm7 0h4v1.6C14.8 9.5 16 9 17.4 9 20.6 9 22 11 22 14.4V21h-4v-6.1c0-1.7-.5-2.8-1.9-2.8-1.5 0-2.1 1.1-2.1 2.8V21h-4V9Z" /></svg>
           </a>
           <a href="https://github.com/Lmnhutw/PasswordTool.Core"
+            data-analytics-event="github_click" data-analytics-location="footer"
             aria-label="Mã nguồn YourSafe trên GitHub" target="_blank"
             rel="noopener noreferrer">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path
@@ -546,6 +563,7 @@
         <p>Bạn muốn góp ý hay có thắc mắc? Hãy <a
             href="mailto:lmnhut0211@gmail.com">gửi email cho tôi</a> hoặc <a
             href="https://github.com/Lmnhutw/PasswordTool.Core/issues/new"
+            data-analytics-event="github_click" data-analytics-location="footer"
             target="_blank" rel="noopener noreferrer">mở một issue trên
             GitHub</a>.</p>
       </div>

@@ -2,6 +2,8 @@
 <html lang="vi">
   <head>
     <meta charset="utf-8">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GP0TS974S"></script>
+    <script src="./analytics.js" defer></script>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description"
       content="Cách YourSafe và tiện ích trình duyệt xử lý mật khẩu, thông tin tài khoản và mã xác thực trên thiết bị của bạn.">
@@ -27,7 +29,8 @@
       <a class="text-link demo-home" href="./home#faq">Về hỏi đáp <span
           aria-hidden="true">←</span></a>
       <a class="button button-primary header-download"
-        href="https://github.com/Lmnhutw/PasswordTool.Core/releases">Tải xuống
+        href="https://github.com/Lmnhutw/PasswordTool.Core/releases"
+        data-analytics-event="download_click" data-analytics-location="privacy_header">Tải xuống
         <svg viewBox="0 0 24 24" aria-hidden="true"><path
             d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5" /></svg>
       </a>
@@ -35,7 +38,7 @@
     <main class="privacy" id="main">
       <h1>Chính sách quyền riêng tư</h1>
       <p class="privacy-updated">Cập nhật ngày <time
-          datetime="2026-10-13">13/10/2026</time> · YourSafe</p>
+          datetime="2026-10-14">14/10/2026</time> · YourSafe</p>
       <p>Chính sách này mô tả cách ứng dụng YourSafe trên Windows, tiện ích
         YourSafe cho trình duyệt và website giới thiệu xử lý dữ liệu. Bạn không
         cần tạo tài khoản trực tuyến để sử dụng kho mật khẩu.</p>
@@ -49,6 +52,13 @@
           nhập và trạng thái có mật khẩu hoặc TOTP. Khi bạn chọn điền, xem hoặc
           sao chép mã và chấp thuận trên Desktop, dữ liệu cần cho thao tác đó
           được xử lý trên cùng máy.</p>
+        <p>Địa chỉ URL và origin của tab đang chọn được dùng tạm thời để tìm
+          tài khoản và kiểm tra đúng trang đích; origin được gửi đến Desktop
+          trên cùng máy. Tiện ích không lưu danh sách lịch sử duyệt web. Sau
+          khi bạn bấm Fill, script đi kèm tiện ích kiểm tra thuộc tính ô đăng
+          nhập, biểu mẫu, độ hiển thị và địa chỉ nhận biểu mẫu để xác định nơi
+          điền an toàn. Mật khẩu chỉ được điền sau khi bạn chấp thuận trên
+          Desktop; tiện ích không thu thập nội dung toàn trang.</p>
       </section>
       <section aria-labelledby="privacy-use">
         <h2 id="privacy-use">Mục đích sử dụng và chia sẻ</h2>
@@ -61,7 +71,8 @@
           mẫu của website bạn chọn. Website đó có thể đọc các giá trị đã điền
           theo chính sách riêng của họ. YourSafe không tự gửi biểu mẫu đăng
           nhập.</p>
-        <p>YourSafe không bán dữ liệu trong kho, không sử dụng dữ liệu đó cho
+        <p>Ứng dụng Windows và tiện ích YourSafe không bán dữ liệu trong kho,
+          không sử dụng dữ liệu đó cho
           quảng cáo, không gửi telemetry hay tạo hồ sơ lịch sử duyệt web. Nhà
           phát triển không có quyền truy cập kho của bạn và không giữ bản sao để
           khôi phục giúp bạn.</p>
@@ -101,9 +112,20 @@
       </section>
       <section aria-labelledby="privacy-website">
         <h2 id="privacy-website">Website và góp ý</h2>
-        <p>Website này không cài công cụ quảng cáo hoặc phân tích lượt truy cập.
-          Trang đăng nhập thử xử lý biểu mẫu trong trình duyệt, không gửi hoặc
-          lưu lại thông tin bạn nhập. Website được lưu trữ trên GitHub Pages;
+        <p>Trang giới thiệu và trang chính sách này dùng Google Analytics 4 để
+          thống kê lượt truy cập và lượt nhấp vào liên kết tải Windows, GitHub
+          và tiện ích trình duyệt. Google Analytics có thể dùng cookie và xử lý
+          thông tin trình duyệt, thiết bị và lượt truy cập theo <a
+            href="https://policies.google.com/privacy">chính sách quyền riêng tư
+            của Google</a>. Website không bật tính năng quảng cáo của Google
+          Analytics; các sự kiện tùy chỉnh chỉ chứa vị trí liên kết, nền tảng
+          Windows hoặc nhóm trình duyệt được hỗ trợ. Bạn có thể chặn Google
+          Analytics bằng cài đặt hoặc tiện ích bảo vệ quyền riêng tư trong
+          trình duyệt.</p>
+        <p>Trang đăng nhập thử không cài Google Analytics, xử lý biểu mẫu trong
+          trình duyệt và không gửi hoặc lưu lại thông tin bạn nhập. Ứng dụng
+          Windows và tiện ích YourSafe không tích hợp Google Analytics.
+          Website được lưu trữ trên GitHub Pages;
           nhà cung cấp có thể xử lý thông tin kết nối theo <a
             href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">chính
             sách quyền riêng tư của GitHub</a>.</p>
