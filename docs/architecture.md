@@ -2,7 +2,7 @@
 
 ## Purpose and boundaries
 
-PasswordTool is a local Windows vault for passwords, website TOTP secrets, and recovery codes, plus a password-hash utility. It deliberately has no account system, database, cloud sync, telemetry, or vault API.
+YourSafe is a local Windows vault for passwords, website TOTP secrets, and account recovery codes, plus a password-hash utility. It deliberately has no online account system, database, cloud sync, telemetry, or vault API. `PasswordTool` remains in technical project names, persisted formats, cryptographic contexts, and the vault directory.
 
 ```text
 PasswordTool.WinUI ──> PasswordTool.Presentation ──> PasswordTool.Core <── PasswordTool.Core.Tests
@@ -21,7 +21,7 @@ First launch
   -> generate a random 256-bit DEK
   -> Argon2id derives a KEK from the Master Password
   -> KEK wraps the DEK with AES-256-GCM
-  -> DEK encrypts the vault and PasswordTool Authenticator secret with purpose-bound AAD
+  -> DEK encrypts the vault and YourSafe sign-in Authenticator secret with purpose-bound AAD
 
 Master Password unlock
   derive KEK -> unwrap DEK -> decrypt config secret and vault
@@ -35,7 +35,7 @@ Config v4 adds a purpose-bound Recovery Key wrapper around the same DEK and a cr
 | File | Purpose | Protection |
 | --- | --- | --- |
 | `%LocalAppData%\PasswordTool\.config` | v4 Master/Recovery key slots, credential revision, session settings, encrypted Authenticator secret, backup-health timestamps | Argon2id Master KEK and random 256-bit Recovery KEK independently wrap the same DEK with separate AAD. |
-| `%LocalAppData%\PasswordTool\.storage` | Vault items | Entire JSON payload is AES-256-GCM encrypted. |
+| `%LocalAppData%\PasswordTool\.storage` | Vault items and groups | Entire JSON payload is AES-256-GCM encrypted. |
 | `%LocalAppData%\PasswordTool\.trusted-unlock` | Legacy trusted-unlock token file | Kept for compatibility with existing installations; the desktop UI no longer offers Authenticator-only sign-in. |
 | `%LocalAppData%\PasswordTool\.snapshots` | Up to five prior config/vault pairs | Config and vault remain in their normal encrypted-at-rest formats. |
 
@@ -44,17 +44,17 @@ Config and vault writes are one logical state transition: stage and read back bo
 
 ## Vault and backup invariants
 
-- An item has type `Password` or `RecoveryCodes`, never both secret forms.
-- A password item may contain a normalized Base32 website TOTP secret with issuer/account, SHA1/SHA256/SHA512, 6/8 digits, and a positive period. A recovery-code item may not contain password or TOTP data. Old secret-only entries default to SHA1/6/30. Encrypted backup/import and CSV preserve the complete configuration.
-- Favorites, folders, and tags live inside the encrypted vault and backup payloads. List clones expose only whether a TOTP secret exists, never the secret itself.
+- An item has type `Password` or legacy `RecoveryCodes`. A `Password` credential may combine a password, website TOTP, and account recovery codes; it needs at least one of these. A nonempty recovery-code list requires at least two valid unique codes.
+- A password item may contain a normalized Base32 website TOTP secret with issuer/account, SHA1/SHA256/SHA512, 6/8 digits, and a positive period. A legacy `RecoveryCodes` item may not contain password or TOTP data. Old secret-only entries default to SHA1/6/30. Encrypted backup/import and CSV preserve the supported TOTP configuration.
+- Favorites, groups, and tags live inside the encrypted vault. Backups preserve item fields, including favorites and tags, but contain no group definitions (names, colors, or ordering) or appearance settings. Unknown group IDs are cleared during recovery/import. List clones expose only whether a TOTP secret exists, never the secret itself.
 - `Title` is required. Core validates item shape before add/update/export/import.
-- Login requires the Master Password and PasswordTool Authenticator TOTP. Reopening a locked vault during the same five-hour Login requires the Master Password. TOTP verifies Login; it never derives, wraps, encrypts, or decrypts a vault key.
-- A successful Login authorizes vault unlocks for at most five hours. Deleting a group and all its data additionally requires the exact confirmation phrase and a current TOTP code, checked in Core even during an active session. Login authorization is in memory only and expires independently of vault locking.
+- Login requires the Master Password and YourSafe sign-in Authenticator TOTP. Reopening a locked vault during the same five-hour Login requires the Master Password. TOTP verifies Login; it never derives, wraps, encrypts, or decrypts a vault key.
+- A successful Login authorizes vault unlocks for at most five hours. Sensitive actions do not request another TOTP code during that session. Deleting a group and all its data additionally requires the exact confirmation phrase; Core checks the phrase and active vault/session authorization. Login authorization is in memory only and expires independently of vault locking.
 - Desktop sign-in validates the Master Password before showing the TOTP prompt. This precheck opens no session and writes no storage; final unlock still requires both factors.
 - Group deletion removes the group and all its entries (including Trash entries) from the current vault. Other groups and Ungrouped entries remain intact. Existing backups and snapshots are not erased.
 - Backups use the `PasswordToolBackup` version-1 envelope: PBKDF2-SHA256 (600,000 iterations, random 16-byte salt) derives a separate 256-bit key; AES-256-GCM encrypts only vault entries.
 - Inspection authenticates and validates the complete backup but returns only format/version, creation time, and item/type/active/Trash counts. It never returns the decrypted payload or secret fields.
-- New-machine recovery is allowed only when neither `.config` nor `.storage` exists. Core validates the backup, new Master Password, and new Authenticator confirmation before atomically committing a fresh random DEK, Argon2id Master key slot, and recovered encrypted vault. It never imports the old config, vault key, trusted token, or application Authenticator secret.
+- New-machine recovery is allowed only when neither `.config` nor `.storage` exists. Core validates the backup, new Master Password, saved Recovery Key, and new Authenticator confirmation before atomically committing a fresh random DEK, Argon2id Master key slot, Recovery Key slot, and recovered encrypted vault. It never imports the old config, vault key, trusted token, or application Authenticator secret.
 - Backup-health timestamps change only after an external file write or full authenticated verification succeeds. Config metadata updates use the same paired config/vault state transaction.
 - Internal snapshots live beside the vault on the same disk and are not an external or disaster-recovery backup.
 - Import is validate-then-commit: enforce 10 MB, JSON depth 32, exact format/KDF/version, authenticated decryption, item limits, and unique IDs; show new/duplicate/conflict items; add new IDs only; rollback in-memory additions when save fails.
@@ -65,10 +65,10 @@ Config and vault writes are one logical state transition: stage and read back bo
 - Local Security Check scans active password values in memory only, using exact ordinal reuse comparison and the existing strength estimator. Findings are secret-free and ordered by type, title, then ID. Passwords at least 365 days old (including the exact boundary) are old. WinUI receives findings and routes only the selected item ID through the protected editor workflow before rerunning the scan.
 - Local Security Check runs only against decrypted in-memory data and returns item metadata plus finding type, never a password value.
 - Core owns LoginExpiresAt = login + five hours and VaultExpiresAt = min(unlock + duration, LoginExpiresAt). Supported durations are 1, 2, 5, 10, 30, 60, 120, 300 minutes. Activity does not renew either deadline. Duration settings apply after closing and reopening the app; saving shows a confirmation. Protected Core reads/writes check expiration; Presentation discards results that cross a lifecycle change or an authorization deadline.
-- Table timeout keeps Login active and cached table metadata visible. A desktop action requires the Master Password once and relocks immediately; explicit Unlock Vault opens the table for the selected duration. Neither path requires TOTP again during an active Login. Browser autofill requires an explicitly unlocked vault and never prompts for a Master Password in the extension. Logout or app exit ends Login.
+- Manual table lock and table timeout keep Login active and cached table metadata visible, including titles, usernames, tags, and non-hidden URLs/notes. They clear the DEK and decrypted secret state. A desktop action requires the Master Password once and relocks immediately; explicit Unlock Vault opens the table for the selected duration. Neither path requires TOTP again during an active Login. Browser autofill requires an explicitly unlocked vault and never prompts for a Master Password in the extension. Logout or app exit ends Login.
 - Live credential TOTP panels and native code/copy requests require actual `Unlocked` state and current lifecycle. They never use the temporary table-action unlock on a timer. One panel timer derives countdown from UTC expiry, clears codes/drafts on lock, and discards cancelled or stale responses. Desktop copy generates a new code and guards the dispatched clipboard write.
-- Protocol version 2 discovery exposes only `hasPassword`/`hasTotp` metadata. The official popup explicitly authorizes a selected discovered credential for at most 60 seconds and sends code/copy requests through its worker → NativeHost → desktop pipe. NativeHost has no vault access or generator; TOTP responses contain only numeric code and window metadata. Browser context and stored credential URL are checked on every request. The popup uses one native connection and stops on any failure without automatic retries.
-- WinUI observes Windows session-switch and power-mode events while the page is loaded, including setup and Recovery Key wizards. Session lock, console/remote disconnect, suspend, and resume lock the vault and cancel pending authentication. Lock clears decrypted items, the vault key, the Authenticator secret, navigation history, editor fields, and automatically managed clipboard content. Copied credential TOTP uses the same best-effort thirty-second and lock cleanup while YourSafe still owns the clipboard. The app shows Unlock Vault while Login remains valid, otherwise Login.
+- Protocol version 2 discovery returns matching credential IDs, titles, usernames, and `hasPassword`/`hasTotp` flags without a desktop approval or secret values. Discovery expires after 60 seconds. An explicit password/code/copy selection starts a separate 70-second worker interaction; the desktop approval request has a 60-second deadline and permits one action. Reconnecting the popup and ticking its countdown renew neither deadline. The extension worker owns the native connection and pending request, so popup closure during approval does not by itself cancel the request. The worker rechecks browser context and sends requests through NativeHost → desktop pipe. NativeHost has no vault access or generator; TOTP responses contain only numeric code and window metadata. The desktop matches the reported origin to the stored URL but cannot independently verify the browser's website address; the approval shows both. Failures cancel the interaction without automatic retries.
+- WinUI observes Windows session-switch and power-mode events while the page is loaded, including setup and Recovery Key wizards. Session lock, console/remote disconnect, suspend, and resume perform a full workspace lock and cancel pending authentication. This clears cached table metadata, decrypted items, the vault key, the Authenticator secret, navigation history, editor fields, and automatically managed clipboard content. Copied credential TOTP uses the same best-effort thirty-second and lock cleanup while YourSafe still owns the clipboard. Login remains active until its deadline; the app requests only the Master Password while Login remains valid, otherwise both sign-in factors.
 - Vault duration changes require the Master Password. The five-hour login limit and Master Password + TOTP login mode are fixed. Older idle-based settings migrate to one minute. Manual/vault timeout clears DEK and decrypted data while keeping the login deadline; login expiration clears both. Windows lock/disconnect/suspend/resume still locks the vault.
 
 ## Password hashing
@@ -79,7 +79,7 @@ Use random salts per secure hash and constant-time comparison for verification. 
 
 ## API status and deployment rule
 
-`PasswordTool.Api` currently implements `/hash`, `/verify`, `/inspect`, and `/algorithms` below `/api/password`. It does not expose vault operations. HTTPS redirection is configured, but authentication, authorization, rate limiting, request-size limits, audit policy, and an educational-algorithm block are not yet implemented. It must remain local/trusted-development-only until those controls are explicitly added.
+`PasswordTool.Api` currently implements `/hash`, `/verify`, `/inspect`, and `/algorithms` below `/api/password`; it exposes no vault operations. It accepts only loopback peers with a localhost/loopback Host header, redirects HTTP to HTTPS, disables response caching, and caps request bodies at 32 KiB. A process-wide limiter permits 60 requests per minute; hash/verify work allows two concurrent requests with no queue. Rate/concurrency rejection returns HTTP 429. `/hash` rejects educational-only algorithms, which remain available for listing and inspection. Password/hash lengths and Core work-factor bounds are validated. Local callers are not authenticated. Keep this a local development service; public deployment requires a separate authentication/authorization, HTTPS/proxy, and operational security design. See [the API README](../src/PasswordTool.Api/README.md).
 
 ## WinUI presentation boundary
 
@@ -90,15 +90,15 @@ Use random salts per secure hash and constant-time comparison for verification. 
 
 ## Release qualification boundary
 
-The Windows release path publishes only `PasswordTool.WinUI` and its Presentation/Core dependencies; `PasswordTool.Api` is never a desktop artifact. Qualification is implemented as read-only PowerShell validation around the finalized release directory. It recalculates hashes, compares the portable ZIP with the publish payload, enforces a public-only manifest, independently verifies any signed claim, and checks the existing offline/build/installer source contracts. It does not add runtime code, networking, storage, or a release service, and it never establishes release readiness when controlled-machine manual scenarios remain incomplete.
+The Windows release path publishes `PasswordTool.WinUI` with its Presentation/Core dependencies and the standalone `PasswordTool.NativeHost`; `PasswordTool.Api` is never a desktop artifact. Qualification is implemented as read-only PowerShell validation around the finalized release directory. It recalculates hashes, compares the portable ZIP with the publish payload, enforces a public-only manifest, independently verifies any signed claim, and checks the existing offline/build/installer source contracts. It does not add runtime code, networking, storage, or a release service, and it never establishes release readiness when controlled-machine manual scenarios remain incomplete.
 
 ## Security rules for future changes
 
 - Never persist, return, or log raw passwords, Master Passwords, recovery codes, TOTP secrets, or unprotected encryption keys.
 - Treat all file imports, API inputs, clipboard data, and persisted JSON as untrusted.
 - Keep raw secrets out of exceptions, telemetry, diagnostics, and UI list rows.
-- Keep the PasswordTool application authenticator secret separate from optional website TOTP secrets stored in entries.
-- Clipboard clearing is best-effort risk reduction only. Passwords, recovery codes, and other sensitive copies clear after 30 seconds only when the clipboard still contains the exact owned value. Credential TOTP copy explicitly disables automatic cleanup; the numeric code remains until replaced. Native clipboard writes support background desktop copy and exclude content from Windows clipboard history/cloud sync.
+- Keep the YourSafe sign-in Authenticator secret separate from optional website TOTP secrets stored in entries.
+- Clipboard clearing is best-effort risk reduction only. Passwords, website TOTP codes, recovery codes, and other sensitive copies use cleanup after 30 seconds and on lock only while YourSafe still owns the exact clipboard value. Native clipboard writes support background desktop copy and request exclusion from Windows clipboard history/cloud sync; these hints cannot guarantee erasure or prevent another process reading the value first.
 - Use authenticated encryption and fresh nonces through `EncryptionService`; do not introduce ad-hoc crypto.
 - Zero sensitive key buffers where practical and clear vault sessions when closing or on unlock failure.
 - Do not represent file hiding, clipboard blocking, or TOTP as protection from malware or a compromised unlocked Windows session.

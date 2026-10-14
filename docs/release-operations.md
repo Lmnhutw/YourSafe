@@ -15,7 +15,7 @@ git push origin v1.0.0
 
 Use a new version for each release. The Windows runner installs .NET 10 and Inno Setup, runs the existing release pipeline checks, publishes the app, requires an installer EXE, and qualifies the artifacts before uploading the installer, portable ZIP, checksums, manifest, and signing status to GitHub Releases. Build or qualification failures stop publication. Users download `YourSafe-setup.exe` from the repository's Releases page.
 
-Pushing a version tag explicitly authorizes this automatic distribution flow. This is an exception to the manual-only publication checklist below. Inno Setup is installed on the disposable GitHub runner; the controlled-machine instructions below still apply to local releases. The workflow uses the built-in `GITHUB_TOKEN` with `contents: write`; no personal token is required. Repository or organization policy must permit Actions to create releases.
+Pushing a matching version tag triggers this automatic distribution flow. Ordinary branch pushes do not publish a Windows release. Inno Setup is installed on the disposable GitHub runner; the controlled-machine instructions below still apply to local releases. The workflow uses the built-in `GITHUB_TOKEN` with `contents: write`; no personal token is required. Repository or organization policy must permit Actions to create releases.
 
 These builds are explicitly unsigned. The workflow does not establish signed production readiness or perform interactive install/upgrade/uninstall smoke tests. Existing controlled-machine signing and manual qualification requirements remain documented below.
 
@@ -27,7 +27,7 @@ This is the only supported release-publish path for `PasswordTool.WinUI`:
 pwsh .\scripts\Publish-WindowsRelease.ps1 -Version 1.0.0 -ChromeExtensionId $chromeStoreId -EdgeExtensionId $edgeStoreId
 ```
 
-It targets `win-x64` and uses the repository's .NET 10 release properties: self-contained, single-file, non-trimmed, deterministic publish with embedded debug information disabled. Output is staged under `artifacts\releases\.staging` and finalized only as `artifacts\releases\<version>`. An existing version directory is always rejected rather than overwritten.
+It targets `win-x64` and uses the repository's .NET 10 release properties: self-contained, single-file, non-trimmed, deterministic publish with embedded debug information and no separate symbol files. Output is staged under `artifacts\releases\.staging` and finalized only as `artifacts\releases\<version>`. An existing version directory is always rejected rather than overwritten.
 
 The release script publishes `PasswordTool.WinUI` and the standalone `PasswordTool.NativeHost`; it does not publish `PasswordTool.Api`, test projects, source files, or local user data. Both executables are self-contained. The WinUI payload includes the Windows App SDK runtime content for first-run extraction. Before archiving, the script rejects source files, logs, certificates, database files, and the vault paths `.config`, `.storage`, `.trusted-unlock`, and `.snapshots`. It also rejects missing or empty files, output outside its configured staging root, and payloads above the configured size limit.
 
@@ -43,7 +43,7 @@ The resulting directory contains:
 
 No vault, password, password history, TOTP secret, recovery code, key, backup passphrase, trusted-unlock token, snapshot, or local storage location is packaged, signed, checksummed, or serialized by this flow.
 
-## Phase 5 release qualification
+## Release qualification
 
 Qualification is a separate, read-only step over a finalized release directory. Generate a new version with the publish command above, then run:
 
@@ -58,7 +58,7 @@ The command does not trust the publish script's success output and does not writ
 - recalculates every declared SHA-256 value and rejects missing, extra, duplicate, modified, or undeclared payload/distribution files;
 - accepts only the public manifest fields `version`, `artifacts` (`fileName` and `sha256`), and `releaseNotes`;
 - rejects API/test/source content, vault files and paths, logs, certificates, keys, likely secret material, links, and reparse points;
-- verifies that WinUI remains the only published project, `PasswordTool.Api` remains excluded, the WinUI/Presentation/Core sources have no runtime networking, updater, telemetry, or logging surface, and the vault storage source contract remains `%LocalAppData%\PasswordTool`;
+- verifies that `PasswordTool.Api` remains excluded, the WinUI/Presentation/Core sources have no runtime networking, updater, telemetry, or logging surface, and the vault storage source contract remains `%LocalAppData%\PasswordTool`;
 - checks the Inno Setup template's per-user x64 identity, publisher field, upgrade identity, install location, payload source, Start Menu entry, and non-deletion contract.
 
 A successful command means the automated artifact and source-contract checks passed. Read every status field and limitation in the result:
@@ -78,15 +78,15 @@ pwsh .\scripts\Test-ReleaseQualification.ps1
 
 ## Installer
 
-`installer\PasswordTool.iss` is a standard Inno Setup template. The release script compiles it only if `ISCC.exe` is already available on the controlled release machine. This repository does not download or add an installer compiler. If the compiler is absent, the ZIP remains the supported reproducible developer artifact and the template is the explicit installer handoff.
+`installer\PasswordTool.iss` is a standard Inno Setup template. The local release script compiles it only if `ISCC.exe` is already available on the controlled release machine; it does not download an installer compiler. If the compiler is absent, the ZIP remains the supported reproducible developer artifact and the template is the explicit installer handoff. The GitHub Actions workflow installs Inno Setup on its disposable runner and requires an installer before publication.
 
-When compiled, the installer is per-user and x64 scoped. It installs the validated release payload to `%LocalAppData%\Programs\PasswordTool`, creates a `PasswordTool` Start Menu entry, and keeps the same Inno Setup application identifier for in-place upgrades. It does not request administrator privileges.
+When compiled, the installer is per-user and x64 scoped. It installs the validated release payload to `%LocalAppData%\Programs\YourSafe`, creates a `YourSafe` Start Menu entry, and keeps the same Inno Setup application identifier for in-place upgrades. It does not request administrator privileges.
 
 Vault data remains in `%LocalAppData%\PasswordTool`, outside the install directory. Upgrade and uninstall do not remove `.config`, `.storage`, `.trusted-unlock`, `.snapshots`, encrypted backups, logs, or any other vault data. The uninstaller removes application binaries only; users must consciously delete local vault material themselves if that is their intent.
 
 When `ISCC.exe` is available and an installer is produced, qualification verifies the static installer contract and that the installer is the only file in `installer\`, is declared in both the checksums and public manifest, and is signed/timestamp-verified when the release claims `SIGNED`. On the controlled release machine, also perform a clean per-user install, launch from the Start Menu, upgrade over the prior approved version, and uninstall. Confirm throughout that `%LocalAppData%\PasswordTool` is neither the installation directory nor created, bundled, migrated, exposed, or removed by the installer.
 
-When `ISCC.exe` is unavailable, do not download it as part of this workflow and do not report installer qualification as passed. Record the emitted `MANUAL_QUALIFICATION_REQUIRED` limitation and repeat installer build plus qualification on a controlled release machine where Inno Setup is already installed.
+When `ISCC.exe` is unavailable during a local release, do not report installer qualification as passed. Record the emitted `MANUAL_QUALIFICATION_REQUIRED` limitation and repeat installer build plus qualification on a controlled release machine where Inno Setup is already installed.
 
 ## Signing on a controlled release machine
 
@@ -142,13 +142,13 @@ It may contain only the release version, distribution artifact names and SHA-256
 
 ## Manual updates
 
-PasswordTool has no auto-updater, polling service, runtime update check, silent download, or runtime network dependency. Users obtain a newer approved signed installer or portable ZIP through the approved release location, verify it, and run it manually. Normal installer upgrades keep `%LocalAppData%\PasswordTool` intact.
+YourSafe has no auto-updater, polling service, runtime update check, silent download, or runtime network dependency. Users obtain a newer installer or portable ZIP from the repository's GitHub Releases page, review `release-status.txt`, verify the package, and run it manually. Current automated builds are unsigned developer/test releases; a signed release requires the controlled signing and verification steps above. Normal installer upgrades keep `%LocalAppData%\PasswordTool` intact.
 
 ## Controlled-machine manual smoke checklist
 
 Perform these checks against the exact qualified artifact. Record failures and unavailable tooling/environment steps as limitations; never convert a skipped or blocked check into a pass.
 
-- **First launch:** Start with no PasswordTool vault files, create a vault, and confirm no network access is required.
+- **First launch:** Start with no YourSafe vault files, create a vault, and confirm no network access is required.
 - **Existing-vault unlock:** Launch against a protected test vault at `%LocalAppData%\PasswordTool` and unlock with its Master Password.
 - **Lock/relock:** Exercise manual lock and the fixed vault deadline, then unlock again and confirm sensitive state was cleared while locked. Activity must not extend either deadline.
 - **Session authorization:** Verify Login requires Master Password + TOTP and re-unlock during that Login requires only the Master Password. Reveal/copy and other vault actions do not request another code; Login ends after five hours.
@@ -171,4 +171,4 @@ Use disposable qualification data, never a real user vault. These scenarios vali
 6. Run `Invoke-ReleaseQualification.ps1` against the newly finalized version directory.
 7. Inspect the reported signing/installer status and every limitation. Independently verify checksums, the public manifest, Authenticode signatures, and timestamps.
 8. Complete and record every applicable controlled-machine smoke scenario above. Unavailable tools and blocked environment checks remain explicit limitations, never passes.
-9. Publish nothing from this repository automatically. A commit, tag, external release, upload, or other distribution action remains separate work requiring explicit authorization.
+9. Publish only when distribution is authorized. Pushing a matching version tag triggers the automatic GitHub publication described above; local build and qualification commands do not upload a release.
