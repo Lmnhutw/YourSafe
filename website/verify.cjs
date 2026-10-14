@@ -569,7 +569,13 @@ async function verifyDemo(browser, base) {
       assert.equal(await page.locator('.site-header > :last-child').getAttribute('class'), 'button button-primary header-download');
       assert.equal(await page.locator('.site-nav a[href="./demo-login"]').textContent(), 'Demo');
       if (width <= 960) {
+        const closedHeader = await page.locator('.site-header').boundingBox();
         await page.getByRole("button", { name: "Menu" }).click();
+        const openHeader = await page.locator('.site-header').boundingBox();
+        const menu = await page.locator('.site-nav').boundingBox();
+        assert.equal(openHeader.height, closedHeader.height, 'opening menu keeps header compact');
+        assert.ok(menu.y >= openHeader.y + openHeader.height, 'menu opens below header');
+        assert.ok(menu.x >= 0 && menu.x + menu.width <= width, 'menu fits viewport');
         assert.equal(
           await page.locator(".menu-toggle").getAttribute("aria-expanded"),
           "true",
@@ -621,6 +627,7 @@ async function verifyDemo(browser, base) {
         const brand = footer.querySelector('.footer-brand').getBoundingClientRect();
         const copyright = footer.querySelector('.footer-copyright').getBoundingClientRect();
         const feedback = footer.querySelector('.footer-feedback').getBoundingClientRect();
+        if (innerWidth <= 680) return feedback.top > brand.bottom && copyright.top > feedback.bottom;
         return innerWidth > 960 ? brand.right < copyright.left && copyright.right < feedback.left : feedback.top > brand.bottom && feedback.top > copyright.bottom;
       });
       assert.equal(footerLayout, true, `footer layout at ${width}`);
