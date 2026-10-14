@@ -48,7 +48,7 @@ async function verifyAnalytics(browser, base) {
   const context = await offlineContext(browser, { reducedMotion: 'reduce', viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
   const queue = () => page.evaluate(() => window.dataLayer.map(command => Array.from(command)));
-  for (const route of ['', 'home', 'home.html', 'privacy']) {
+  for (const route of ['', 'home', 'home.html', 'privacy-policy']) {
     await page.goto(`${base}${route}?private=do-not-track#private-fragment`);
     const tag = page.locator('script[src^="https://www.googletagmanager.com/gtag/js"]');
     assert.equal(await tag.count(), 1, 'one Google tag per document');
@@ -72,7 +72,8 @@ async function verifyAnalytics(browser, base) {
       document.addEventListener('auxclick', event => event.preventDefault());
       document.querySelectorAll('details').forEach(details => { details.open = true; });
     });
-    if (route !== 'privacy') {
+    if (route !== 'privacy-policy') {
+      assert.equal(await page.locator('.faq-privacy a').getAttribute('href'), './privacy-policy');
       await page.locator('[data-slide="2"]').click();
       assert.equal(await page.locator('a[data-analytics-event="download_click"]').count(), 4);
       assert.equal(await page.locator('a[data-analytics-event="github_click"]').count(), 5);
@@ -97,7 +98,7 @@ async function verifyAnalytics(browser, base) {
       if (name === 'extension_click') expected.browser = 'chrome_edge_brave';
       assert.deepEqual(after.at(-1), ['event', name, expected], 'only fixed event metadata is collected');
     }
-    if (route === 'privacy') {
+    if (route === 'privacy-policy') {
       for (const width of [390, 320]) {
         await page.setViewportSize({ width, height: 844 });
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `analytics disclosure fits at ${width}`);
@@ -112,7 +113,12 @@ async function verifyAnalytics(browser, base) {
     assert.equal((await queue()).length, before + 2, 'unmarked links are not tracked');
   }
   await page.route('https://www.googletagmanager.com/**', route => route.abort());
-  await page.goto(`${base}home`, { referer: `${base}privacy?email=do-not-track` });
+  for (const route of ['privacy', 'privacy.html']) {
+    await page.goto(`${base}${route}`);
+    await page.waitForURL(`${base}privacy-policy`);
+    assert.equal(await page.locator('section[aria-labelledby="privacy-website"] a').first().getAttribute('href'), 'https://policies.google.com/technologies/partner-sites', 'legacy policy links reach the shortened disclosure');
+  }
+  await page.goto(`${base}home`, { referer: `${base}privacy-policy?email=do-not-track` });
   assert.equal((await queue())[1][2].page_referrer, new URL(base).origin, 'referrer only contains the origin');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.locator('.menu-toggle').click();
@@ -217,7 +223,7 @@ async function verifyPrivacyAndClosing(browser, base) {
     });
     assert.equal(socialsAbove, true, `footer icons above copyright at ${width}`);
     const link = page.locator('.faq-privacy a');
-    assert.equal(await link.getAttribute('href'), './privacy');
+    assert.equal(await link.getAttribute('href'), './privacy-policy');
     if (width > 960) {
       const installHeadings = await page.locator('.install-steps h3').evaluateAll(headings => headings.map(heading => heading.getBoundingClientRect().top));
       assert.ok(Math.max(...installHeadings) - Math.min(...installHeadings) < 1, `installation steps align at ${width}`);
@@ -249,7 +255,7 @@ async function verifyPrivacyAndClosing(browser, base) {
       await page.locator('.install-guide summary').click();
     }
     await link.click();
-    assert.equal(page.url(), `${base}privacy`);
+    assert.equal(page.url(), `${base}privacy-policy`);
     assert.equal(await page.title(), 'Chính sách quyền riêng tư — YourSafe');
     assert.equal(await page.locator('.privacy h1').textContent(), 'Chính sách quyền riêng tư');
     assert.equal(await page.locator('.privacy li').count(), 4);

@@ -77,11 +77,11 @@ website can read the values. The extension does not submit the form itself.
 ## Privacy policy URL
 
 ```text
-https://lmnhutw.github.io/YourSafe/privacy
+https://lmnhutw.github.io/YourSafe/privacy-policy
 ```
 
-The public page was reachable during this check. Publish the updated
-`website/privacy.html` through **Publish YourSafe website** before submitting,
+The previous `/privacy` page was reachable during the review. Publish the updated
+`website/privacy-policy.html` through **Publish YourSafe website** before submitting,
 so the public policy includes login-form inspection and distinguishes website
 GA4 from the extension's lack of analytics. GA4 must remain outside the
 extension package and the credential demo.
@@ -120,7 +120,7 @@ account's contact email.
 | Form/field inspection and guarded native input setters | [`src/fields.ts`](src/fields.ts), [`src/content.ts`](src/content.ts) |
 | In-memory popup state and one-shot code display | [`src/popup.ts`](src/popup.ts) |
 | Desktop opt-in disclosure before sharing account names/usernames | [`MainPage.xaml`](../src/PasswordTool.WinUI/MainPage.xaml) |
-| Data handling, retention and permission disclosure | [`website/privacy.html`](../website/privacy.html) |
+| Data handling, retention and permission disclosure | [`website/privacy-policy.html`](../website/privacy-policy.html) |
 
 TypeScript checks, mock contract/worker/popup/native tests and the production
 build passed during this review. The JS/HTML in
