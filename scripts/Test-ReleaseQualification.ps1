@@ -40,7 +40,8 @@ function Invoke-ReleaseQualificationTest {
 function New-TestRelease {
     param(
         [Parameter(Mandatory)][string]$Root,
-        [string]$Version = '1.2.3'
+        [string]$Version = '1.2.3',
+        [string[]]$Browsers = @('chrome', 'edge')
     )
 
     $releaseDirectory = Join-Path $Root $Version
@@ -49,7 +50,7 @@ function New-TestRelease {
     [System.IO.File]::WriteAllBytes((Join-Path $publishDirectory 'YourSafe.exe'), [byte[]](1, 2, 3, 4, 5, 6))
     [System.IO.File]::WriteAllBytes((Join-Path $publishDirectory 'YourSafe.NativeHost.exe'), [byte[]](1, 2, 3, 4, 5, 6))
     Import-Module (Join-Path $PSScriptRoot 'BrowserIntegration.psm1') -Force
-    foreach ($browser in @('chrome', 'edge')) {
+    foreach ($browser in $Browsers) {
         Write-NativeHostManifest -Path (Join-Path $publishDirectory "yoursafe-native-$browser.json") -ExecutablePath 'YourSafe.NativeHost.exe' -ExtensionId 'lhffehnfgjhbipabkdgniaenehidnhfa'
     }
     [System.IO.File]::WriteAllBytes((Join-Path $publishDirectory 'PasswordTool.Core.dll'), [byte[]](7, 8, 9, 10))
@@ -94,6 +95,14 @@ try {
             ($report.Limitations -join ' ') -notmatch 'UNSIGNED' -or
             $before -cne $after) {
             throw 'Unsigned qualification was mislabeled, treated as release-ready, or mutated the finalized directory.'
+        }
+    }
+
+    Invoke-ReleaseQualificationTest -Name 'Chrome-only and app-only releases retain artifact qualification without other store IDs' -Action {
+        foreach ($case in @(@{ Name = 'chrome-only'; Browsers = @('chrome') }, @{ Name = 'app-only'; Browsers = @() })) {
+            $releaseDirectory = New-TestRelease -Root (Join-Path $temporaryRoot $case.Name) -Browsers $case.Browsers
+            $report = Invoke-ReleaseQualification -ReleaseDirectory $releaseDirectory -RepositoryRoot $repositoryRoot -SignToolPath '' -InstallerCompilerPath ''
+            if ($report.ArtifactQualification -cne 'PASSED') { throw "Optional browser release failed: $($case.Name)" }
         }
     }
 

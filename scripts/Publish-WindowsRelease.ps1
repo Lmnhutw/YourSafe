@@ -22,8 +22,9 @@ $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot 'ReleasePipeline.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'BrowserIntegration.psm1') -Force
-Assert-ProductionExtensionId $ChromeExtensionId
-Assert-ProductionExtensionId $EdgeExtensionId
+foreach ($extensionId in @($ChromeExtensionId, $EdgeExtensionId)) {
+    if (-not [string]::IsNullOrWhiteSpace($extensionId)) { Assert-ProductionExtensionId $extensionId }
+}
 
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if ([string]::IsNullOrWhiteSpace($ArtifactsRoot)) {
@@ -61,8 +62,12 @@ $nativeProject = Join-Path $repositoryRoot 'src\PasswordTool.NativeHost\Password
 & dotnet publish $nativeProject -c Release -r win-x64 --self-contained true -o $publishDirectory `
     '-p:PublishSingleFile=true' '-p:DebugType=embedded' '-p:DebugSymbols=false' "-p:Version=$Version"
 if ($LASTEXITCODE -ne 0) { throw 'NativeHost publish failed; no release directory was finalized.' }
-Write-NativeHostManifest -Path (Join-Path $publishDirectory 'yoursafe-native-chrome.json') -ExecutablePath 'YourSafe.NativeHost.exe' -ExtensionId $ChromeExtensionId
-Write-NativeHostManifest -Path (Join-Path $publishDirectory 'yoursafe-native-edge.json') -ExecutablePath 'YourSafe.NativeHost.exe' -ExtensionId $EdgeExtensionId
+if (-not [string]::IsNullOrWhiteSpace($ChromeExtensionId)) {
+    Write-NativeHostManifest -Path (Join-Path $publishDirectory 'yoursafe-native-chrome.json') -ExecutablePath 'YourSafe.NativeHost.exe' -ExtensionId $ChromeExtensionId
+}
+if (-not [string]::IsNullOrWhiteSpace($EdgeExtensionId)) {
+    Write-NativeHostManifest -Path (Join-Path $publishDirectory 'yoursafe-native-edge.json') -ExecutablePath 'YourSafe.NativeHost.exe' -ExtensionId $EdgeExtensionId
+}
 
 # Symbols are useful in CI output but are not part of the portable single-file
 # distribution and can reveal local build paths. Remove only generated PDBs from

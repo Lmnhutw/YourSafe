@@ -6,7 +6,7 @@ For an unsigned app-only test prerelease without store extension IDs, push a tag
 
 `.github/workflows/windows-release.yml` builds and publishes a GitHub Release when a tag matching `v<major>.<minor>.<patch>` is pushed, for example `v1.0.0`. Commit and push the workflow before creating a tag, so the tagged commit includes it:
 
-Before the first tag, configure repository Actions variables `CHROME_EXTENSION_ID` and `EDGE_EXTENSION_ID` with the actual browser-store extension IDs (Settings → Secrets and variables → Actions → Variables). The workflow validates both IDs before building; development/test IDs are not release configuration.
+Browser integration is optional and does not block an app release. The workflow uses Chrome Web Store ID `lnlgmfdopjjjnjlepnpoohdfgfboheoh` unless the repository's `CHROME_EXTENSION_ID` Actions variable overrides it. Chrome and Brave share that ID. Set `EDGE_EXTENSION_ID` only when an actual Edge store ID is available; missing IDs omit the corresponding manifest and installer registration. Every supplied ID is validated; development/test IDs are not release configuration.
 
 ```powershell
 git tag -a v1.0.0 -m "YourSafe 1.0.0"
@@ -31,7 +31,7 @@ It targets `win-x64` and uses the repository's .NET 10 release properties: self-
 
 The release script publishes `PasswordTool.WinUI` and the standalone `PasswordTool.NativeHost`; it does not publish `PasswordTool.Api`, test projects, source files, or local user data. Both executables are self-contained. The WinUI payload includes the Windows App SDK runtime content for first-run extraction. Before archiving, the script rejects source files, logs, certificates, database files, and the vault paths `.config`, `.storage`, `.trusted-unlock`, and `.snapshots`. It also rejects missing or empty files, output outside its configured staging root, and payloads above the configured size limit.
 
-Supply the actual Chrome/Edge store extension IDs. Missing, malformed, known placeholder and development IDs are rejected. `YourSafe.NativeHost.exe` and per-browser Native Messaging manifests are required payload files; both executables are signed and independently qualified. The installer registers the production host in HKCU32 and removes only registration values still owned by that installation. The portable ZIP never changes the registry. See [browser integration instructions](../browser-extension/README.md) for development scripts and the separate Chrome/Edge manual E2E checklist.
+Supply actual Chrome/Edge store extension IDs only for browsers being enabled. Malformed, known placeholder and development IDs are rejected; omitted IDs do not prevent desktop use. `YourSafe.NativeHost.exe` remains a required transport executable; per-browser Native Messaging manifests are optional and validated whenever present. Both executables are signed when signing is configured and independently qualified. The installer registers the production host in HKCU32 only when the corresponding manifest is installed, and removes only registration values still owned by that installation. The portable ZIP never changes the registry. See [browser integration instructions](../browser-extension/README.md) for development scripts and the separate Chrome/Edge manual E2E checklist.
 
 The resulting directory contains:
 

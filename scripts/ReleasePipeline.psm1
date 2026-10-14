@@ -58,7 +58,8 @@ function Assert-PublishedPayload {
     $nativeHost = Join-Path $publishPath 'YourSafe.NativeHost.exe'
     if (-not (Test-Path -LiteralPath $nativeHost -PathType Leaf)) { throw 'Published NativeHost executable is missing.' }
     foreach ($manifestName in @('yoursafe-native-chrome.json', 'yoursafe-native-edge.json')) {
-        Assert-NativeHostManifest -Path (Join-Path $publishPath $manifestName)
+        $manifestPath = Join-Path $publishPath $manifestName
+        if (Test-Path -LiteralPath $manifestPath) { Assert-NativeHostManifest -Path $manifestPath }
     }
 
     $files = @(Get-ChildItem -LiteralPath $publishPath -Recurse -Force -File)

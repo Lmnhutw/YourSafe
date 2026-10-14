@@ -21,7 +21,7 @@ jobs:
         shell: pwsh
     env:
       RELEASE_TAG: ${{ github.ref_name }}
-      CHROME_EXTENSION_ID: ${{ vars.CHROME_EXTENSION_ID }}
+      CHROME_EXTENSION_ID: ${{ vars.CHROME_EXTENSION_ID || 'lnlgmfdopjjjnjlepnpoohdfgfboheoh' }}
       EDGE_EXTENSION_ID: ${{ vars.EDGE_EXTENSION_ID }}
     steps:
       - uses: actions/checkout@v6
@@ -37,8 +37,9 @@ jobs:
           "RELEASE_VERSION=$($Matches[1])" >> $env:GITHUB_ENV
           if (-not $env:RELEASE_TAG.EndsWith('-test')) {
             Import-Module ./scripts/BrowserIntegration.psm1
-            Assert-ProductionExtensionId $env:CHROME_EXTENSION_ID
-            Assert-ProductionExtensionId $env:EDGE_EXTENSION_ID
+            foreach ($extensionId in @($env:CHROME_EXTENSION_ID, $env:EDGE_EXTENSION_ID)) {
+              if (-not [string]::IsNullOrWhiteSpace($extensionId)) { Assert-ProductionExtensionId $extensionId }
+            }
           }
 
       - name: Install Inno Setup

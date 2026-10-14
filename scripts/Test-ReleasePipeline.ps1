@@ -77,6 +77,17 @@ try {
         }
     }
 
+    Invoke-ReleasePipelineTest -Name 'Optional browser manifests allow Chrome-only and app-only payloads but reject invalid IDs' -Action {
+        $chromeManifest = Join-Path $publishDirectory 'yoursafe-native-chrome.json'
+        $edgeManifest = Join-Path $publishDirectory 'yoursafe-native-edge.json'
+        Remove-Item -LiteralPath $edgeManifest
+        Assert-PublishedPayload -PublishDirectory $publishDirectory -OutputRoot $stagingRoot | Out-Null
+        [IO.File]::WriteAllText($chromeManifest, '{}')
+        Assert-Throws -Action { Assert-PublishedPayload -PublishDirectory $publishDirectory -OutputRoot $stagingRoot | Out-Null } -Message 'Expected malformed optional manifest to be rejected.'
+        Remove-Item -LiteralPath $chromeManifest
+        Assert-PublishedPayload -PublishDirectory $publishDirectory -OutputRoot $stagingRoot | Out-Null
+    }
+
     Invoke-ReleasePipelineTest -Name 'Missing signing configuration is explicitly unsigned' -Action {
         $configuration = Get-SigningConfiguration -SigningMode Auto
         if ($configuration.Status -ne 'Unsigned' -or $configuration.Reason -notmatch 'unsigned') {

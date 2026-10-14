@@ -7,6 +7,7 @@ foreach ($id in @('', 'placeholder', 'cmfnnjellknkpnbooenlahijcmalbifg', 'aaaaaa
     if (-not $rejected) { throw "Invalid production ID was accepted: '$id'." }
 }
 Assert-ProductionExtensionId 'lhffehnfgjhbipabkdgniaenehidnhfa'
+Assert-ProductionExtensionId 'lnlgmfdopjjjnjlepnpoohdfgfboheoh'
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $braveDevelopmentKey = 'Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.yoursafe.autofill.dev'
 $registrationScript = Get-Content -Raw (Join-Path $PSScriptRoot 'Register-BrowserAutofill.ps1')

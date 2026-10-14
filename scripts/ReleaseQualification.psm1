@@ -541,6 +541,10 @@ function Assert-InstallerTemplateContract {
         'Root: HKCU32; Subkey: "Software\Google\Chrome\NativeMessagingHosts\com.yoursafe.autofill"; ValueType: string; ValueName: ""; ValueData: "{app}\yoursafe-native-chrome.json"',
         'Root: HKCU32; Subkey: "Software\Microsoft\Edge\NativeMessagingHosts\com.yoursafe.autofill"; ValueType: string; ValueName: ""; ValueData: "{app}\yoursafe-native-edge.json"'
     )
+    $expectedRegistry = @($expectedRegistry | ForEach-Object {
+        $manifestName = if ($_ -match 'yoursafe-native-edge\.json') { 'yoursafe-native-edge.json' } else { 'yoursafe-native-chrome.json' }
+        "$_; Check: FileExists(ExpandConstant('{app}\$manifestName'))"
+    })
     if ($registryLines.Count -ne 3 -or @($registryLines | Where-Object { $expectedRegistry -cnotcontains $_ }).Count -gt 0) {
         throw 'Installer must register only the production host in HKCU for Chrome, Edge and Brave.'
     }

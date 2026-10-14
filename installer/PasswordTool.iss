@@ -14,7 +14,7 @@
 AppId={{8DFF6D6D-6678-4455-9B24-CEB32A1D854A}
 AppName=YourSafe
 AppVersion={#AppVersion}
-AppPublisher=REPLACE_WITH_PUBLISHER
+AppPublisher=Lmnhutw
 DefaultDirName={localappdata}\Programs\YourSafe
 DefaultGroupName=YourSafe
 DisableProgramGroupPage=yes
@@ -38,9 +38,9 @@ Name: "{group}\YourSafe"; Filename: "{app}\YourSafe.exe"
 Filename: "{app}\YourSafe.exe"; Description: "Launch YourSafe"; Flags: nowait postinstall skipifsilent
 
 [Registry]
-Root: HKCU32; Subkey: "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.yoursafe.autofill"; ValueType: string; ValueName: ""; ValueData: "{app}\yoursafe-native-chrome.json"
-Root: HKCU32; Subkey: "Software\Google\Chrome\NativeMessagingHosts\com.yoursafe.autofill"; ValueType: string; ValueName: ""; ValueData: "{app}\yoursafe-native-chrome.json"
-Root: HKCU32; Subkey: "Software\Microsoft\Edge\NativeMessagingHosts\com.yoursafe.autofill"; ValueType: string; ValueName: ""; ValueData: "{app}\yoursafe-native-edge.json"
+Root: HKCU32; Subkey: "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.yoursafe.autofill"; ValueType: string; ValueName: ""; ValueData: "{app}\yoursafe-native-chrome.json"; Check: FileExists(ExpandConstant('{app}\yoursafe-native-chrome.json'))
+Root: HKCU32; Subkey: "Software\Google\Chrome\NativeMessagingHosts\com.yoursafe.autofill"; ValueType: string; ValueName: ""; ValueData: "{app}\yoursafe-native-chrome.json"; Check: FileExists(ExpandConstant('{app}\yoursafe-native-chrome.json'))
+Root: HKCU32; Subkey: "Software\Microsoft\Edge\NativeMessagingHosts\com.yoursafe.autofill"; ValueType: string; ValueName: ""; ValueData: "{app}\yoursafe-native-edge.json"; Check: FileExists(ExpandConstant('{app}\yoursafe-native-edge.json'))
 
 [Code]
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
