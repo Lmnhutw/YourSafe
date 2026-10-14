@@ -78,7 +78,7 @@ async function verifyAnalytics(browser, base) {
       assert.equal(await page.locator('a[data-analytics-event="download_click"]').count(), 4);
       assert.equal(await page.locator('a[data-analytics-event="github_click"]').count(), 5);
       assert.equal(await page.locator('a[data-analytics-event="extension_click"]').count(), 7);
-      for (const selector of ['a[href$="/releases"]', 'a[href="#extension"]', 'a[href="#extension-help"]']) {
+      for (const selector of ['a[href$="/YourSafe-setup.exe"]', 'a[href="#extension"]', 'a[href="#extension-help"]']) {
         assert.equal(await page.locator(`${selector}:not([data-analytics-event])`).count(), 0, `all relevant ${selector} links are tracked`);
       }
     }
@@ -86,6 +86,7 @@ async function verifyAnalytics(browser, base) {
     for (const link of await links.all()) {
       const name = await link.getAttribute('data-analytics-event');
       const location = await link.getAttribute('data-analytics-location');
+      if (name === 'download_click') assert.equal(await link.getAttribute('href'), 'https://github.com/Lmnhutw/YourSafe/releases/latest/download/YourSafe-setup.exe', 'download links target the latest installer directly');
       const before = (await queue()).length;
       await link.hover();
       await link.evaluate(element => element.click());
@@ -128,6 +129,7 @@ async function verifyAnalytics(browser, base) {
   await page.locator('.header-download').press('Enter');
   assert.equal((await queue()).at(-1)[1], 'download_click', 'clicks queue safely when Google is blocked');
   await page.goto(`${base}demo-login`);
+  assert.equal(await page.locator('.header-download').getAttribute('href'), 'https://github.com/Lmnhutw/YourSafe/releases/latest/download/YourSafe-setup.exe', 'protected demo also links directly to the installer');
   assert.equal(await page.locator('script[src*="analytics"], script[src*="googletagmanager"]').count(), 0, 'credential demo stays free of third-party analytics');
   assert.match(await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content'), /connect-src 'none'/);
   assert.ok(fs.readFileSync(path.join(root, '../.github/workflows/website-pages.yml'), 'utf8').includes('website/analytics.js'), 'Pages workflow publishes analytics script');
@@ -653,7 +655,7 @@ async function verifyDemo(browser, base) {
       assert.equal(
         await page
           .locator(
-            'a[href="https://github.com/Lmnhutw/PasswordTool.Core/releases"]',
+            'a[href="https://github.com/Lmnhutw/YourSafe/releases/latest/download/YourSafe-setup.exe"]',
           )
           .count(),
         4,
