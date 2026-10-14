@@ -1,0 +1,13 @@
+Generated with built-in ImageGen on 2026-10-14.
+References: website/assets/app-logo.png and browser-extension/store-assets/chrome/promo-440x280.png.
+Output: marquee-1400x560.png, normalized to 1400x560 RGB 24-bit PNG without alpha.
+
+Use case: ads-marketing
+Asset type: Chrome Web Store marquee promotional tile.
+Primary request: Create one polished wide YourSafe brand banner, a 1400 by 560 pixel canvas (2.5:1 landscape aspect ratio), fully opaque, ready to upload.
+Input images: Image 1 is the exact official YourSafe logo, an invariant brand mark. Preserve the eye/keyhole shape, proportions, and colors faithfully. Image 2 is the existing smaller promotional tile: use it as the brand palette and typography reference, not as a composition to stretch.
+Scene/backdrop: Full-bleed rich cobalt #204bdb blending subtly toward deeper cobalt #1639ab on the right. Crisp professional software brand design, calm and uncluttered, with clear margins.
+Composition/framing: Spacious left half holds a white rounded square containing the provided official logo, with a large bold white YourSafe wordmark beside it near the upper left. Below, a large two-line white headline and a smaller supporting line. Right half holds one elegant minimal conceptual illustration of a local computer vault and a browser sign-in form: a dark blue desktop window behind a softly lit pale blue floating browser panel, a simple keyhole/lock symbol, two short input lines with masked password dots, and a small code motif. Clearly a brand illustration, not a fabricated product screenshot. Arrange these on a subtle cobalt circular glow. Refined shallow 3D depth, restrained shadows, no busy floating badges.
+Text (verbatim): "YourSafe", "Passwords &", "verification codes", "From your local Windows vault."
+Typography: clean contemporary sans serif, bold wordmark and headline; supporting line medium weight. Headline split after the ampersand only. All text sharp and perfectly spelled. Text should remain readable at half size. Supporting line fully inside the bottom margin.
+Constraints: Preserve the provided official logo exactly; make the whole canvas opaque and fill all edges. Use safe margins of at least 64 pixels. No people, no stock photography, no browser or Windows logos, no store badges, no ratings, no prices, no certification claims, no cloud symbols, no extra text, no watermark. Do not redraw any actual application UI or invent feature controls. Request final size 1400x560.
