@@ -166,7 +166,7 @@ async function openPopup(targetContext = context, cdp = browserCdp, fixturePage 
 async function copyApprovedCode(nearExpiry = false, title = passwordTitle) {
   const delay = freshCodeDelay(Date.now());
   if (!nearExpiry && delay) await new Promise(done => setTimeout(done, delay));
-  await choose('View TOTP', title);
+  await choose('View code', title);
   await desktop('approve');
   await page.bringToFront();
   const popup = await openPopup();
@@ -231,7 +231,7 @@ async function competingProfile(otherExecutable) {
 function account(popup, title) { return popup.locator('.account').filter({ has: popup.locator('strong', { hasText: title }) }); }
 async function choose(action = 'Fill', title = passwordTitle, approvalExpected = true) {
   const popup = await openPopup();
-  await account(popup, title).getByRole('button', { name: action === 'Fill' ? /^Fill / : /^View TOTP for / }).click();
+  await account(popup, title).getByRole('button', { name: action === 'Fill' ? /^Fill / : /^View code for / }).click();
   if (approvalExpected) await desktop('waitApproval');
   return popup;
 }
@@ -338,7 +338,7 @@ try {
     const discovery = await openPopup();
     assert.equal(await account(discovery, totpTitle).getByRole('button', { name: /^Fill / }).count(), 0);
     assert.equal(await discovery.locator('#totp-code').innerText(), '');
-    await account(discovery, totpTitle).getByRole('button', { name: /^View TOTP for / }).click();
+    await account(discovery, totpTitle).getByRole('button', { name: /^View code for / }).click();
     await desktop('waitApproval');
     await desktop('approve');
     await page.bringToFront();
@@ -350,7 +350,7 @@ try {
   });
   await record('E05-copy-denied-no-clipboard-change', async () => {
     await load();
-    await choose('View TOTP', totpTitle);
+    await choose('View code', totpTitle);
     await desktop('approve');
     await page.bringToFront();
     const view = await openPopup();
@@ -385,7 +385,7 @@ try {
   });
   await record('E05-password-account-view-does-not-fill', async () => {
     await load();
-    await choose('View TOTP');
+    await choose('View code');
     await desktop('approve');
     await page.bringToFront();
     const popup = await openPopup();
@@ -395,7 +395,7 @@ try {
   });
   await record('E05-code-expiry-does-not-request-new-approval', async () => {
     await load();
-    await choose('View TOTP');
+    await choose('View code');
     await desktop('approve');
     await page.bringToFront();
     const popup = await openPopup();
@@ -568,7 +568,7 @@ try {
   });
   await record('E10-worker-restart-discards-displayed-code', async () => {
     await load();
-    await choose('View TOTP', totpTitle);
+    await choose('View code', totpTitle);
     await desktop('approve');
     await page.bringToFront();
     const view = await openPopup();

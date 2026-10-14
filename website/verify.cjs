@@ -98,7 +98,7 @@ async function verifyPrivacyAndClosing(browser, base) {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `home fits at ${width}`);
     assert.equal(await page.locator('.site-nav a[href="./demo-login"]').textContent(), 'Demo');
     assert.equal(await page.locator('.site-nav a[href="#extension"]').textContent(), 'Tiện ích');
-    assert.equal(await page.locator('.extension-actions .button').getAttribute('href'), '#');
+    assert.equal(await page.locator('.extension-actions .button').getAttribute('href'), '#extension-help');
     assert.equal(await page.locator('.extension-actions .text-link').getAttribute('href'), './demo-login');
     assert.equal(await page.locator('.closing-extension-actions a[href="#extension"]').count(), 1);
     const extensionLayout = await page.locator('.feature-extension').evaluate(panel => {
@@ -521,7 +521,7 @@ async function verifyDemo(browser, base) {
       }
       assert.equal(await page.locator('.product-image[data-no-preview]').count(), 2);
       assert.equal(await page.locator('.hero-foot a').count(), 0);
-      assert.equal(await page.locator('.download-actions .download-extension[href="#"]').count(), 2);
+      assert.equal(await page.locator('.download-actions .download-extension[href="#extension"]').count(), 2);
       for (const caption of await page.locator('figcaption, .visual-note, .showcase-footer p, .manual-demo').all()) {
         const style = await caption.evaluate(element => {
           const css = getComputedStyle(element);

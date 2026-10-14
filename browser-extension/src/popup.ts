@@ -19,9 +19,9 @@ const progress = element('totp-progress', HTMLProgressElement);
 const copy = element('totp-copy', HTMLButtonElement);
 const close = element('totp-close', HTMLButtonElement);
 const errors: Record<string, string> = {
-  locked: 'Your vault table is locked. Click Show YourSafe, choose Unlock Vault on the desktop, then refresh here.',
-  desktopUnavailable: 'YourSafe is not connected. Start the matching desktop app, then refresh. If it is running, check browser host registration.',
-  ambiguousFields: 'Focus the username or password field you want to fill, then reopen YourSafe.',
+  locked: 'Your vault is locked. Open YourSafe, unlock your vault, then click Refresh here.',
+  desktopUnavailable: 'Could not connect to YourSafe. Make sure the Windows app is running and Browser integration is enabled in Settings.',
+  ambiguousFields: 'Click the username or password field you want to fill, then reopen this extension.',
   targetChanged: 'The page changed or access expired. Refresh and choose an account again.',
   unavailable: "This request wasn't completed. Refresh to try again. If browser integration is off, enable it in YourSafe Settings.",
   unsupportedPage: 'Open an HTTPS sign-in page, then reopen YourSafe.'
@@ -126,7 +126,7 @@ function paintTotp(): void {
     code.removeAttribute('aria-label');
     countdown.textContent = busy ? 'Waiting for approval…' : codeExpired ? 'Expired' : '';
     if (codeExpired && !busy && status.dataset.state !== 'success') {
-      const instruction = 'Code expired. Select Choose account, then View TOTP to request a new code. Copy requests the current code with a separate approval.';
+      const instruction = 'Code expired. Go back to accounts and select View code again. Copy code requests the current code with a separate approval.';
       if (status.textContent !== instruction) status.textContent = instruction;
     }
     progress.value = 0;
@@ -146,7 +146,7 @@ async function readTotp(currentEpoch: number): Promise<void> {
   const active = selected;
   if (!active || currentEpoch !== epoch || busy) return;
   setBusy(true);
-  status.textContent = 'Approve this code request in YourSafe on the desktop. Reopen this popup afterwards if it closes.';
+  status.textContent = 'Approve this request in YourSafe on Windows. If this popup closes, reopen it after approval.';
   try {
     const result = await request({ action: 'viewTotp', token: active.token, id: active.account.id });
     if (currentEpoch !== epoch || selected !== active) return;
@@ -154,7 +154,7 @@ async function readTotp(currentEpoch: number): Promise<void> {
     displayed = result;
     paintTotp();
     status.dataset.state = 'ready';
-    status.textContent = 'This code expires when the timer reaches 0. Copy needs a separate approval in YourSafe.';
+    status.textContent = 'This code expires when the timer reaches 0. Copy code requests the current code with a separate approval in YourSafe on Windows.';
   } catch (error) { if (currentEpoch === epoch) failure(error); }
   finally {
     if (currentEpoch === epoch) {
@@ -198,12 +198,12 @@ function accountRow(account: Credential, token: string): HTMLElement {
       clearPanel();
       const currentEpoch = epoch;
       setBusy(true);
-      status.textContent = 'Approve this fill in YourSafe on the desktop. Reopen this popup afterwards if it closes.';
+      status.textContent = 'Approve this request in YourSafe on Windows. If this popup closes, reopen it after approval.';
       void request({ action: 'select', token, id: account.id }).then(() => {
         if (currentEpoch !== epoch) return;
         accounts.replaceChildren();
         status.dataset.state = 'success';
-        status.textContent = 'Filled. Review the form before signing in. YourSafe does not submit it.';
+        status.textContent = 'Login details filled. Check them, then click the website\'s sign-in button.';
       }).catch(error => { if (currentEpoch === epoch) failure(error); }).finally(() => { if (currentEpoch === epoch) setBusy(false); });
     });
     actions.append(fill);
@@ -211,9 +211,9 @@ function accountRow(account: Credential, token: string): HTMLElement {
   if (account.hasTotp) {
     const view = document.createElement('button');
     view.type = 'button';
-    view.textContent = 'View TOTP';
+    view.textContent = 'View code';
     view.dataset.credentialId = account.id;
-    view.setAttribute('aria-label', 'View TOTP for ' + account.title);
+    view.setAttribute('aria-label', 'View code for ' + account.title);
     view.addEventListener('click', () => { viewTotp(account, token); });
     actions.append(view);
   }
@@ -237,8 +237,8 @@ async function discover(focusAccountId?: string): Promise<void> {
       || typeof result.truncated !== 'boolean') throw errorFor('unavailable');
     authorizationToken = result.token;
     origin.textContent = result.origin;
-    status.textContent = result.truncated ? 'Some accounts could not be listed. Open YourSafe on the desktop to see all accounts.'
-      : result.accounts.length ? 'Choose Fill or View TOTP for an account.' : 'No accounts match this website. In YourSafe, add or update an account with the website address shown above, then select Refresh.';
+    status.textContent = result.truncated ? 'Only part of your account list is shown. View all accounts in YourSafe on Windows.'
+      : result.accounts.length ? 'Choose an action for an account below.' : 'No accounts match this website. Add this website address to an account in YourSafe on Windows, then click Refresh.';
     status.dataset.state = result.accounts.length ? 'ready' : 'empty';
     for (const account of result.accounts) accounts.append(accountRow(account, result.token));
   } catch (error) { if (currentEpoch === epoch) failure(error); }
@@ -274,11 +274,11 @@ function renderSnapshot(value: unknown): void {
     timer = setInterval(paintTotp, 100);
   }
   status.dataset.state = value.busy ? 'loading' : 'ready';
-  status.textContent = value.busy ? 'Waiting for desktop approval. Cancel here or in YourSafe to stop this request.'
-    : record(value.result) && 'filled' in value.result && value.result.filled === true ? 'Filled. Review the form before signing in. YourSafe does not submit it.'
+  status.textContent = value.busy ? 'Approve this request in YourSafe on Windows. If this popup closes, reopen it after approval.'
+    : record(value.result) && 'filled' in value.result && value.result.filled === true ? 'Login details filled. Check them, then click the website\'s sign-in button.'
     : record(value.result) && 'copied' in value.result && value.result.copied === true ? 'Copied the current code.'
-    : isTotp(value.result) ? 'This code expires when the timer reaches 0. Copy needs a separate approval in YourSafe.'
-    : 'Choose Fill or View TOTP for an account.';
+    : isTotp(value.result) ? 'This code expires when the timer reaches 0. Copy code requests the current code with a separate approval in YourSafe on Windows.'
+    : 'Choose an action for an account below.';
   setBusy(value.busy);
   if (!panel.hidden) paintTotp();
 }
@@ -287,7 +287,7 @@ copy.addEventListener('click', () => {
   if (busy || !active) return;
   const currentEpoch = epoch;
   setBusy(true);
-  status.textContent = 'Approve copying the current code in YourSafe on the desktop.';
+  status.textContent = 'Approve this request in YourSafe on Windows. If this popup closes, reopen it after approval.';
   void request({ action: 'copyTotp', token: active.token, id: active.account.id }).then(result => {
     if (currentEpoch !== epoch) return;
     if (!record(result) || result.copied !== true) throw errorFor('unavailable');
@@ -304,7 +304,7 @@ close.addEventListener('click', () => {
   rejectPending(errorFor('targetChanged'));
   setBusy(false);
   status.dataset.state = 'ready';
-  status.textContent = 'Choose Fill or View TOTP for an account.';
+  status.textContent = 'Choose an action for an account below.';
   setBusy(true);
   void request({ action: 'closeTotp', token: active.token, id: active.account.id }).then(async () => {
     setBusy(false);

@@ -103,7 +103,7 @@ async function captureLoginContext(browser) {
     fs.mkdirSync(output,{recursive:true});
     await page.locator('body').screenshot({path:path.join(output,'extension-accounts.png')});
     fs.copyFileSync(path.join(output,'extension-accounts.png'),path.join(root,'website/assets/captures-inbox/03-extension-accounts.png'));
-    await page.getByRole('button',{name:'View TOTP for GitHub · Personal',exact:true}).click();
+    await page.getByRole('button',{name:'View code for GitHub · Personal',exact:true}).click();
     await page.waitForFunction(()=>document.getElementById('totp-code').textContent==='123 456');
     await page.locator('body').screenshot({path:path.join(output,'extension-code.png')});
     fs.copyFileSync(path.join(output,'extension-code.png'),path.join(root,'website/assets/captures-inbox/07-extension-totp.png'));

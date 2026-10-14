@@ -21,7 +21,7 @@ Open `chrome://extensions`, `edge://extensions` or `brave://extensions`, enable 
 
 Registration writes the current user's 32-bit Native Messaging keys for Chrome, Edge and Brave. Brave uses `Software\BraveSoftware\Brave-Browser\NativeMessagingHosts`; production reuses the Chrome manifest and Chrome Web Store extension ID. The app-only `-test` prerelease installer omits all browser registration: use the development build and registration commands above for unpacked-extension testing.
 
-Enable browser integration in the desktop Settings; it starts disabled each app session, with no pipe listener. Enabling permits matching account names/usernames and capability metadata to be shared without another prompt; disabling closes connections and cancels pending requests. Save a password or TOTP item with a complete HTTPS URL, unlock the desktop vault, visit the matching site, and open the toolbar popup. **Fill**, **View TOTP**, and **Copy** each request a separate approval on the desktop before accessing the secret. The extension does not submit the form. Focus a specific username/password field first when multiple forms are ambiguous.
+Enable browser integration in the desktop Settings; it starts disabled each app session, with no pipe listener. Enabling permits matching account names/usernames and capability metadata to be shared without another prompt; disabling closes connections and cancels pending requests. Save a password or TOTP item with a complete HTTPS URL, unlock the desktop vault, visit the matching site, and open the toolbar popup. **Fill**, **View code**, and **Copy code** each request a separate approval on the desktop before accessing the secret. The extension does not submit the form. Focus a specific username/password field first when multiple forms are ambiguous.
 
 The extension uses `activeTab` and `scripting` instead of persistent website permissions. It injects its content script only into the selected top-level document after an explicit Fill action. It adds no automatic page hint. Its extension-page CSP forbids network connections, remote scripts, frames, and form submission.
 
@@ -41,7 +41,7 @@ Unregister removes only development HKCU registrations whose value still points 
 |---|---|
 | Content script | Explicitly injected top-level form detection, native input setters and input/change events. No discovery or secret request authority. |
 | Worker | Browser-derived tab/frame/document/URL context, short-lived metadata, one bounded pending desktop approval, final target checks and exact-document delivery. Reopening a popup can recover that operation without replaying a native request. |
-| Popup | Shows origin/accounts with separate Fill and View TOTP actions, one approved code panel, UTC countdown, desktop copy confirmation, and explicit cancellation. |
+| Popup | Shows origin/accounts with separate Fill and View code actions, one approved code panel, UTC countdown, desktop copy confirmation, and explicit cancellation. |
 | NativeHost | Native Messaging framing/validation and named-pipe client. No Core, Presentation or WinUI reference, vault key, lock state or retries. |
 | WinUI pipe server | Current-user pipe, Windows peer verification, bounded request handling, same-pipe cancellation, final lifecycle checks and dispatcher work. |
 | Presentation | Integration opt-in, per-request desktop approval, HTTPS exact-origin matching, and application entrypoints through AppFlowCoordinator/RunVaultAsync. |
@@ -61,9 +61,9 @@ Field revalidation retains the selected username and password. Inputs disabled t
 
 ## Verification codes
 
-Discovery never retrieves codes. **View TOTP** requests one desktop approval and then shows one grouped six- or eight-digit code with a countdown derived from desktop expiry. Codes outside their UTC time window disappear. Countdown ticks never retrieve a new code or open another approval prompt. Use **Choose account**, then **View TOTP**, for another approved read. **Choose account** immediately clears the panel, cancels a pending read, and refreshes metadata. Focus moves into the panel and returns to the selected account. The worker permits only one pending secret action, checks browser-derived origin/tab/window/document before and after asynchronous work, and accepts only an eligible ID returned by the current discovery.
+Discovery never retrieves codes. **View code** requests one desktop approval and then shows one grouped six- or eight-digit code with a countdown derived from desktop expiry. Codes outside their UTC time window disappear. Countdown ticks never retrieve a new code or open another approval prompt. Use **Back to accounts**, then **View code**, for another approved read. **Back to accounts** immediately clears the panel, cancels a pending read, and refreshes metadata. Focus moves into the panel and returns to the selected account. The worker permits only one pending secret action, checks browser-derived origin/tab/window/document before and after asynchronous work, and accepts only an eligible ID returned by the current discovery.
 
-**Copy** sends `copyCredentialTotp` for a separate desktop approval; the desktop regenerates the current code and writes its numeric value through the sensitive clipboard service. Clipboard cleanup after 30 seconds and on lock is best effort and clears only a still-owned clipboard value. Other applications, clipboard history, synchronization, and already-pasted values are outside that guarantee. The extension adds no clipboard permission and never receives TOTP configuration, otpauth URIs, or recovery codes. Content scripts and websites cannot request or receive codes through the extension.
+**Copy code** sends `copyCredentialTotp` for a separate desktop approval; the desktop regenerates the current code and writes its numeric value through the sensitive clipboard service. Clipboard cleanup after 30 seconds and on lock is best effort and clears only a still-owned clipboard value. Other applications, clipboard history, synchronization, and already-pasted values are outside that guarantee. The extension adds no clipboard permission and never receives TOTP configuration, otpauth URIs, or recovery codes. Content scripts and websites cannot request or receive codes through the extension.
 
 Both code actions require browser integration to be enabled, an approved request, the actual desktop Unlocked state and current lifecycle, and recheck the credential's stored URL and capability on each request. After failure the panel clears; an explicit Refresh/View action is required. Unlock remains **Show YourSafe → unlock desktop → Refresh**. If approval takes desktop focus and closes the popup, reopen it to recover the pending action or approved result without a new secret request.
 
@@ -147,8 +147,8 @@ Actual Windows lock/suspend, the natural five-hour login expiry, a queued real c
 Complete the following manual checklist separately on Chrome, Edge and Brave, using a disposable vault and synthetic credentials:
 
 - Happy path for a normal, password-only and dynamically rendered form; input/change fire and submit does not.
-- Discover password-only, password+TOTP and TOTP-only items; no code retrieval until View TOTP, and no Fill for a TOTP-only item.
-- Approve separate Fill, View TOTP, and Copy requests on the desktop. Refusing, cancelling, or timing out must disclose no secret.
+- Discover password-only, password+TOTP and TOTP-only items; no code retrieval until View code, and no Fill for a TOTP-only item.
+- Approve separate Fill, View code, and Copy code requests on the desktop. Refusing, cancelling, or timing out must disclose no secret.
 - View/copy six- and eight-digit codes with leading zeros, non-default periods and algorithms; expiry hides codes without starting another request, and approved copy at a boundary uses the current desktop code.
 - Close the popup while desktop approval is pending, approve, and reopen it: recover the bounded result without replay. Cancel instead, or change the target: no secret may be delivered.
 - Switch selected accounts, expire the pending lifetime, lock desktop, disconnect the host, disable integration, or change the stored URL: future access requires fresh explicit approval.
@@ -166,7 +166,7 @@ Complete the following manual checklist separately on Chrome, Edge and Brave, us
 ## Popup user stories
 
 - Enabled, unlocked desktop: show the current origin and separate account title/username; desktop-approved selection fills once without submitting the form.
-- Locked table: direct the user to Show YourSafe, Unlock Vault, then Refresh. Never request the Master Password in the extension.
+- Locked vault: ask the user to open YourSafe, unlock the vault, then click Refresh. Never request the Master Password in the extension.
 - No matching account: explain how to add an account with this exact origin, then refresh.
 - Desktop disconnected: explain how to start the matching desktop and check registration; keep recovery buttons available.
 - Unsupported page or changed target: refuse filling and explain how to retry on the intended HTTPS page.

@@ -64,7 +64,7 @@ assert.equal(ready.elements.accounts.children.length, 1);
 assert.deepEqual(ready.requests.map(request => request.action), ['resume', 'discover'], 'opening recovers or discovers metadata only');
 const buttons = ready.elements.accounts.querySelectorAll();
 assert.equal(buttons[0].textContent, 'Fill');
-assert.equal(buttons[1].textContent, 'View TOTP');
+assert.equal(buttons[1].textContent, 'View code');
 buttons[0].click();
 await settle();
 assert.equal(ready.elements.status.dataset.state, 'success');
@@ -73,14 +73,14 @@ assert.equal(ready.requests[2].action, 'select');
 assert.equal(ready.elements.refresh.disabled, false);
 const locked = await scenario({ ok: false, error: 'locked' });
 assert.equal(locked.elements.status.dataset.state, 'error');
-assert.match(locked.elements.status.textContent, /Unlock Vault/);
+assert.equal(locked.elements.status.textContent, 'Your vault is locked. Open YourSafe, unlock your vault, then click Refresh here.');
 locked.elements['show-app'].click();
 await settle();
 assert.equal(locked.elements.status.dataset.state, 'ready');
 const empty = await scenario(discovery([]));
 assert.equal(empty.elements.status.dataset.state, 'empty');
 const unavailable = await scenario({ ok: false, error: 'desktopUnavailable' });
-assert.match(unavailable.elements.status.textContent, /Start the matching desktop app/);
+assert.match(unavailable.elements.status.textContent, /Windows app is running and Browser integration is enabled in Settings/);
 assert.equal(unavailable.elements['show-app'].disabled, false);
 
 const otp = await scenario(discovery([{ ...account, hasPassword: false }]));
@@ -170,7 +170,7 @@ assert.equal(recovered.elements['totp-code'].textContent, '—');
 assert.equal(recovered.requests.length, 1);
 const recoverFill = await scenario(discovery([account]), { resumed: true,
   interaction: { ...state, action: 'select', accounts: [], busy: false, result: { filled: true } } });
-assert.match(recoverFill.elements.status.textContent, /Filled/);
+assert.match(recoverFill.elements.status.textContent, /Login details filled/);
 assert.equal(recoverFill.requests.length, 1);
 const recoverCopy = await scenario(discovery([account]), { resumed: true,
   interaction: { ...state, action: 'copyTotp', busy: false, result: { copied: true } } });
