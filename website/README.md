@@ -21,7 +21,7 @@ Open [the local preview](http://127.0.0.1:4173/home.html). Basic servers such as
 3. In **Actions**, select **Publish YourSafe website**, then **Run workflow** on the default branch.
 4. Open the URL reported by the deployment. The requested public routes are [YourSafe home](https://lmnhutw.github.io/YourSafe/home) and [the login demo](https://lmnhutw.github.io/YourSafe/demo-login); the workflow output is authoritative for the deployment base URL.
 
-The workflow is manual, so editing or pushing app code does not publish a website. It uploads `home.html`, a generated `index.html` copy for the root URL, `styles.css`, `navigation.js`, `script.js`, `demo-login.html`, `demo-login.js`, and `assets/` only; it does not build or publish Windows packages. Page links omit `.html`, while source files retain the extension for correct HTML serving. Deployment status and the configured Pages URL must be checked in GitHub Actions.
+The workflow is manual, so editing or pushing app code does not publish a website. It uploads `home.html`, `privacy.html`, a generated `index.html` copy for the root URL, `styles.css`, `navigation.js`, `script.js`, `demo-login.html`, `demo-login.js`, `google481cfd7a3ecb26f2.html` for Google site verification, and `assets/` only; it does not build or publish Windows packages. Page links omit `.html`, while source files retain the extension for correct HTML serving. Deployment status and the configured Pages URL must be checked in GitHub Actions.
 
 Reference: [GitHub publishing-source documentation](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site).
 
