@@ -11,7 +11,13 @@ public sealed partial class SettingsViewModel(AppFlowCoordinator flow, IUserErro
     [ObservableProperty] public partial string StatusMessage { get; set; } = string.Empty;
     [ObservableProperty] public partial bool IsStatusOpen { get; set; }
     [ObservableProperty] public partial bool IsBusy { get; set; }
-    [ObservableProperty] public partial bool BrowserIntegrationEnabled { get; set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(BrowserIntegrationDescription))]
+    public partial bool BrowserIntegrationEnabled { get; set; }
+
+    public string BrowserIntegrationDescription => BrowserIntegrationEnabled
+        ? "Browser integration is on. Matching account names and usernames are shared with your extension. Passwords and verification codes require your approval each time."
+        : "Browser integration is off. Your browser cannot access saved accounts. Turn it on to enable autofill and verification codes.";
 
     partial void OnBrowserIntegrationEnabledChanged(bool value)
     {

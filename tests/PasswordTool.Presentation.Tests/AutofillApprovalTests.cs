@@ -7,6 +7,41 @@ namespace PasswordTool.Presentation.Tests;
 public sealed class AutofillApprovalTests
 {
     [Fact]
+    public async Task Browser_integration_description_notifies_when_toggled_or_synchronized()
+    {
+        using var fixture = new Fixture();
+        var settings = new SettingsViewModel(fixture.Flow, new UserErrorMapper());
+        const string off = "Browser integration is off. Your browser cannot access saved accounts. Turn it on to enable autofill and verification codes.";
+        const string on = "Browser integration is on. Matching account names and usernames are shared with your extension. Passwords and verification codes require your approval each time.";
+        var changes = new List<string?>();
+        settings.PropertyChanged += (_, args) => changes.Add(args.PropertyName);
+        Assert.Equal(off, settings.BrowserIntegrationDescription);
+
+        settings.BrowserIntegrationEnabled = true;
+        Assert.Equal(on, settings.BrowserIntegrationDescription);
+        Assert.Contains(nameof(settings.BrowserIntegrationDescription), changes);
+        Assert.True(fixture.Flow.BrowserIntegrationEnabled);
+
+        changes.Clear();
+        settings.BrowserIntegrationEnabled = false;
+        Assert.Equal(off, settings.BrowserIntegrationDescription);
+        Assert.Contains(nameof(settings.BrowserIntegrationDescription), changes);
+        Assert.False(fixture.Flow.BrowserIntegrationEnabled);
+
+        changes.Clear();
+        fixture.Flow.SetBrowserIntegrationEnabled(true);
+        await settings.LoadAsync();
+        Assert.Equal(on, settings.BrowserIntegrationDescription);
+        Assert.Contains(nameof(settings.BrowserIntegrationDescription), changes);
+
+        changes.Clear();
+        await fixture.Flow.LogoutAsync();
+        settings.Clear();
+        Assert.Equal(off, settings.BrowserIntegrationDescription);
+        Assert.Contains(nameof(settings.BrowserIntegrationDescription), changes);
+    }
+
+    [Fact]
     public async Task Disabled_integration_and_absent_handler_deny_all_secret_operations()
     {
         using var fixture = new Fixture();

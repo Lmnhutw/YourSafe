@@ -867,7 +867,7 @@
                             <StackPanel Spacing="12">
                                 <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Browser integration" />
                                 <ToggleSwitch AutomationProperties.AutomationId="TglBrowserIntegration" AutomationProperties.Name="Allow browser integration for this app session" Header="Allow browser integration for this app session" IsOn="{x:Bind ViewModel.Settings.BrowserIntegrationEnabled, Mode=TwoWay}" />
-                                <TextBlock Style="{StaticResource PasswordToolDescriptionStyle}" Text="Off each time YourSafe starts. When enabled, the extension can see matching account names and usernames. Filling a password, viewing a code, or copying a code each requires your approval in YourSafe. Turning this off cancels pending requests and disconnects the extension." TextWrapping="Wrap" />
+                                <TextBlock AutomationProperties.AutomationId="TxtBrowserIntegrationDescription" Style="{StaticResource PasswordToolDescriptionStyle}" Text="{x:Bind ViewModel.Settings.BrowserIntegrationDescription, Mode=OneWay}" TextWrapping="Wrap" />
                             </StackPanel>
                         </Border>
 

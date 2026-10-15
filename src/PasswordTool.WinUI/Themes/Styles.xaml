@@ -8,6 +8,8 @@
             <SolidColorBrush x:Key="WorkspaceBackgroundBrush" Color="#EEF2F6" />
             <SolidColorBrush x:Key="PasswordToolCardBackgroundBrush" Color="#FFFFFF" />
             <SolidColorBrush x:Key="PasswordToolDividerBrush" Color="#CBD5E1" />
+            <SolidColorBrush x:Key="AutofillWarningBackgroundBrush" Color="#FFF3F2" />
+            <SolidColorBrush x:Key="AutofillWarningBorderBrush" Color="#F0D3D0" />
             <SolidColorBrush x:Key="VaultTableBackgroundBrush" Color="#FFFFFF" />
             <SolidColorBrush x:Key="VaultTableHeaderBrush" Color="#F5F5F5" />
             <SolidColorBrush x:Key="VaultGroupBackgroundBrush" Color="#E6E6E6" />
@@ -22,6 +24,8 @@
             <SolidColorBrush x:Key="WorkspaceBackgroundBrush" Color="#202020" />
             <SolidColorBrush x:Key="PasswordToolCardBackgroundBrush" Color="#2B2B2B" />
             <SolidColorBrush x:Key="PasswordToolDividerBrush" Color="#414141" />
+            <SolidColorBrush x:Key="AutofillWarningBackgroundBrush" Color="#382B2C" />
+            <SolidColorBrush x:Key="AutofillWarningBorderBrush" Color="#684749" />
             <SolidColorBrush x:Key="VaultTableBackgroundBrush" Color="#2D2D2D" />
             <SolidColorBrush x:Key="VaultTableHeaderBrush" Color="#333333" />
             <SolidColorBrush x:Key="VaultGroupBackgroundBrush" Color="#333333" />
@@ -36,6 +40,8 @@
             <SolidColorBrush x:Key="WorkspaceBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
             <SolidColorBrush x:Key="PasswordToolCardBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
             <SolidColorBrush x:Key="PasswordToolDividerBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="AutofillWarningBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="AutofillWarningBorderBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
             <SolidColorBrush x:Key="VaultTableBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
             <SolidColorBrush x:Key="VaultTableHeaderBrush" Color="{ThemeResource SystemColorWindowColor}" />
             <SolidColorBrush x:Key="VaultGroupBackgroundBrush" Color="{ThemeResource SystemColorButtonFaceColor}" />

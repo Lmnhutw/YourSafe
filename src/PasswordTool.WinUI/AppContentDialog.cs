@@ -6,10 +6,16 @@ namespace PasswordTool_WinUI;
 internal sealed class AppContentDialog : ContentDialog
 {
     public bool CompactFooter { get; init; }
+    public bool CenterTitle { get; init; }
 
     protected override void OnApplyTemplate()
     {
         base.OnApplyTemplate();
+        if (CenterTitle && GetTemplateChild("Title") is ContentControl title)
+        {
+            title.HorizontalAlignment = HorizontalAlignment.Stretch;
+            title.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+        }
         if (CompactFooter && GetTemplateChild("CommandSpace") is Grid footer)
         {
             footer.Padding = new Thickness(20, 10, 20, 10);
