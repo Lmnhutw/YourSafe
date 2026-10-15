@@ -73,7 +73,7 @@ internal sealed class AutofillPipeServer
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(integrationToken);
                 timeout.CancelAfter(TimeSpan.FromSeconds(10));
                 // Failure closes the connection before parsing or accessing the vault.
-                PipePeer.Verify(pipe, server: true, Path.Combine(AppContext.BaseDirectory, "YourSafe.NativeHost.exe"));
+                PipePeer.Verify(pipe, server: true, "YourSafe.NativeHost.exe");
                 var bytes = await Framing.ReadAsync(pipe, timeout.Token).ConfigureAwait(false);
                 if (bytes is null) continue;
                 byte[]? responseBytes = null;

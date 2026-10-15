@@ -60,6 +60,13 @@ jobs:
           # Negative tests deliberately invoke failing native tools; assertions throw on failure.
           $global:LASTEXITCODE = 0
 
+      - name: Verify published autofill peer identity
+        run: |
+          dotnet publish ./tests/PasswordTool.Autofill.PublishSmoke/PasswordTool.Autofill.PublishSmoke.csproj -c Release -r win-x64 --self-contained true -o ./artifacts/autofill-publish-smoke '-p:PublishSingleFile=true' '-p:IncludeAllContentForSelfExtract=true'
+          if ($LASTEXITCODE -ne 0) { throw 'Autofill publish smoke build failed.' }
+          & ./artifacts/autofill-publish-smoke/PasswordTool.Autofill.PublishSmoke.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Published autofill peer verification failed.' }
+
       - name: Build and qualify installer
         if: ${{ !endsWith(github.ref_name, '-test') }}
         run: |

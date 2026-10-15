@@ -30,6 +30,9 @@ public static class PipePeer
 
     public static void Verify(PipeStream pipe, bool server, string expectedExecutable)
     {
+        // Single-file extraction changes AppContext.BaseDirectory; peers stay beside the launched executable.
+        expectedExecutable = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath)
+            ?? throw new UnauthorizedAccessException("Invalid executable path."), expectedExecutable);
         var success = server
             ? GetNamedPipeClientProcessId(pipe.SafePipeHandle, out var pid)
             : GetNamedPipeServerProcessId(pipe.SafePipeHandle, out pid);

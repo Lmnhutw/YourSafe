@@ -28,7 +28,7 @@ try
                 using var pipe = new NamedPipeClientStream(".", PipePeer.PipeName, PipeDirection.InOut,
                     PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
                 await pipe.ConnectAsync(3000, timeout.Token);
-                PipePeer.Verify(pipe, server: false, Path.Combine(AppContext.BaseDirectory, "YourSafe.exe"));
+                PipePeer.Verify(pipe, server: false, "YourSafe.exe");
                 await Framing.WriteAsync(pipe, bytes, timeout.Token);
                 responseBytes = await Framing.ReadAsync(pipe, timeout.Token) ?? throw new EndOfStreamException();
                 _ = WireProtocol.ParseResponse(responseBytes, request);

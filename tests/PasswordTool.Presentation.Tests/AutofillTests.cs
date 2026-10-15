@@ -301,8 +301,12 @@ public sealed class AutofillTests
         var executable = Environment.ProcessPath ?? throw new InvalidOperationException();
         PipePeer.Verify(server, true, executable);
         PipePeer.Verify(client, false, executable);
+        PipePeer.Verify(server, true, Path.GetFileName(executable));
+        PipePeer.Verify(client, false, Path.GetFileName(executable));
         Assert.Throws<UnauthorizedAccessException>(() => { if (OperatingSystem.IsWindows()) PipePeer.Verify(server, true, executable + ".wrong"); });
         Assert.Throws<UnauthorizedAccessException>(() => { if (OperatingSystem.IsWindows()) PipePeer.Verify(client, false, executable + ".wrong"); });
+        Assert.Throws<UnauthorizedAccessException>(() => { if (OperatingSystem.IsWindows()) PipePeer.Verify(server, true, Path.GetFileName(executable) + ".wrong"); });
+        Assert.Throws<UnauthorizedAccessException>(() => { if (OperatingSystem.IsWindows()) PipePeer.Verify(client, false, Path.GetFileName(executable) + ".wrong"); });
     }
 
     private sealed class PartialStream(byte[] bytes) : MemoryStream(bytes)
