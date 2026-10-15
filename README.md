@@ -4,6 +4,10 @@ YourSafe is a local Windows password manager for passwords, website verification
 
 Vault data stays on your device. The desktop app uses WinUI 3 and works without an online account, cloud service, telemetry, or an internet connection. Encrypted backups and updates are managed manually.
 
+![YourSafe vault with annotated search, group tabs, protected actions and lock control](docs/diagrams/vault-overview.svg)
+
+Existing WinUI Debug capture with synthetic demo accounts. [Open full size](docs/diagrams/vault-overview.svg) · [Diagram collection and editable sources](docs/diagrams/README.md).
+
 ## What is included
 
 | Feature | What you can do |
@@ -63,6 +67,10 @@ Choose **Add item**, enter a title and username, then enter a website URL or sel
 
 Password and TOTP edits stay in the editor draft until you save; Cancel discards them. Core validates the entry, encrypts the vault payload, and saves the config/storage pair through a staged transaction. A failed write rolls back the change instead of leaving a partially saved vault.
 
+![Saving a credential through validation, encryption and paired commit, with failure paths](docs/diagrams/save-credential.svg)
+
+Only a validated draft reaches encryption and storage. The vault pair includes encrypted `.storage` and `.config` metadata with wrapped keys. [Full size](docs/diagrams/save-credential.svg) · [Mermaid source](docs/diagrams/save-credential.mmd) · [Annotated editor](docs/diagrams/editor-overview.svg).
+
 ### Find, reveal, or copy
 
 Search for the account and use its explicit reveal or copy action. The app checks the current session before returning a secret; list rows do not hold password values or TOTP secrets.
@@ -70,6 +78,10 @@ Search for the account and use its explicit reveal or copy action. The app check
 While the vault is unlocked, ordinary actions do not request another Authenticator code. If the table is locked during an active login, a desktop action can request the Master Password, open the vault for that action, and immediately relock it. **Unlock vault** instead opens it for the configured duration.
 
 Sensitive copies use best-effort clipboard cleanup after 30 seconds and on lock, while YourSafe still owns the copied value. A value you replace is preserved. Cleanup cannot retract an earlier paste or a copy already read by another application.
+
+![Authorization before a selected password is revealed or copied](docs/diagrams/reveal-copy.svg)
+
+Temporary access always relocks, including on failure. [Full size](docs/diagrams/reveal-copy.svg) · [Mermaid source](docs/diagrams/reveal-copy.mmd).
 
 ### Use website verification codes
 
@@ -97,6 +109,10 @@ Live desktop code panels require an unlocked vault and stop on closure or lock. 
 
 Changing the vault duration requires the current Master Password. The new duration takes effect after closing and reopening the app. There is no Authenticator-only sign-in or never-lock setting.
 
+![Login, unlocked, table-locked, temporary-action and screen-locked state transitions](docs/diagrams/vault-lifecycle.svg)
+
+For an enrolled vault: login and vault-open deadlines are separate. Windows lifecycle lock clears cached metadata; table lock keeps it. [Full size](docs/diagrams/vault-lifecycle.svg) · [Mermaid source](docs/diagrams/vault-lifecycle.mmd).
+
 ## Browser autofill
 
 Browser integration is optional and starts disabled each app session. YourSafe must already be running and its vault explicitly unlocked; the extension does not ask for your Master Password or unlock the desktop.
@@ -114,6 +130,10 @@ The official extension checks the current browser document and destination field
 
 The extension does not automatically capture or save new passwords. It never receives the Master Password, vault key, website TOTP seed, or account recovery codes. **Copy code** writes through the desktop clipboard service; **View code** returns only the current code and its time window.
 
+![One approved password request crossing extension, NativeHost and desktop boundaries](docs/diagrams/browser-fill.svg)
+
+This follows explicit account selection; denied or stale requests release no password. The reported website remains unverified to the desktop. [Full size](docs/diagrams/browser-fill.svg) · [Mermaid source](docs/diagrams/browser-fill.mmd) · [Metadata discovery sequence](docs/diagrams/README.md#browser-discovery).
+
 See the [extension guide](browser-extension/README.md) for supported browser versions, development installation, Native Messaging registration, production integration, and verification. Browser support does not establish store approval or availability.
 
 ## Backup and recovery
@@ -127,6 +147,10 @@ Backups include entry data such as passwords, website TOTP, recovery codes, note
 On a fresh installation, choose **Recover from encrypted backup**, enter its passphrase, review the item counts, and set up a new Master Password, sign-in Authenticator, and Recovery Key. Recovery creates a new vault key and credentials. It is available only when neither `.config` nor `.storage` exists; a partial pair must be resolved without overwriting it.
 
 Importing an encrypted backup into an existing vault validates the full backup first and previews new, duplicate, and conflicting IDs. Only new entries are added; existing entries are not overwritten.
+
+![Creating a fresh vault from an encrypted external backup using new credentials and a new DEK](docs/diagrams/backup-recovery.svg)
+
+The backup passphrase decrypts entry data; newly confirmed credentials protect a fresh vault. A Recovery Key does not decrypt backups. [Full size](docs/diagrams/backup-recovery.svg) · [Mermaid source](docs/diagrams/backup-recovery.mmd) · [Separate export, snapshot and reset flows](docs/diagrams/README.md#export-an-encrypted-backup).
 
 ### Recovery Key reset
 
@@ -156,6 +180,10 @@ YourSafe encrypts saved vault contents with authenticated encryption. Masked tex
 - **Backup encryption:** a separate backup passphrase derives its own key using PBKDF2-SHA256 with 600,000 iterations and a random salt; AES-256-GCM encrypts the exported entries.
 
 Protected reads and writes check session deadlines. Lock clears application-held keys and decrypted secret state where the runtime permits; encrypted files remain encrypted. Plaintext is necessarily present in process memory while the vault is unlocked.
+
+![Independent Master Password and Recovery Key wrappers leading to the same DEK and authenticated vault decryption](docs/diagrams/vault-keys.svg)
+
+The two wrappers live in `.config`; TOTP is a separate app sign-in gate. Recovery Key access follows the reset wizard and does not itself open a login session. [Full size](docs/diagrams/vault-keys.svg) · [Mermaid source](docs/diagrams/vault-keys.mmd).
 
 | Protection | Limit |
 | --- | --- |

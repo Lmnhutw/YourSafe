@@ -1,0 +1,24 @@
+flowchart LR
+    accTitle: Reset credentials with the Recovery Key
+    accDescr: The current Recovery Key unwraps the existing DEK. The app authenticates the vault and confirms a new Master Password, saved replacement key and new Authenticator code before committing new wrappers. The vault ciphertext is preserved; success returns to sign-in rather than opening a session.
+    subgraph desktop["Desktop App / Core"]
+        direction LR
+        verify{"`Key + vault valid?`"}:::decision
+        setup["`Confirm new credentials`"]
+        rewrap["`Rewrap same DEK`"]
+        commit{"Success?"}:::decision
+        stop["`Stop / keep old state`"]:::danger
+        login["`Return to sign-in`"]:::good
+    end
+    verify -->|No| stop
+    verify -->|Yes| setup
+    setup -->|Confirmed| rewrap
+    setup -->|Cancel / invalid| stop
+    rewrap --> commit
+    commit -->|Failure| stop
+    commit -->|Success| login
+    classDef key fill:#ffffff,stroke:#2563eb,color:#0f172a,stroke-dasharray:4 3
+    classDef decision fill:#fffbeb,stroke:#d97706,color:#0f172a
+    classDef danger fill:#fef2f2,stroke:#dc2626,color:#991b1b
+    classDef good fill:#f0fdf4,stroke:#16a34a,color:#14532d
+    style desktop stroke-dasharray:5 4

@@ -1,0 +1,32 @@
+stateDiagram-v2
+    accTitle: Vault lock and login lifecycle
+    accDescr: For an enrolled vault, a successful Master Password and TOTP sign-in begins a fixed five-hour login. Table locking preserves metadata, Windows lifecycle locking clears it, and reopening during that login needs only the Master Password. Temporary desktop actions always relock; logout, login expiry or app exit ends login.
+    direction TB
+    state "Signed out" as signedOut
+    [*] --> signedOut
+    signedOut --> signedOut: Invalid / cancel
+    signedOut --> login: Verify Master Password + TOTP
+    state "Active login - five-hour maximum" as login {
+        state "Unlocked" as unlocked
+        state "Table locked" as tableLocked
+        state "One desktop action" as oneAction
+        state "Screen locked" as screenLocked
+        [*] --> unlocked
+        unlocked --> tableLocked: Manual lock / vault deadline
+        tableLocked --> unlocked: Unlock + Master Password
+        tableLocked --> oneAction: Action + Master Password
+        tableLocked --> tableLocked: Wrong password / cancel
+        oneAction --> tableLocked: Success / failure - relock
+        unlocked --> screenLocked: Windows event
+        tableLocked --> screenLocked: Windows event
+        oneAction --> screenLocked: Windows event
+        screenLocked --> unlocked: Master Password
+        screenLocked --> screenLocked: Wrong password / cancel
+    }
+    login --> signedOut: Logout / login expiry / app exit
+    classDef good fill:#f0fdf4,stroke:#16a34a,color:#14532d
+    classDef warning fill:#fffbeb,stroke:#d97706,color:#0f172a
+    classDef neutral fill:#f8fafc,stroke:#64748b,color:#0f172a
+    class unlocked good
+    class tableLocked,screenLocked,oneAction warning
+    class signedOut neutral

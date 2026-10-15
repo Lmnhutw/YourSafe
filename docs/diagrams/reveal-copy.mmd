@@ -1,0 +1,16 @@
+flowchart LR
+    accTitle: Reveal or copy a password
+    accDescr: A desktop action checks the login and unlocks temporarily with the Master Password if the table is locked. Core checks the read; temporary access relocks before the selected secret reaches the UI. Denied, cancelled, expired or unavailable requests stop.
+    subgraph desktop["Desktop App"]
+        direction LR
+        select["`Select Reveal / Copy`"] --> authorize["`Check login / unlock`"]
+        authorize --> allowed{"Authorized?"}:::decision
+        allowed -->|Deny / cancel| stop["Stop action"]:::danger
+        allowed -->|Allow| read["`Read and relock temporary access`"]:::secret
+        read -->|Expired / error| stop
+        read -->|Success| show["`Reveal / copy secret`"]:::secret
+    end
+    classDef decision fill:#fffbeb,stroke:#d97706,color:#0f172a
+    classDef secret fill:#fffbeb,stroke:#d97706,color:#0f172a
+    classDef danger fill:#fef2f2,stroke:#dc2626,color:#991b1b
+    style desktop stroke-dasharray:5 4

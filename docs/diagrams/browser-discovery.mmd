@@ -1,0 +1,25 @@
+sequenceDiagram
+    accTitle: Discover matching accounts
+    accDescr: Discovery crosses Browser Extension, Native Host and Desktop App boundaries. Integration opt-in permits matching account metadata without per-request approval; no plaintext password or TOTP seed is returned.
+    box rgb(248,250,252) Browser Extension
+        participant worker as Extension worker
+    end
+    box rgb(248,250,252) Native Host
+        participant host as NativeHost
+    end
+    box rgb(248,250,252) Desktop App
+        participant app as Desktop + Core
+    end
+    worker->>worker: Read current tab and origin
+    worker->>host: Native Messaging: findCredentials(origin)
+    host->>app: Named pipe: forward request
+    app->>app: Check opt-in, unlocked state and origin
+    alt Locked, disabled or invalid
+        app-->>host: Deny
+        host-->>worker: Deny
+    else Allowed
+        app->>app: Match saved origins in session metadata
+        app-->>host: Metadata: IDs, names, usernames, flags
+        host-->>worker: Metadata: matching accounts
+        worker->>worker: Recheck tab and show accounts
+    end

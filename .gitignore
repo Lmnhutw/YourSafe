@@ -5,6 +5,17 @@
 
 # dotenv files
 .env
+.env.*
+!.env.example
+
+# Local vault data
+.config
+.storage
+.trusted-unlock
+.snapshots/
+
+# Regenerated visual review screenshots
+.impeccable/review/*.png
 
 # User-specific files
 *.rsuser
@@ -245,6 +256,9 @@ ClientBin/
 *.dbproj.schemaview
 *.jfm
 *.pfx
+*.p12
+*.pem
+*.key
 *.publishsettings
 orleans.codegen.cs
 

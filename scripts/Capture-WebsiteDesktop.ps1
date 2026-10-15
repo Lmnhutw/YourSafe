@@ -6,7 +6,7 @@ param(
 
 # Only drive the marked Debug process seeded by Create_opt_in_disposable_landing_vault.
 $ErrorActionPreference = 'Stop'
-$winApp = 'C:/Users/lmnhu/.nuget/packages/microsoft.windows.sdk.buildtools.winapp/0.6.1/tools/win-x64/winapp.exe'
+$winApp = 'winapp'
 $testRoot = (Resolve-Path -LiteralPath $TestDirectory).Path
 $windowHandle = (Get-Process -Id $ProcessId).MainWindowHandle.ToInt64()
 $outputDirectory = Join-Path (Split-Path $PSScriptRoot -Parent) 'website/assets/captures-inbox'

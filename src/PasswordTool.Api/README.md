@@ -1,6 +1,6 @@
 # PasswordTool.Api
 
-Optional ASP.NET Core Minimal API over the password-hashing capabilities in `PasswordTool.Core`. It does **not** expose the encrypted vault.
+Optional ASP.NET Core Minimal API over YourSafe's password-hashing capabilities in `PasswordTool.Core`. `PasswordTool.Api` remains the project name. It does **not** expose the encrypted vault.
 
 ## Current endpoints
 
@@ -29,4 +29,10 @@ Requests are limited to 32 KiB, passwords to 4,096 characters and stored hashes 
 
 Core rejects malformed/duplicate/version-invalid hash formats and bounds work factors, output and salt lengths before expensive derivation. bcrypt passwords exceeding 72 UTF-8 bytes are rejected rather than silently truncated. Compatibility hash defaults remain unchanged; inspection now distinguishes supported formats from adequate password-storage strength.
 
-Public deployment still requires a separate authentication/authorization, HTTPS/proxy and operational security design. Keep Core as the sole source of hashing behavior and never enable password/hash payload logging. The security hardening pass has deferred final build and runtime qualification; see [the requirements](../../docs/security-hardening-requirements.md).
+Public deployment still requires a separate authentication/authorization, HTTPS/proxy and operational security design. Keep Core as the sole source of hashing behavior and never enable password/hash payload logging. See [the security requirements](../../docs/security-hardening-requirements.md) for the intended boundaries.
+
+## Verification
+
+The [2026-10-12 verification record](../../docs/demo-security-verification.md#lượt-tiếp-tục-từ-commit-af92805), in its HTTP API row, records a successful API build with one existing CA1416 warning and a passing real HTTP smoke test for roundtrip/no-store, educational policy, input/KDF limits, malformed input, Host validation, concurrency and rate limiting. These are dated results, not fresh qualification of later source or builds.
+
+To check a current checkout, build `src/PasswordTool.Api` and run [Test-PasswordApiSecurity.ps1](../../scripts/Test-PasswordApiSecurity.ps1) as described in [the test guide](../../tests/README.md). The script launches a separate API process on a temporary loopback port; it does not test vault or browser operations.

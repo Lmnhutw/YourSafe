@@ -1,0 +1,26 @@
+flowchart LR
+    accTitle: Two independent paths to the vault key
+    accDescr: A Master Password-derived KEK or the random Recovery Key unwraps the same DEK from its own config slot. The DEK authenticates and decrypts the stored vault. TOTP is an application sign-in gate, not an input to either key path.
+    password["`SECRET: Master Password`"]:::secret
+    recovery["`KEY: Recovery Key`"]:::key
+    subgraph desktop["Desktop App / Core"]
+        direction LR
+        derive["`Derive KEK (Argon2id)`"]
+        master["`Unwrap Master slot`"]
+        rescue["`Unwrap Recovery slot`"]
+        dek["`KEY: same DEK`"]:::key
+        decrypt["`Authenticate + decrypt`"]
+        memory["`SECRET: session data`"]:::secret
+    end
+    subgraph localVault["Local Vault"]
+        payload[("`Encrypted .storage`")]:::encrypted
+    end
+    password --> derive --> master --> dek
+    recovery --> rescue --> dek
+    dek --> decrypt --> memory
+    payload --> decrypt
+    classDef secret fill:#fffbeb,stroke:#d97706,color:#0f172a
+    classDef key fill:#ffffff,stroke:#2563eb,color:#0f172a,stroke-dasharray:4 3
+    classDef encrypted fill:#eff6ff,stroke:#2563eb,color:#0f172a
+    style desktop stroke-dasharray:5 4
+    style localVault stroke-dasharray:5 4

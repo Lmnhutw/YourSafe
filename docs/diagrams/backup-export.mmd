@@ -1,0 +1,23 @@
+flowchart LR
+    accTitle: Export an encrypted entry backup
+    accDescr: An authorized desktop export encrypts entries with a separate backup passphrase, writes a temporary backup, authenticates it before replacement and verifies the final file. Failed final verification must not be treated as a usable backup. Group definitions and vault sign-in credentials are excluded.
+    subgraph desktop["Desktop App / Core"]
+        direction LR
+        entries["`SECRET: entries`"]:::secret --> encrypt["`Derive key + encrypt`"]
+        passphrase["`SECRET: backup passphrase`"]:::secret --> encrypt
+        encrypt --> stage["`Write and verify temp`"]
+        stage -->|Success| replace["`Replace and verify final`"]
+        stage -->|Failure| stop["Report failure"]:::danger
+        replace --> result{"Verified?"}:::decision
+        result -->|No| stop
+    end
+    subgraph external["External backup"]
+        backup[("`Encrypted entries`")]:::encrypted
+    end
+    result -->|Yes| backup
+    classDef secret fill:#fffbeb,stroke:#d97706,color:#0f172a
+    classDef decision fill:#fffbeb,stroke:#d97706,color:#0f172a
+    classDef encrypted fill:#eff6ff,stroke:#2563eb,color:#0f172a
+    classDef danger fill:#fef2f2,stroke:#dc2626,color:#991b1b
+    style desktop stroke-dasharray:5 4
+    style external stroke-dasharray:5 4

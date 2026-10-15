@@ -1,0 +1,28 @@
+flowchart LR
+    accTitle: Restore a local vault snapshot
+    accDescr: An active vault action uses the current Master Password to authorize replacement, then the snapshot password authenticates its config and storage pair. Only a verified pair replaces live files. Success ends login; failure rejects or rolls back the restore.
+    snapshot[("`Snapshot pair`")]:::encrypted
+    subgraph desktop["Desktop App / Core"]
+        direction LR
+        authorize{"`Current password valid?`"}:::decision
+        verify["`Authenticate old pair`"]
+        commit{"`Replace succeeds?`"}:::decision
+        stop["Reject / roll back"]:::danger
+        login["`End login`"]:::good
+    end
+    subgraph localVault["Local Vault"]
+        pair[("`Restored pair`")]:::encrypted
+    end
+    snapshot -.->|Encrypted input| verify
+    authorize -->|No| stop
+    authorize -->|Yes| verify
+    verify -->|Valid| commit
+    verify -->|Invalid| stop
+    commit -->|Failure| stop
+    commit -->|Success| pair --> login
+    classDef decision fill:#fffbeb,stroke:#d97706,color:#0f172a
+    classDef encrypted fill:#eff6ff,stroke:#2563eb,color:#0f172a
+    classDef danger fill:#fef2f2,stroke:#dc2626,color:#991b1b
+    classDef good fill:#f0fdf4,stroke:#16a34a,color:#14532d
+    style desktop stroke-dasharray:5 4
+    style localVault stroke-dasharray:5 4

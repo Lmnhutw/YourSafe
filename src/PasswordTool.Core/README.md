@@ -2,7 +2,7 @@
 
 The core owns Argon2id/PBKDF2 key derivation, AES-GCM vault persistence, paired snapshots, encrypted-backup inspection and new-machine recovery, bounded security timers, Master Password and Authenticator rotation, password history, Trash retention, and local security findings. UI and API layers must call these workflows rather than reproduce cryptographic or persistence logic.
 
-The reusable domain and security layer for PasswordTool. The WinUI desktop UI and HTTP projects depend on this project; Core must never depend on UI-framework or ASP.NET request/response types.
+The reusable domain and security layer for YourSafe. `PasswordTool.Core` remains the project and namespace name. The WinUI desktop UI and HTTP projects depend on this project; Core must never depend on UI-framework or ASP.NET request/response types.
 
 ## Responsibilities
 
@@ -11,7 +11,7 @@ The reusable domain and security layer for PasswordTool. The WinUI desktop UI an
 - Vault sign-in TOTP generation/verification and legacy Windows-DPAPI trusted-unlock token compatibility
 - Master-Password-authorized vault durations and fixed five-hour login deadlines
 - Encrypted website TOTP configuration, strict Base32/otpauth parsing, and local current-code generation for desktop and native browser requests
-- Vault item validation, CRUD, recovery-code parsing, and sensitive-action verification
+- Vault item validation, CRUD, recovery-code parsing, and sensitive-action session checks
 - Credential groups, tags, favorites, and migration of legacy folders to groups
 - Autofill metadata/secret projections with lock/session checks and null username normalization; origin policy and browser consent belong to Presentation and the worker
 - Encrypted, versioned backup creation, safe authenticated inspection, import planning, and atomic new-machine recovery
@@ -22,13 +22,17 @@ The reusable domain and security layer for PasswordTool. The WinUI desktop UI an
 
 ## Storage and sign-in contract
 
-For a new v4 config, `.config` contains Master and Recovery key slots wrapping the same random DEK, a credential revision, and the DEK-encrypted Authenticator secret. Vault ciphertext retains the v3 context. Recovery keys are 32 random bytes encoded as eight hex groups with an RK1 prefix. Only the AES-GCM wrapper is persisted. Trusted tokens bind to the credential revision as part of the configuration fingerprint. TOTP remains an application gate rather than an independent encryption key.
+For a new v4 config, `.config` contains Master and Recovery key slots wrapping the same random DEK, a credential revision, and the DEK-encrypted sign-in Authenticator secret, alongside unencrypted operational metadata. Vault ciphertext retains the v3 context. Recovery keys are 32 random bytes encoded as eight hex groups with an RK1 prefix. Only the AES-GCM wrapper is persisted, not the raw Recovery Key. Trusted tokens bind to the credential revision as part of the configuration fingerprint. TOTP remains an application gate rather than an independent encryption key.
 
 Current desktop sign-in requires both the Master Password and Authenticator code. Re-unlock during the fixed five-hour login requires only the Master Password. Sensitive actions use the active unlocked session without requesting another code. Legacy Authenticator-only token methods remain in Core for compatibility and are not used by the current desktop sign-in.
 
-Backup restoration accepts only uninitialized storage and requires Recovery Key confirmation. RecoveryKeyResetRequest is separate: it validates the current Recovery Key and vault, new password, saved replacement key, and new Authenticator OTP before a verified paired commit. It preserves ciphertext and clears sessions/tokens. SaveRecoveryKey requires Master Password and a verified login; it completes v3 enrollment without rewriting ciphertext and migrates legacy payloads once. Failed or cancelled enrollment leaves storage unchanged and denies workspace access. Snapshots retain their original credentials and revisions.
+New-machine backup recovery requires both `.config` and `.storage` to be absent. It authenticates the backup with its separate passphrase, requires a new Master Password, saved Recovery Key and verified sign-in Authenticator, then creates a fresh DEK and vault pair before opening a new login. Import into an existing vault is separate: it validates the full backup and adds only new entry IDs without overwriting existing entries.
 
-File names and Hidden/System attributes are obfuscation only. The security boundary is the Master Password-derived KEK, wrapped random DEK, authenticated encryption, DPAPI scope, and the Windows user account.
+External backups encrypt entry data, including website TOTP, password history and Trash state, using a separate PBKDF2-SHA256-derived key (600,000 iterations, random 16-byte salt) and AES-256-GCM. They exclude the vault key, sign-in configuration, group definitions and appearance settings. Group organization is not restored from these backups.
+
+`RecoveryKeyResetRequest` is separate from backup recovery: it validates the current Recovery Key and vault, new password, saved replacement key, and new Authenticator OTP before a verified paired commit. It preserves the same DEK and vault ciphertext, clears sessions/tokens, and returns the desktop to sign-in. `SaveRecoveryKey` requires Master Password and a verified login; it completes v3 enrollment without rewriting ciphertext and migrates legacy payloads once. Failed or cancelled enrollment leaves storage unchanged and denies workspace access. Snapshots retain their original credentials and revisions; restoring a pair requires the current Master Password plus the snapshot password when different and ends the login.
+
+File names and Hidden/System attributes are obfuscation only. Authenticated encryption protects the stored vault through the wrapped DEK. Legacy trusted tokens use DPAPI CurrentUser, which does not isolate them from other code running as the same Windows user. Neither TOTP nor these mechanisms protect secrets from malware controlling an unlocked Windows session.
 
 ## Change rules
 
@@ -41,4 +45,6 @@ File names and Hidden/System attributes are obfuscation only. The security bound
 - Maintain backward compatibility for vault items that predate recovery codes: their missing `Type` defaults to `Password`.
 - New optional item metadata must keep safe defaults so older encrypted vault and backup payloads continue to deserialize.
 - UpdatedAt is not password age. PasswordChangedAt is nullable for legacy payloads and is resolved in Core from valid history, UpdatedAt, then CreatedAt; future dates are ignored. The 365-day Security Check threshold is inclusive and findings never contain a secret.
-- Older configs migrate to a one-minute vault duration. Supported durations are 1, 2, 5, 10, 30, 60, 120, and 300 minutes. Neither activity nor unlocking extends the login deadline; duration edits apply on the next unlock.
+- Older configs migrate to a one-minute vault duration. Supported durations are 1, 2, 5, 10, 30, 60, 120, and 300 minutes, measured from unlock and capped by the fixed login deadline. Activity extends neither deadline; unlocking does not extend login. The service caches the duration on its first unlock, so edits apply after restarting the desktop app. Core clears the DEK and decrypted secret state on lock; cached table metadata and temporary one-action unlock/relock belong to Presentation.
+
+See [the architecture guide](../../docs/architecture.md) for component boundaries and [the test guide](../../tests/README.md) for verification commands. The [2026-10-12 verification record](../../docs/demo-security-verification.md#lượt-tiếp-tục-từ-commit-af92805) reports historical Core results; it does not qualify later source or builds.
