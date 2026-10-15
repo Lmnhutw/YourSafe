@@ -8,6 +8,7 @@ const http = require("node:http");
 const { chromium } = require("playwright");
 
 const root = __dirname;
+const extensionStoreUrl = 'https://chromewebstore.google.com/detail/yoursafe/lnlgmfdopjjjnjlepnpoohdfgfboheoh';
 const mime = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css",
@@ -78,7 +79,8 @@ async function verifyAnalytics(browser, base) {
       assert.equal(await page.locator('a[data-analytics-event="download_click"]').count(), 4);
       assert.equal(await page.locator('a[data-analytics-event="github_click"]').count(), 5);
       assert.equal(await page.locator('a[data-analytics-event="extension_click"]').count(), 7);
-      for (const selector of ['a[href$="/YourSafe-setup.exe"]', 'a[href="#extension"]', 'a[href="#extension-help"]']) {
+      assert.equal(await page.locator(`a[href="${extensionStoreUrl}"]`).count(), 3, 'installation links open the published extension');
+      for (const selector of ['a[href$="/YourSafe-setup.exe"]', 'a[href="#extension"]', `a[href="${extensionStoreUrl}"]`]) {
         assert.equal(await page.locator(`${selector}:not([data-analytics-event])`).count(), 0, `all relevant ${selector} links are tracked`);
       }
     }
@@ -198,7 +200,7 @@ async function verifyPrivacyAndClosing(browser, base) {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `home fits at ${width}`);
     assert.equal(await page.locator('.site-nav a[href="./demo-login"]').textContent(), 'Demo');
     assert.equal(await page.locator('.site-nav a[href="#extension"]').textContent(), 'Tiện ích');
-    assert.equal(await page.locator('.extension-actions .button').getAttribute('href'), '#extension-help');
+    assert.equal(await page.locator('.extension-actions .button').getAttribute('href'), extensionStoreUrl);
     assert.equal(await page.locator('.extension-actions .text-link').getAttribute('href'), './demo-login');
     assert.equal(await page.locator('.closing-extension-actions a[href="#extension"]').count(), 1);
     const extensionLayout = await page.locator('.feature-extension').evaluate(panel => {
@@ -623,7 +625,7 @@ async function verifyDemo(browser, base) {
       }
       assert.equal(await page.locator('.product-image[data-no-preview]').count(), 2);
       assert.equal(await page.locator('.hero-foot a').count(), 0);
-      assert.equal(await page.locator('.download-actions .download-extension[href="#extension"]').count(), 2);
+      assert.equal(await page.locator(`.download-actions .download-extension[href="${extensionStoreUrl}"]`).count(), 2);
       for (const caption of await page.locator('figcaption, .visual-note, .showcase-footer p, .manual-demo').all()) {
         const style = await caption.evaluate(element => {
           const css = getComputedStyle(element);
