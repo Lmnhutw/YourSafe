@@ -183,6 +183,8 @@ Complete the following manual checklist separately on Chrome, Edge and Brave, us
 
 ## Release distribution
 
+Production builds also create the store-upload ZIP and `checksums.sha256` under `browser-extension/releases/<version>/`. The unpacked build remains in `browser-extension/dist/production/`. Existing release ZIPs are not overwritten; increase the version in `package.json` for a new release. Desktop and NativeHost distributions remain under `artifacts/releases/<version>/`.
+
 From the repository root, build the store extension with `pwsh scripts/Build-BrowserAutofill.ps1 -Production`; its output is `browser-extension/dist/production`. This mode builds and checks only the extension; it does not publish a store listing or build the desktop/NativeHost. The website links to the configured [Chrome Web Store listing](https://chromewebstore.google.com/detail/yoursafe/lnlgmfdopjjjnjlepnpoohdfgfboheoh). A configured store URL or extension ID does not establish live availability or store qualification. Chrome and Brave use the Chrome store ID; Edge-specific installer registration requires its own configured Edge store ID.
 
 Desktop release publishing accepts optional Chrome and Edge store IDs to enable their Native Messaging registration:

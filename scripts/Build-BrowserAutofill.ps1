@@ -15,6 +15,20 @@ try {
     & npm.cmd run $buildScript
     if ($LASTEXITCODE -ne 0) { throw 'Extension build failed.' }
 } finally { Pop-Location }
+if ($Production) {
+    $extensionRoot = Join-Path $repositoryRoot 'browser-extension'
+    $manifest = Get-Content -LiteralPath (Join-Path $extensionRoot 'dist/production/manifest.json') -Raw | ConvertFrom-Json
+    $version = $manifest.version
+    if ($version -notmatch '^\d+(\.\d+){0,3}$') { throw 'Invalid extension release version.' }
+    $releaseDirectory = Join-Path $extensionRoot "releases/$version"
+    New-Item -ItemType Directory -Path $releaseDirectory -Force | Out-Null
+    $archive = Join-Path $releaseDirectory "YourSafe-extension-$version.zip"
+    if (Test-Path -LiteralPath $archive) { throw "Extension release already exists: $archive. Increase the package version before building another release." }
+    Compress-Archive -Path (Join-Path $extensionRoot 'dist/production/*') -DestinationPath $archive -CompressionLevel Optimal
+    $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+    "$hash *$(Split-Path -Leaf $archive)" | Set-Content -LiteralPath (Join-Path $releaseDirectory 'checksums.sha256') -Encoding utf8
+    Write-Output "Store upload: $archive"
+}
 if (-not $Production) {
     & dotnet build (Join-Path $repositoryRoot 'src/PasswordTool.WinUI/PasswordTool.WinUI.csproj') -c Debug -p:Platform=x64
     if ($LASTEXITCODE -ne 0) { throw 'Desktop build failed.' }
