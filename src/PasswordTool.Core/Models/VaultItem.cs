@@ -70,8 +70,6 @@ public sealed class VaultItem
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public string? LegacyFolder { get; set; }
 
-    public List<string> Tags { get; set; } = [];
-
     public bool IsDeleted { get; set; }
 
     public DateTimeOffset? DeletedAt { get; set; }

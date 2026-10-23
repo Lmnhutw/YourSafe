@@ -14,6 +14,8 @@ const passwordTitle = 'TOTP password account';
 const totpTitle = 'TOTP only account';
 const syntheticPassword = 'synthetic-test-password';
 const syntheticUsername = 'totp-password@example.test';
+// Natural expiry requires its own one-minute fixture, selected explicitly with E11.
+const defaultCasePrefixes = ['E01', 'E02', 'E03', 'E04', 'E05', 'E06', 'E07', 'E08', 'E09', 'E10', 'E12', 'E14'];
 function freshCodeDelay(now) {
   const remaining = 30000 - now % 30000;
   return remaining >= 20000 ? 0 : remaining + 100;
@@ -53,6 +55,8 @@ if (process.argv.includes('--self-check')) {
   assert(sectionSelected('E08', ['E08-pending-editPassword']));
   assert(sectionSelected('E08', ['E0']));
   assert(!sectionSelected('E08', ['E11']));
+  assert(!sectionSelected('E11', defaultCasePrefixes));
+  assert(sectionSelected('E14', defaultCasePrefixes));
   assert.equal(evidenceStatus([{ status: 'verified' }], false), 'running');
   assert.equal(evidenceStatus([{ status: 'verified' }], true, 'setup failed'), 'failed');
   assert.equal(evidenceStatus([{ status: 'failed' }], true), 'failed');
@@ -75,6 +79,7 @@ assert(Number.isInteger(port) && port >= 1024 && port <= 65535, 'Invalid fixture
 const root = resolve(testDirectory);
 const evidence = join(root, `extension-e2e-results-${randomUUID()}`);
 const selectedCases = (process.env.YOURSAFE_E2E_CASE_PREFIX ?? '').split(',').filter(Boolean);
+if (!selectedCases.length) selectedCases.push(...defaultCasePrefixes);
 const expiryOnly = selectedCases.length > 0 && selectedCases.every(prefix => prefix.startsWith('E11'));
 const profile = join(root, `extension-e2e-profile-${randomUUID()}`);
 await mkdir(evidence, { recursive: true });
@@ -148,7 +153,7 @@ async function load(mode = 'normal') {
   await page.locator('#password').waitFor();
   await page.bringToFront();
 }
-async function openPopup(targetContext = context, cdp = browserCdp, fixturePage = page) {
+async function openPopup(targetContext = context, cdp = browserCdp, fixturePage = page, allowPending = false) {
   const existing = targetContext.pages().find(candidate => !candidate.isClosed() && candidate.url() === `chrome-extension://${extensionId}/popup.html`);
   if (existing) await existing.close();
   const { targetInfos } = await cdp.send('Target.getTargets', { filter: [{ type: 'tab', exclude: false }] });
@@ -159,8 +164,11 @@ async function openPopup(targetContext = context, cdp = browserCdp, fixturePage 
   await cdp.send('Extensions.triggerAction', { id: extensionId, targetId: tabs[0].targetId });
   const popup = await ready;
   await popup.locator('#status').waitFor();
-  await popup.waitForFunction(() => ['ready', 'empty', 'success', 'error'].includes(document.getElementById('status')?.dataset.state ?? '')
-    && document.getElementById('accounts')?.getAttribute('aria-busy') === 'false', undefined, { timeout: 12000 });
+  await popup.waitForFunction(pendingAllowed => {
+    const state = document.getElementById('status')?.dataset.state;
+    return pendingAllowed && state === 'pending' || ['ready', 'empty', 'success', 'off', 'locked', 'unavailable', 'incompatible', 'error'].includes(state ?? '')
+      && document.getElementById('accounts')?.getAttribute('aria-busy') === 'false';
+  }, allowPending, { timeout: 12000 });
   return popup;
 }
 async function copyApprovedCode(nearExpiry = false, title = passwordTitle) {
@@ -281,7 +289,12 @@ try {
   await record('E01-integration-off', async () => {
     const popup = await openPopup();
     assert.equal(await popup.locator('.account').count(), 0);
-    assert.equal(await popup.locator('#status').getAttribute('data-state'), 'error');
+    assert.equal(await popup.locator('#status').getAttribute('data-state'), 'off');
+    assert.equal(await popup.getByRole('heading', { name: 'Browser integration is off' }).count(), 1);
+    assert.match(await popup.locator('#integration-off').innerText(), /Settings/);
+    assert.equal(await popup.locator('#integration-off-open').isEnabled(), true);
+    await popup.locator('#integration-off-open').click();
+    await desktop('assertNoApproval');
     await popup.close();
     await emptyPassword();
   });
@@ -330,7 +343,7 @@ try {
     await page.bringToFront();
     await emptyPassword();
     const reopened = await openPopup();
-    assert.doesNotMatch(await reopened.locator('#status').innerText(), /^Filled/);
+    assert.doesNotMatch(await reopened.locator('#status').innerText(), /^Login details filled/);
     await reopened.close();
   });
   await record('E05-TOTP-only-separate-view', async () => {
@@ -413,10 +426,30 @@ try {
     await page.bringToFront();
     await filled();
     const resumed = await openPopup();
-    assert.match(await resumed.locator('#status').innerText(), /Filled/);
+    assert.match(await resumed.locator('#status').innerText(), /Login details filled/);
     assert.equal(await resumed.locator('.account').count(), 0);
     await resumed.close();
     await filled();
+  });
+  await record('E06-pending-open-YourSafe-preserves-approval', async () => {
+    await load();
+    const first = await choose();
+    if (!first.isClosed()) await first.close();
+    await page.bringToFront();
+    const pending = await openPopup(context, browserCdp, page, true);
+    assert.equal(await pending.locator('#cancel').isVisible(), true);
+    assert.equal(await pending.locator('#cancel').isEnabled(), true);
+    assert.equal(await pending.locator('#show-app').isEnabled(), true);
+    await pending.locator('#show-app').click();
+    await desktop('waitApproval');
+    await desktop('approve');
+    await page.bringToFront();
+    await filled();
+    const complete = await openPopup();
+    assert.match(await complete.locator('#status').innerText(), /Login details filled/);
+    assert.equal(await complete.locator('.account').count(), 0);
+    await complete.close();
+    await desktop('assertNoApproval');
   });
   // The following automated burst must respect the desktop's real 30/minute admission window.
   if (['E07', 'E08', 'E09'].some(section => sectionSelected(section, selectedCases))) {
@@ -436,7 +469,7 @@ try {
       await page.bringToFront();
       const popup = await openPopup();
       await emptyPassword();
-      assert.doesNotMatch(await popup.locator('#status').innerText(), /^Filled/);
+      assert.doesNotMatch(await popup.locator('#status').innerText(), /^Login details filled/);
       await popup.close();
     });
   }
@@ -450,7 +483,7 @@ try {
     await page.bringToFront();
     const popup = await openPopup();
     await emptyPassword();
-    assert.doesNotMatch(await popup.locator('#status').innerText(), /^Filled/);
+    assert.doesNotMatch(await popup.locator('#status').innerText(), /^Login details filled/);
     await popup.close();
   });
   await record('E07-unrelated-background-tab-does-not-cancel', async () => {
@@ -473,7 +506,7 @@ try {
     await page.bringToFront();
     await emptyPassword();
     const popup = await openPopup();
-    assert.doesNotMatch(await popup.locator('#status').innerText(), /^Filled/);
+    assert.doesNotMatch(await popup.locator('#status').innerText(), /^Login details filled/);
     await popup.close();
   });
   await record('E07-pending-browser-window-change', async () => {
@@ -485,7 +518,7 @@ try {
     await page.bringToFront();
     const popup = await openPopup();
     await emptyPassword();
-    assert.doesNotMatch(await popup.locator('#status').innerText(), /^Filled/);
+    assert.doesNotMatch(await popup.locator('#status').innerText(), /^Login details filled/);
     await popup.close();
   });
   for (const action of ['lock', 'disable']) {
@@ -505,7 +538,7 @@ try {
     console.log('PACE: waiting for the protected-request window before credential edits.');
     await new Promise(done => setTimeout(done, 61000));
   }
-  for (const action of ['editPassword', 'editUrl', 'removePassword']) {
+  for (const action of ['editPassword', 'editUrl']) {
     await record(`E08-pending-${action}`, async () => {
       await load();
       await choose();
@@ -513,7 +546,7 @@ try {
       await page.bringToFront();
       await emptyPassword();
       const popup = await openPopup();
-      assert.doesNotMatch(await popup.locator('#status').innerText(), /^Filled/);
+      assert.doesNotMatch(await popup.locator('#status').innerText(), /^Login details filled/);
       await popup.close();
       await desktop(action === 'editUrl' ? 'resetUrl' : 'resetPassword', 45000);
     });
@@ -529,7 +562,7 @@ try {
     await page.bringToFront();
     const popup = await openPopup();
     await emptyPassword();
-    assert.doesNotMatch(await popup.locator('#status').innerText(), /^Filled/);
+    assert.doesNotMatch(await popup.locator('#status').innerText(), /^Login details filled/);
     await popup.close();
     await desktop('restoreDeleted');
   });
@@ -557,7 +590,7 @@ try {
     await page.bringToFront();
     await emptyPassword();
     const reopened = await openPopup();
-    assert.doesNotMatch(await reopened.locator('#status').innerText(), /^Filled/);
+    assert.doesNotMatch(await reopened.locator('#status').innerText(), /^Login details filled/);
     assert.equal(await reopened.locator('#totp-code').innerText(), '');
     await desktop('assertNoApproval');
     await reopened.close();
@@ -647,7 +680,7 @@ try {
     await page.bringToFront();
     await emptyPassword();
     const popup = await openPopup();
-    assert.equal(await popup.locator('#status').getAttribute('data-state'), 'error');
+    assert.equal(await popup.locator('#status').getAttribute('data-state'), 'unavailable');
     assert.equal(await popup.locator('.account').count(), 0);
     assert.equal(await popup.locator('#totp-code').innerText(), '');
     await popup.close();

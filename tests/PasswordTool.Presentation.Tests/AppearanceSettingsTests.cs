@@ -19,24 +19,20 @@ public sealed class AppearanceSettingsTests
         var path = Path.Combine(directory, "appearance.json");
         try
         {
-            var expected = new AppearanceSettings { Theme = AppearanceTheme.Dark, AllTabName = " All accounts ", UngroupedTabName = " Inbox ", AllTabColor = "#12abef", UngroupedTabColor = "#eb42d0", IsVerticalTabs = true };
+            var expected = new AppearanceSettings { Theme = AppearanceTheme.Dark, AllTabName = " All accounts ", AllTabColor = "#12abef", IsVerticalTabs = true };
             expected.Save(path);
-            var normalized = expected with { AllTabName = "All accounts", UngroupedTabName = "Inbox", AllTabColor = "#12ABEF", UngroupedTabColor = "#EB42D0" };
+            var normalized = expected with { AllTabName = "All accounts", AllTabColor = "#12ABEF" };
             Assert.Equal(normalized, AppearanceSettings.Load(path));
             Assert.Contains("\"Dark\"", File.ReadAllText(path));
             Assert.DoesNotContain("AccentMode", File.ReadAllText(path));
             Assert.DoesNotContain("CustomAccent", File.ReadAllText(path));
             Assert.Throws<ArgumentException>(() => (expected with { AllTabColor = "# FFFFF" }).Save(path));
-            Assert.Throws<ArgumentException>(() => (expected with { UngroupedTabColor = "# FFFFF" }).Save(path));
             Assert.Throws<ArgumentException>(() => (expected with { AllTabName = new string('a', 101) }).Save(path));
-            Assert.Throws<ArgumentException>(() => (expected with { UngroupedTabName = new string('a', 101) }).Save(path));
             Assert.Equal(normalized, AppearanceSettings.Load(path));
             Assert.Single(Directory.GetFiles(directory));
-            (expected with { AllTabName = string.Empty, UngroupedTabName = " ", AllTabColor = string.Empty, UngroupedTabColor = " " }).Save(path);
+            (expected with { AllTabName = string.Empty, AllTabColor = string.Empty }).Save(path);
             Assert.Null(AppearanceSettings.Load(path).AllTabName);
-            Assert.Null(AppearanceSettings.Load(path).UngroupedTabName);
             Assert.Null(AppearanceSettings.Load(path).AllTabColor);
-            Assert.Null(AppearanceSettings.Load(path).UngroupedTabColor);
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true); }
     }
@@ -50,7 +46,7 @@ public sealed class AppearanceSettingsTests
         {
             Assert.Equal(new AppearanceSettings(), AppearanceSettings.Load(path));
             Directory.CreateDirectory(directory);
-            foreach (var invalid in new[] { "{", "null", "{\"Theme\":\"Neon\"}", "{\"Theme\":99}", "{\"AllTabColor\":\"# FFFFF\"}", "{\"UngroupedTabColor\":\"# FFFFF\"}", "{\"AllTabName\":\"" + new string('a', 101) + "\"}" })
+            foreach (var invalid in new[] { "{", "null", "{\"Theme\":\"Neon\"}", "{\"Theme\":99}", "{\"AllTabColor\":\"# FFFFF\"}", "{\"AllTabName\":\"" + new string('a', 101) + "\"}" })
             {
                 File.WriteAllText(path, invalid);
                 Assert.Equal(new AppearanceSettings(), AppearanceSettings.Load(path));

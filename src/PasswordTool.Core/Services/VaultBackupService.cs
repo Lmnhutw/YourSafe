@@ -25,8 +25,6 @@ public sealed class VaultBackupService
     private const int MaxNotesLength = 100_000;
     private const int MaxRecoveryCodes = 100;
     private const int MaxRecoveryCodeLength = 128;
-    private const int MaxTags = 20;
-    private const int MaxTagLength = 100;
     private const int MaxTotpSecretLength = 512;
     private const int MaxPasswordHistoryEntries = 10;
     private static readonly TotpService TotpService = new();
@@ -174,9 +172,11 @@ public sealed class VaultBackupService
         return new VaultBackupImportPlan(planItems);
     }
 
-    public static void ValidateItems(IReadOnlyList<VaultItem> items)
+    public static void ValidateItems(IReadOnlyList<VaultItem> items) => ValidateItems(items, enforceItemLimit: true);
+
+    internal static void ValidateItems(IReadOnlyList<VaultItem> items, bool enforceItemLimit)
     {
-        if (items.Count > MaxItems)
+        if (enforceItemLimit && items.Count > MaxItems)
         {
             throw new InvalidDataException($"A backup may contain at most {MaxItems:N0} items.");
         }
@@ -194,14 +194,7 @@ public sealed class VaultBackupService
             ValidateLength(item.Url, MaxUrlLength, "URL");
             ValidateLength(item.Notes, MaxNotesLength, "notes");
             ValidateLength(item.TotpSecretBase32, MaxTotpSecretLength, "TOTP secret");
-            item.Tags ??= [];
             item.PasswordHistory ??= [];
-            if (item.Tags.Count > MaxTags
-                || item.Tags.Any(tag => string.IsNullOrWhiteSpace(tag) || tag.Length > MaxTagLength)
-                || item.Tags.Distinct(StringComparer.OrdinalIgnoreCase).Count() != item.Tags.Count)
-            {
-                throw new InvalidDataException($"Item '{item.Title}' contains an invalid tag list.");
-            }
 
             if (!Enum.IsDefined(item.Type))
             {
@@ -355,8 +348,7 @@ public sealed class VaultBackupService
             && left.CreatedAt == right.CreatedAt
             && left.UpdatedAt == right.UpdatedAt
             && left.PasswordChangedAt == right.PasswordChangedAt
-            && left.RecoveryCodes.SequenceEqual(right.RecoveryCodes, StringComparer.Ordinal)
-            && left.Tags.SequenceEqual(right.Tags, StringComparer.Ordinal);
+            && left.RecoveryCodes.SequenceEqual(right.RecoveryCodes, StringComparer.Ordinal);
     }
 
     private static VaultItem Clone(VaultItem item)
@@ -387,7 +379,6 @@ public sealed class VaultBackupService
             IsFavorite = item.IsFavorite,
             GroupId = item.GroupId,
             LegacyFolder = item.LegacyFolder,
-            Tags = [.. item.Tags],
             IsDeleted = item.IsDeleted,
             DeletedAt = item.DeletedAt,
             CreatedAt = item.CreatedAt,

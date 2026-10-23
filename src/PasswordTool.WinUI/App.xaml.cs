@@ -75,7 +75,9 @@ public partial class App : Application
         Window.Closed += Window_Closed;
         Window.Activate();
         var flow = Services.GetRequiredService<AppFlowCoordinator>();
-        flow.RequestAutofillApprovalAsync = Services.GetRequiredService<AutofillApprovalService>().ApproveAsync;
+        var approval = Services.GetRequiredService<AutofillApprovalService>();
+        approval.InitializeNotifications();
+        flow.RequestAutofillApprovalAsync = approval.ApproveAsync;
         autofillServer = new AutofillPipeServer(flow);
     }
 

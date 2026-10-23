@@ -3,6 +3,7 @@ import { mkdir, copyFile, writeFile, readFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
+const { version } = JSON.parse(await readFile(new URL('./package.json', import.meta.url), 'utf8'));
 const production = process.argv.includes('--production');
 const output = production ? 'dist/production' : 'dist/development';
 await mkdir(`${output}/icons`, { recursive: true });
@@ -17,7 +18,7 @@ for (const size of [16, 32, 48, 128]) {
   await execFileAsync('powershell.exe', ['-NoProfile', '-Command', `Add-Type -AssemblyName System.Drawing; $image=[System.Drawing.Image]::FromFile((Resolve-Path '${output}/icons/app-logo.png')); try { $bitmap=[System.Drawing.Bitmap]::new(${size},${size}); try { $graphics=[System.Drawing.Graphics]::FromImage($bitmap); try { $graphics.InterpolationMode=[System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic; $graphics.DrawImage($image,0,0,${size},${size}); $bitmap.Save((Join-Path (Get-Location) '${output}/icons/icon-${size}.png'),[System.Drawing.Imaging.ImageFormat]::Png) } finally { $graphics.Dispose() } } finally { $bitmap.Dispose() } } finally { $image.Dispose() }`]);
 }
 await writeFile(`${output}/manifest.json`, JSON.stringify({
-  manifest_version: 3, name: production ? 'YourSafe' : 'YourSafe Development', version: '1.0.0',
+  manifest_version: 3, name: production ? 'YourSafe' : 'YourSafe Development', version,
   description: 'Fill passwords and view verification codes from your local YourSafe desktop vault.',
   minimum_chrome_version: '127',
   ...(!production ? { key: (await readFile('development-key.txt', 'utf8')).trim() } : {}),

@@ -141,6 +141,79 @@ public sealed class AutofillApprovalTests
     }
 
     [Fact]
+    public async Task Control_status_reports_normal_unlock_even_when_integration_is_off_and_never_unlocks()
+    {
+        using var fixture = new Fixture();
+        Assert.Equal(new PasswordTool.Autofill.StatusResult(false, true), fixture.Flow.GetAutofillStatus());
+        await fixture.Flow.LockTableAsync();
+        Assert.Equal(new PasswordTool.Autofill.StatusResult(false, false), fixture.Flow.GetAutofillStatus());
+        var disabled = await Assert.ThrowsAsync<UnauthorizedAccessException>(() => fixture.Flow.FindAutofillCredentialsAsync(Fixture.Origin));
+        Assert.Equal("Browser integration is disabled.", disabled.Message);
+        foreach (var action in Enum.GetValues<AutofillAction>())
+            Assert.Equal("Browser integration is disabled.", (await Assert.ThrowsAsync<UnauthorizedAccessException>(() => fixture.Request(action))).Message);
+        Assert.True(fixture.Flow.TryAcceptAutofillControlRequest());
+        Assert.False(fixture.Vault.IsVaultUnlocked);
+        Assert.Equal(AppFlowState.TableLocked, fixture.Flow.FlowState);
+        Assert.True((await fixture.Flow.UnlockAsync(Fixture.Password, "")).Success);
+        fixture.Flow.SetBrowserIntegrationEnabled(true);
+        await fixture.Flow.LockTableAsync();
+        Assert.Equal(new PasswordTool.Autofill.StatusResult(true, false), fixture.Flow.GetAutofillStatus());
+        await Assert.ThrowsAsync<OperationCanceledException>(() => fixture.Flow.FindAutofillCredentialsAsync(Fixture.Origin));
+    }
+
+    [Fact]
+    public async Task Control_and_secret_quotas_are_independent_and_each_expire_after_one_minute()
+    {
+        var clock = new RequestClock();
+        using var fixture = new Fixture(clock);
+        for (var i = 0; i < 30; i++) Assert.True(fixture.Flow.TryAcceptAutofillControlRequest());
+        Assert.False(fixture.Flow.TryAcceptAutofillControlRequest());
+        fixture.Flow.SetBrowserIntegrationEnabled(true);
+        for (var i = 0; i < 30; i++) Assert.Single(await fixture.Flow.FindAutofillCredentialsAsync(Fixture.Origin));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => fixture.Flow.FindAutofillCredentialsAsync(Fixture.Origin));
+        clock.Advance(TimeSpan.FromSeconds(59));
+        Assert.False(fixture.Flow.TryAcceptAutofillControlRequest());
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => fixture.Flow.FindAutofillCredentialsAsync(Fixture.Origin));
+        clock.Advance(TimeSpan.FromSeconds(1));
+        Assert.True(fixture.Flow.TryAcceptAutofillControlRequest());
+        Assert.Single(await fixture.Flow.FindAutofillCredentialsAsync(Fixture.Origin));
+        fixture.Flow.SetBrowserIntegrationEnabled(false);
+        Assert.True(fixture.Flow.TryAcceptAutofillControlRequest());
+    }
+
+    [Fact]
+    public async Task Control_polling_and_its_quota_do_not_cancel_or_repeat_pending_approval()
+    {
+        using var fixture = new Fixture();
+        fixture.Flow.SetBrowserIntegrationEnabled(true);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var consent = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var approvalCount = 0;
+        CancellationToken approvalToken = default;
+        fixture.Flow.RequestAutofillApprovalAsync = (_, token) =>
+        {
+            approvalCount++;
+            approvalToken = token;
+            entered.TrySetResult();
+            return consent.Task;
+        };
+        var pending = fixture.Flow.GetAutofillCredentialSecretAsync(Fixture.Origin, fixture.Item.Id);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        for (var i = 0; i < 30; i++)
+        {
+            Assert.True(fixture.Flow.TryAcceptAutofillControlRequest());
+            Assert.Equal(new PasswordTool.Autofill.StatusResult(true, true), fixture.Flow.GetAutofillStatus());
+        }
+        Assert.False(fixture.Flow.TryAcceptAutofillControlRequest());
+        Assert.False(approvalToken.IsCancellationRequested);
+        Assert.False(pending.IsCompleted);
+        Assert.Equal(1, approvalCount);
+        consent.TrySetResult(true);
+        Assert.Equal("synthetic-test-password", (await pending.WaitAsync(TimeSpan.FromSeconds(5))).Password);
+        Assert.Equal(1, approvalCount);
+    }
+
+    [Fact]
     public async Task Disabling_integration_invalidates_a_queued_approved_clipboard_write()
     {
         using var fixture = new Fixture();
@@ -241,5 +314,13 @@ public sealed class AutofillApprovalTests
             public void Dispose() => disposed = true;
             public ValueTask DisposeAsync() { Dispose(); return ValueTask.CompletedTask; }
         }
+    }
+
+    private sealed class RequestClock : TimeProvider
+    {
+        private long timestamp;
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+        public override long GetTimestamp() => timestamp;
+        public void Advance(TimeSpan duration) => timestamp += duration.Ticks;
     }
 }

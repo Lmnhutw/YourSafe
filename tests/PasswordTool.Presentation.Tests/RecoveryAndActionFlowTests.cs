@@ -68,11 +68,102 @@ public sealed class RecoveryAndActionFlowTests
         Assert.False(context.Vault.IsVaultUnlocked);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Settings_use_the_supplied_password_once_and_preserve_the_original_lock_state(bool tableLocked)
+    {
+        using var context = new Context();
+        if (tableLocked) await context.Shell.LockTableAsync();
+        context.Flow.RequestActionPasswordAsync = _ => throw new InvalidOperationException("A supplied password must not prompt again.");
+        context.Shell.Settings.VaultDurationMinutes = 30;
+
+        Assert.True(await context.Shell.Settings.SaveAsync(Context.Password));
+
+        Assert.Equal(30, context.Vault.SecuritySettings.VaultOpenDurationMinutes);
+        Assert.Equal(tableLocked, context.Shell.IsTableLocked);
+        Assert.Equal(!tableLocked, context.Vault.IsVaultUnlocked);
+        Assert.False(context.Shell.Settings.IsBusy);
+        Assert.Equal("Security settings saved.", context.Shell.Settings.StatusMessage);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Incorrect_settings_password_does_not_save_or_discard_the_selected_duration(bool tableLocked)
+    {
+        using var context = new Context();
+        if (tableLocked) await context.Shell.LockTableAsync();
+        context.Shell.Settings.VaultDurationMinutes = 30;
+
+        Assert.False(await context.Shell.Settings.SaveAsync("wrong"));
+
+        Assert.Equal(1, context.Vault.SecuritySettings.VaultOpenDurationMinutes);
+        Assert.Equal(30, context.Shell.Settings.VaultDurationMinutes);
+        Assert.Equal(tableLocked, context.Shell.IsTableLocked);
+        Assert.False(context.Shell.Settings.IsBusy);
+        Assert.Equal("The Master Password is incorrect.", context.Shell.Settings.StatusMessage);
+    }
+
+    [Fact]
+    public async Task Settings_cannot_save_after_the_sign_in_deadline()
+    {
+        using var context = new Context();
+        await context.Shell.LockTableAsync();
+        context.Shell.Settings.VaultDurationMinutes = 30;
+        context.Now = context.Vault.LoginExpiresAt!.Value;
+
+        Assert.False(await context.Shell.Settings.SaveAsync(Context.Password));
+
+        Assert.Equal(1, context.Vault.SecuritySettings.VaultOpenDurationMinutes);
+        Assert.Equal(30, context.Shell.Settings.VaultDurationMinutes);
+        Assert.False(context.Vault.IsVaultUnlocked);
+    }
+
+    [Fact]
+    public async Task Overlapping_settings_saves_are_ignored_until_the_first_save_finishes()
+    {
+        var runner = new HoldFirstResultRunner();
+        using var context = new Context(runner);
+        context.Shell.Settings.VaultDurationMinutes = 30;
+        var saving = context.Shell.Settings.SaveAsync(Context.Password);
+        await runner.Completed.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.True(context.Shell.Settings.IsBusy);
+        context.Shell.Settings.VaultDurationMinutes = 60;
+        Assert.False(await context.Shell.Settings.SaveAsync(Context.Password));
+        Assert.Equal(30, context.Vault.SecuritySettings.VaultOpenDurationMinutes);
+        runner.Release.SetResult();
+        Assert.True(await saving);
+        Assert.False(context.Shell.Settings.IsBusy);
+    }
+
+    [Fact]
+    public async Task Group_creation_reports_success_after_persistence_without_changing_the_selected_group()
+    {
+        using var context = new Context();
+        var original = context.Vault.AddGroup("Original");
+        await context.Shell.Vault.RefreshAsync();
+        context.Shell.Vault.SelectGroup(context.Shell.Vault.GroupTabs.Single(group => group.Id == original.Id));
+
+        var created = await context.Shell.CreateGroupAsync("New group");
+
+        Assert.NotNull(created);
+        Assert.Contains(context.Vault.GetGroups(), group => group.Id == created.Id);
+        Assert.Equal(original.Id, context.Shell.Vault.SelectedGroup.Id);
+        Assert.Equal("Group “New group” created.", context.Shell.StatusMessage);
+        Assert.Equal("Group created", context.Shell.StatusTitle);
+        Assert.True(context.Shell.IsStatusSuccess);
+        Assert.True(context.Shell.IsStatusOpen);
+        Assert.Null(await context.Shell.CreateGroupAsync(""));
+        Assert.False(context.Shell.IsStatusSuccess);
+        Assert.Equal("Unable to complete action", context.Shell.StatusTitle);
+    }
+
     [Fact]
     public async Task Editing_and_saving_with_action_password_keeps_the_vault_locked()
     {
         using var context = new Context();
-        var item = context.Vault.AddItem(new VaultItem { Title = "Original", Password = "synthetic-password" });
+        var item = context.Vault.AddItem(new VaultItem { Title = "Original", Username = "user", Password = "synthetic-password" });
         await context.Shell.Vault.RefreshAsync();
         await context.Shell.LockTableAsync();
         context.Dialogs.ActionPassword = "wrong";
@@ -84,7 +175,7 @@ public sealed class RecoveryAndActionFlowTests
         Assert.False(context.Vault.IsVaultUnlocked);
         context.Shell.Navigate(AppRoute.ItemEditor);
         var input = new VaultItemEditorInput(item.Id, "Edited", editable.Username, editable.Password,
-            "", "", editable.Url, editable.Notes, editable.GroupId, "", false, false, false);
+            "", "", editable.Url, editable.Notes, editable.GroupId, false, false, false);
         context.Dialogs.ActionPassword = "wrong";
         Assert.False(await context.Shell.SaveItemAsync(input));
         Assert.Equal(AppRoute.ItemEditor, context.Shell.CurrentRoute);
@@ -128,7 +219,8 @@ public sealed class RecoveryAndActionFlowTests
         Assert.Equal(promptsBeforeMove + 1, context.Dialogs.PasswordPrompts);
         Assert.False(context.Vault.IsVaultUnlocked);
         Assert.Equal(loginDeadline, context.Vault.LoginExpiresAt);
-        await Assert.ThrowsAsync<OperationCanceledException>(() => context.Flow.FindAutofillCredentialsAsync("https://example.com"));
+        Assert.Equal("Browser integration is disabled.", (await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => context.Flow.FindAutofillCredentialsAsync("https://example.com"))).Message);
         await context.Shell.UnlockTableAsync();
         Assert.False(context.Shell.IsTableLocked);
         var prompts = context.Dialogs.PasswordPrompts;
@@ -220,7 +312,7 @@ public sealed class RecoveryAndActionFlowTests
         Assert.False(context.Shell.IsTableLocked);
         Assert.True(context.Vault.IsVaultUnlocked);
         Assert.Empty(context.Vault.GetItems());
-        Assert.True(await context.Shell.SaveItemAsync(new VaultItemEditorInput(null, "New account", "user", "saved password", "", "", "", "", null, "", false, false, false)));
+        Assert.True(await context.Shell.SaveItemAsync(new VaultItemEditorInput(null, "New account", "user", "saved password", "", "", "", "", null, false, false, false)));
         Assert.Single(context.Vault.GetItems());
         Assert.Equal(1, context.Dialogs.PasswordPrompts);
     }
@@ -444,27 +536,32 @@ public sealed class RecoveryAndActionFlowTests
         }
     }
 
-    [Fact]
-    public async Task Duplicate_save_uses_a_new_id_without_history_and_move_trash_restore_preserve_data()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Duplicate_save_keeps_the_group_uses_a_new_id_without_history_and_move_trash_restore_preserve_data(bool grouped)
     {
         using var context = new Context();
         var group = context.Vault.AddGroup("Destination");
-        var source = new VaultItem { Title = "Source", Username = "user", Password = "first password", RecoveryCodes = ["account-code-123", "account-code-456"], Tags = ["work"], Notes = "notes", HideNotes = true };
+        var sourceGroupId = grouped ? context.Vault.AddGroup("Original").Id : (Guid?)null;
+        var source = new VaultItem { Title = "Source", Username = "user", Password = "first password", RecoveryCodes = ["account-code-123", "account-code-456"], Notes = "notes", HideNotes = true, GroupId = sourceGroupId };
         source.Id = context.Vault.AddItem(source).Id;
         source.Password = "second password";
         context.Vault.UpdateItem(source);
         await context.Shell.Vault.RefreshAsync();
         var editorSource = await context.Shell.GetItemForEditingAsync(source.Id);
         Assert.NotNull(editorSource);
+        Assert.Equal(sourceGroupId, editorSource.GroupId);
         var input = new VaultItemEditorInput(null, editorSource.Title + " (copy)", editorSource.Username,
             editorSource.Password, string.Join('\n', editorSource.RecoveryCodes), editorSource.TotpSecretBase32,
-            editorSource.Url, editorSource.Notes, editorSource.GroupId, string.Join(',', editorSource.Tags),
+            editorSource.Url, editorSource.Notes, editorSource.GroupId,
             editorSource.IsFavorite, editorSource.HideUrl, editorSource.HideNotes);
         Assert.Single(context.Vault.GetItems()); // Opening duplicate data does not create an item.
         Assert.DoesNotContain(editorSource.Password, input.ToString());
         Assert.True(await context.Shell.SaveItemAsync(input));
         var duplicate = context.Vault.GetItems().Single(item => item.Title == "Source (copy)");
         Assert.NotEqual(source.Id, duplicate.Id);
+        Assert.Equal(sourceGroupId, duplicate.GroupId);
         Assert.Empty(context.Vault.GetPasswordHistory(duplicate.Id, ""));
         Assert.Single(context.Vault.GetPasswordHistory(source.Id, ""));
         await context.Shell.MoveItemToGroupAsync(source.Id, group.Id);
@@ -504,7 +601,7 @@ public sealed class RecoveryAndActionFlowTests
     {
         var runner = new HoldFirstResultRunner();
         using var context = new Context(runner);
-        var input = new VaultItemEditorInput(null, "First item", "", "saved password", "", "", "", "", null, "", false, false, false);
+        var input = new VaultItemEditorInput(null, "First item", "user", "saved password", "", "", "", "", null, false, false, false);
         var saving = context.Shell.SaveItemAsync(input);
         await runner.Completed.Task.WaitAsync(TimeSpan.FromSeconds(10));
         Assert.True(context.Shell.IsSavingItem);

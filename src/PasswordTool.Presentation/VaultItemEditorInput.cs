@@ -13,7 +13,6 @@ public sealed record VaultItemEditorInput(
     string Url,
     string Notes,
     Guid? GroupId,
-    string TagsText,
     bool IsFavorite,
     bool HideUrl,
     bool HideNotes,
@@ -21,19 +20,34 @@ public sealed record VaultItemEditorInput(
 {
     public override string ToString() => nameof(VaultItemEditorInput);
 
+    public IReadOnlyDictionary<string, string> Validate()
+    {
+        var errors = new Dictionary<string, string>();
+        if (string.IsNullOrWhiteSpace(Title)) errors.Add(nameof(Title), "Enter a title.");
+        if (string.IsNullOrWhiteSpace(Username)) errors.Add(nameof(Username), "Enter a username.");
+        if (string.IsNullOrWhiteSpace(Password)) errors.Add(nameof(Password), "Enter a password.");
+        if (!string.IsNullOrWhiteSpace(RecoveryCodesText))
+        {
+            var parsed = RecoveryCodeParser.Parse(RecoveryCodesText);
+            if (!parsed.IsValid) errors.Add(nameof(RecoveryCodesText), parsed.ErrorMessage ?? "Enter valid recovery codes.");
+        }
+        return errors;
+    }
+
     public VaultItem ToVaultItem()
     {
+        var errors = Validate();
+        if (errors.Count > 0)
+        {
+            var error = errors.First();
+            throw new ArgumentException(error.Value, error.Key);
+        }
         var recoveryCodes = new List<string>();
         if (!string.IsNullOrWhiteSpace(RecoveryCodesText))
         {
             var parsed = RecoveryCodeParser.Parse(RecoveryCodesText);
-            if (!parsed.IsValid) throw new ArgumentException(parsed.ErrorMessage, nameof(RecoveryCodesText));
             recoveryCodes = [.. parsed.Codes];
         }
-
-        var tags = TagsText.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
 
         var item = new VaultItem
         {
@@ -47,7 +61,6 @@ public sealed record VaultItemEditorInput(
             Url = Url,
             Notes = Notes,
             GroupId = GroupId,
-            Tags = tags,
             IsFavorite = IsFavorite,
             HideUrl = HideUrl,
             HideNotes = HideNotes

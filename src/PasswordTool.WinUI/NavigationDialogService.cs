@@ -6,8 +6,12 @@ namespace PasswordTool_WinUI;
 
 internal sealed class NavigationDialogService(ISensitiveClipboardService clipboard, DialogLifetime lifetime, AppFlowCoordinator flow) : IUserDialogService
 {
-    public async Task<string?> PromptMasterPasswordAsync(CancellationToken cancellationToken = default)
+    public Task<string?> PromptMasterPasswordAsync(CancellationToken cancellationToken = default) =>
+        PromptMasterPasswordAsync("Unlock vault", "Unlock vault", cancellationToken);
+
+    public async Task<string?> PromptMasterPasswordAsync(string title, string confirmText, CancellationToken cancellationToken = default)
     {
+        var version = flow.LifecycleVersion;
         var password = new PasswordBox { Header = "Master Password" };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(password, "TxtUnlockMasterPassword");
         var panel = new StackPanel { Spacing = 12 };
@@ -17,8 +21,9 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
             TextWrapping = TextWrapping.Wrap
         });
         panel.Children.Add(password);
-        var dialog = new AppContentDialog { Title = "Unlock vault", Content = panel, PrimaryButtonText = "Unlock vault", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
-        try { return await lifetime.ShowAsync(dialog, cancellationToken) == ContentDialogResult.Primary ? password.Password : null; }
+        var dialog = new AppContentDialog { Title = title, Content = panel, PrimaryButtonText = confirmText, CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
+        dialog.Opened += (_, _) => password.Focus(FocusState.Programmatic);
+        try { return await lifetime.ShowAsync(dialog, cancellationToken, () => flow.IsCurrentUnlock(version)) == ContentDialogResult.Primary ? password.Password : null; }
         finally { password.Password = string.Empty; }
     }
     public async Task<(string Confirmation, string TotpCode)?> ConfirmGroupDeletionAsync(

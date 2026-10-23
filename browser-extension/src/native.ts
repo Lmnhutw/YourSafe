@@ -1,4 +1,4 @@
-import { isRequest, isResponse, maxFrameBytes, type Action, type Request } from './protocol';
+import { isRequest, isResponse, maxFrameBytes, record, type Action, type Request } from './protocol';
 declare const NATIVE_HOST: string;
 
 // One connection per worker interaction; queued operations are never retried.
@@ -27,6 +27,10 @@ export function nativeSession(onFailure: (error: string) => void): {
   const receive = (value: unknown) => {
     const operation = pending;
     if (!port) return;
+    if (operation && record(value) && value.requestId === operation.request.requestId
+      && Number.isInteger(value.version) && value.version !== 3) {
+      fail('protocolMismatch'); return;
+    }
     if (!operation || new TextEncoder().encode(JSON.stringify(value)).length > maxFrameBytes || !isResponse(value, operation.request)) {
       fail('invalidRequest'); return;
     }
@@ -40,7 +44,7 @@ export function nativeSession(onFailure: (error: string) => void): {
   port.onMessage.addListener(receive);
   return {
     request(action, payload = {}) {
-      const request: Request = { version: 2, requestId: crypto.randomUUID(), action, payload };
+      const request: Request = { version: 3, requestId: crypto.randomUUID(), action, payload };
       if (!isRequest(request)) return Promise.reject(new Error('invalidRequest'));
       const result = queue.then(() => new Promise<unknown>((resolve, reject) => {
         if (!port) { reject(new Error('desktopUnavailable')); return; }

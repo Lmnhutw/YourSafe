@@ -2,9 +2,10 @@ export type Credential = { id: string; title: string; username: string; hasPassw
 export type Discovery = { credentials: Credential[]; truncated: boolean };
 export type Secret = { username: string; password: string };
 export type Totp = { code: string; periodSeconds: number; expiresAtUnixMs: number };
+export type Status = { integrationEnabled: boolean; unlocked: boolean };
 export type Action = 'ping' | 'getStatus' | 'findCredentials' | 'getCredentialSecret' | 'getCredentialTotp' | 'copyCredentialTotp' | 'showApp';
-export type Request = { version: 2; requestId: string; action: Action; payload: { origin?: string; credentialId?: string } };
-export type Response = { version: 2; requestId: string; ok: boolean; result?: unknown; error?: string };
+export type Request = { version: 3; requestId: string; action: Action; payload: { origin?: string; credentialId?: string } };
+export type Response = { version: 3; requestId: string; ok: boolean; result?: unknown; error?: string };
 export const maxFrameBytes = 65536;
 // ponytail: autofill supports public HTTPS and loopback HTTP only; add other origins only with an explicit trust policy.
 const guid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -31,7 +32,7 @@ export function canonicalOrigin(value: string): string | undefined {
 }
 export function isRequest(value: unknown): value is Request {
   if (!record(value) || !only(value, ['version', 'requestId', 'action', 'payload'])
-    || value.version !== 2 || typeof value.requestId !== 'string' || !guid.test(value.requestId)
+    || value.version !== 3 || typeof value.requestId !== 'string' || !guid.test(value.requestId)
     || !record(value.payload) || !only(value.payload, ['origin', 'credentialId'])) return false;
   const { origin, credentialId } = value.payload;
   switch (value.action) {
@@ -56,6 +57,10 @@ export function isDiscovery(value: unknown): value is Discovery {
   return record(value) && only(value, ['credentials', 'truncated']) && Array.isArray(value.credentials)
     && value.credentials.every(isCredential) && typeof value.truncated === 'boolean';
 }
+export function isStatus(value: unknown): value is Status {
+  return record(value) && only(value, ['integrationEnabled', 'unlocked'])
+    && typeof value.integrationEnabled === 'boolean' && typeof value.unlocked === 'boolean';
+}
 export function isTotp(value: unknown): value is Totp {
   return record(value) && only(value, ['code', 'periodSeconds', 'expiresAtUnixMs'])
     && typeof value.code === 'string' && /^(?:[0-9]{6}|[0-9]{8})$/.test(value.code)
@@ -65,16 +70,16 @@ export function isTotp(value: unknown): value is Totp {
 }
 export function isResponse(value: unknown, request: Request): value is Response {
   if (!record(value) || !only(value, ['version', 'requestId', 'ok', 'result', 'error'])
-    || value.version !== 2 || value.requestId !== request.requestId || typeof value.ok !== 'boolean') return false;
+    || value.version !== 3 || value.requestId !== request.requestId || typeof value.ok !== 'boolean') return false;
   if (!value.ok) return value.result === undefined && typeof value.error === 'string'
-    && ['locked', 'unavailable', 'desktopUnavailable', 'invalidRequest'].includes(value.error);
+    && ['locked', 'integrationDisabled', 'protocolMismatch', 'unavailable', 'desktopUnavailable', 'invalidRequest'].includes(value.error);
   if (value.error !== undefined) return false;
   switch (request.action) {
     case 'findCredentials': return isDiscovery(value.result);
     case 'getCredentialSecret': return isSecret(value.result);
     case 'getCredentialTotp': return isTotp(value.result);
     case 'copyCredentialTotp': return record(value.result) && only(value.result, ['copied']) && value.result.copied === true;
-    case 'getStatus': return record(value.result) && only(value.result, ['unlocked']) && typeof value.result.unlocked === 'boolean';
+    case 'getStatus': return isStatus(value.result);
     case 'ping': return record(value.result) && only(value.result, ['host']) && value.result.host === 'YourSafe';
     case 'showApp': return record(value.result) && only(value.result, ['shown']) && typeof value.result.shown === 'boolean';
   }

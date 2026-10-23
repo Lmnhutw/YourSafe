@@ -18,4 +18,4 @@ public enum VaultSortOrder
 
 public sealed record VaultFilterOption(string Label, VaultViewFilter Value);
 public sealed record VaultSortOption(string Label, VaultSortOrder Value);
-public sealed record VaultGroupOption(string Label, Guid? GroupId, bool CreatesNew = false);
+public sealed record VaultGroupOption(string Label, Guid? GroupId);

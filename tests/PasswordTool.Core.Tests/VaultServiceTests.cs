@@ -13,54 +13,6 @@ public sealed class VaultServiceTests : IDisposable
         Guid.NewGuid().ToString("N"));
 
     [Fact]
-    public void Legacy_ungrouped_items_migrate_to_an_ordinary_group_that_can_be_renamed_and_deleted()
-    {
-        const string password = "correct horse battery staple";
-        var storage = new VaultStorageService(tempDirectory);
-        var encryption = new EncryptionService();
-        var totp = new TotpService();
-        var secret = totp.GenerateSecret();
-        using var vault = new VaultService(storage, encryption, totp);
-        vault.InitializeNewVault(password, secret, ComputeTotp(secret), RecoveryKeyService.Generate(), true);
-        var item = vault.AddItem(new VaultItem { Title = "Legacy item", Password = "secret" });
-        Assert.True(new MasterPasswordService(encryption).TryUnlockConfig(password, storage.LoadConfig(), out var key, out _));
-        try
-        {
-            var legacy = encryption.DecryptObject<VaultData>(storage.LoadVaultPayload(), key, MasterPasswordService.VaultContext);
-            legacy.Version = 1;
-            legacy.Groups.Clear();
-            Assert.Single(legacy.Items).GroupId = null;
-            storage.SaveVaultPayload(encryption.EncryptObject(legacy, key, MasterPasswordService.VaultContext));
-        }
-        finally { CryptographicOperations.ZeroMemory(key); }
-
-        vault.ClearSession();
-        Assert.True(vault.TryUnlockMasterPassword(password, out _));
-        Assert.True(vault.VerifyTotpForSession(ComputeTotp(secret)));
-        var group = Assert.Single(vault.GetGroups());
-        Assert.Equal("Ungrouped", group.Name);
-        Assert.NotEqual(Guid.Empty, group.Id);
-        Assert.Equal(group.Id, Assert.Single(vault.GetItems()).GroupId);
-        vault.UpdateGroup(group.Id, "Inbox", "#336699");
-
-        vault.ClearSession();
-        Assert.True(vault.TryUnlockMasterPassword(password, out _));
-        Assert.True(vault.VerifyTotpForSession(ComputeTotp(secret)));
-        var renamed = Assert.Single(vault.GetGroups());
-        Assert.Equal(group.Id, renamed.Id);
-        Assert.Equal("Inbox", renamed.Name);
-        Assert.Equal("#336699", renamed.AccentColor);
-        Assert.Equal(item.Id, Assert.Single(vault.GetItems()).Id);
-        vault.DeleteGroup(group.Id, "Confirm delete all data in \"Inbox\"", string.Empty);
-
-        vault.ClearSession();
-        Assert.True(vault.TryUnlockMasterPassword(password, out _));
-        Assert.True(vault.VerifyTotpForSession(ComputeTotp(secret)));
-        Assert.Empty(vault.GetGroups());
-        Assert.Empty(vault.GetItems());
-    }
-
-    [Fact]
     public void Group_colors_validate_before_mutation_and_invalid_legacy_colors_do_not_block_unlock()
     {
         const string password = "correct horse battery staple";
@@ -115,13 +67,13 @@ public sealed class VaultServiceTests : IDisposable
 
         vault.ClearSession();
         Assert.True(vault.TryUnlockWithGoogleAuthenticator(ComputeTotp(secret), out error), error);
-        Assert.Equal(3, vault.GetGroups().Count);
+        Assert.Equal(2, vault.GetGroups().Count);
         Assert.All(vault.GetGroups(), loaded => Assert.Null(loaded.AccentColor));
         Assert.Equal(item.Id, Assert.Single(vault.GetItems()).Id);
         vault.ClearSession();
         Assert.True(vault.TryUnlockMasterPassword(password, out error), error);
         Assert.True(vault.VerifyTotpForSession(ComputeTotp(secret)));
-        Assert.Equal(3, vault.GetGroups().Count);
+        Assert.Equal(2, vault.GetGroups().Count);
         Assert.All(vault.GetGroups(), loaded => Assert.Null(loaded.AccentColor));
         Assert.Equal(item.Id, Assert.Single(vault.GetItems()).Id);
     }
@@ -140,24 +92,24 @@ public sealed class VaultServiceTests : IDisposable
         vault.DeleteItem(trashed.Id);
 
         Assert.Equal(group.Id, item.GroupId);
-        Assert.Equal(2, vault.GetGroups().Count);
+        Assert.Single(vault.GetGroups());
 
         var confirmation = "Confirm delete all data in \"Database\"";
         Assert.Throws<ArgumentException>(() => vault.DeleteGroup(group.Id, "Delete Database", ComputeTotp(secret)));
         Assert.Equal(2, vault.GetItems().Count);
-        Assert.Equal(2, vault.GetGroups().Count);
+        Assert.Single(vault.GetGroups());
         Assert.Single(vault.GetDeletedItems());
         vault.DeleteGroup(group.Id, confirmation, string.Empty);
 
         Assert.Equal(other.Id, Assert.Single(vault.GetItems()).Id);
         Assert.Empty(vault.GetDeletedItems());
-        Assert.Equal("Ungrouped", Assert.Single(vault.GetGroups()).Name);
+        Assert.Empty(vault.GetGroups());
         vault.ClearSession();
         Assert.True(vault.TryUnlockMasterPassword("correct horse battery staple", out _));
         Assert.True(vault.VerifyTotpForSession(ComputeTotp(secret)));
         Assert.Equal(other.Id, Assert.Single(vault.GetItems()).Id);
         Assert.Empty(vault.GetDeletedItems());
-        Assert.Equal("Ungrouped", Assert.Single(vault.GetGroups()).Name);
+        Assert.Empty(vault.GetGroups());
     }
 
     [Fact]
@@ -405,7 +357,6 @@ public sealed class VaultServiceTests : IDisposable
             HideNotes = true,
             IsFavorite = true,
             LegacyFolder = "Personal",
-            Tags = ["email", "important"],
             TotpSecretBase32 = "JBSWY3DPEHPK3PXP"
         });
 
@@ -416,7 +367,6 @@ public sealed class VaultServiceTests : IDisposable
         Assert.Equal("Private note", savedItem.Notes);
         Assert.True(savedItem.IsFavorite);
         Assert.Equal("Personal", savedItem.LegacyFolder);
-        Assert.Equal(["email", "important"], savedItem.Tags);
         Assert.Equal("JBSWY3DPEHPK3PXP", savedItem.TotpSecretBase32);
         Assert.DoesNotContain("JBSWY3DPEHPK3PXP", File.ReadAllText(storage.VaultPath));
 
@@ -589,6 +539,41 @@ public sealed class VaultServiceTests : IDisposable
         Assert.Equal("password", vault.GetPassword(item.Id, string.Empty));
         Assert.DoesNotContain("password", File.ReadAllText(storage.VaultPath));
         Assert.DoesNotContain("JBSWY3DPEHPK3PXP", File.ReadAllText(storage.VaultPath));
+    }
+
+    [Fact]
+    public void Csv_import_keeps_totp_only_entries_passwordless_after_save_and_reopen()
+    {
+        const string password = "correct horse battery staple";
+        var storage = new VaultStorageService(tempDirectory);
+        var totp = new TotpService();
+        var secret = totp.GenerateSecret();
+        var now = DateTimeOffset.UtcNow;
+        using var vault = new VaultService(storage, new EncryptionService(), totp, utcNow: () => now);
+        vault.InitializeNewVault(password, secret, ComputeTotp(secret), RecoveryKeyService.Generate(), true);
+        const string csv = "folder,favorite,name,username,password,url,notes,login_totp\nPersonal,1,Authenticator,user@example.com,,https://example.com,Account note,otpauth://totp/Example%3Auser?secret=JBSWY3DPEHPK3PXP&issuer=Example&algorithm=SHA256&digits=8&period=60";
+
+        Assert.Equal(1, vault.PreviewCsvImport(csv, string.Empty).NewItemCount);
+        Assert.Equal(1, vault.ImportCsv(csv, string.Empty));
+        Assert.Equal(0, vault.ImportCsv(csv, string.Empty));
+        var item = vault.GetItemForEditing(Assert.Single(vault.GetItems()).Id, string.Empty);
+        Assert.Empty(item.Password);
+        Assert.Null(item.PasswordChangedAt);
+        Assert.Empty(item.PasswordHistory);
+        Assert.Equal(new TotpConfiguration("JBSWY3DPEHPK3PXP", "Example", "user", TotpAlgorithm.Sha256, 8, 60), item.GetTotpConfiguration());
+        Assert.Equal("user@example.com", item.Username);
+        Assert.Equal("https://example.com", item.Url);
+        Assert.Equal("Account note", item.Notes);
+        Assert.True(item.IsFavorite);
+        Assert.Equal(Assert.Single(vault.GetGroups()).Id, item.GroupId);
+        Assert.Equal(now, item.CreatedAt);
+        Assert.Equal(now, item.UpdatedAt);
+        var expected = System.Text.Json.JsonSerializer.Serialize(item);
+
+        vault.ClearSession();
+        Assert.True(vault.TryUnlockMasterPassword(password, out var error), error);
+        Assert.True(vault.VerifyTotpForSession(ComputeTotp(secret)));
+        Assert.Equal(expected, System.Text.Json.JsonSerializer.Serialize(vault.GetItemForEditing(item.Id, string.Empty)));
     }
 
     public void Dispose()

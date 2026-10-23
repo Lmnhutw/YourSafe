@@ -22,7 +22,7 @@ public sealed partial class VaultWorkspaceViewModel : ObservableObject
     public ObservableCollection<VaultItemListItem> Items { get; } = [];
     public VaultItemGroup AllGroup { get; } = new(null, "All", null, -1, isAll: true);
     public ObservableCollection<VaultItemGroup> GroupTabs { get; } = [];
-    public ObservableCollection<VaultGroupOption> GroupOptions { get; } = [new("Create new group...", null, true)];
+    public ObservableCollection<VaultGroupOption> GroupOptions { get; } = [new("All", null)];
     public IReadOnlyList<VaultFilterOption> ViewFilters { get; } = [new("All items", VaultViewFilter.All), new("Favorites", VaultViewFilter.Favorites), new("Passwords", VaultViewFilter.Passwords), new("Recovery codes", VaultViewFilter.RecoveryCodes)];
     public IReadOnlyList<VaultSortOption> SortOrders { get; } = [new("Title A–Z", VaultSortOrder.TitleAscending), new("Title Z–A", VaultSortOrder.TitleDescending), new("Recently updated", VaultSortOrder.UpdatedNewest), new("Oldest updated", VaultSortOrder.UpdatedOldest)];
 
@@ -62,7 +62,7 @@ public sealed partial class VaultWorkspaceViewModel : ObservableObject
     public void Clear()
     {
         allItems = []; groups = []; GroupOptions.Clear();
-        GroupOptions.Add(new("Create new group...", null, true));
+        GroupOptions.Add(new("All", null));
         RefreshGroupTabs();
         FilterByGroup = false;
         ResetToDefaultView();
@@ -146,7 +146,7 @@ public sealed partial class VaultWorkspaceViewModel : ObservableObject
         var selectedId = SelectedItem?.Id;
         var query = SearchText.Trim();
         IEnumerable<VaultItemListItem> filtered = SelectedGroup.IsAll ? allItems : allItems.Where(item => item.GroupId == SelectedGroup.Id);
-        if (!string.IsNullOrEmpty(query)) filtered = filtered.Where(item => item.Title.Contains(query, StringComparison.CurrentCultureIgnoreCase) || item.Username.Contains(query, StringComparison.CurrentCultureIgnoreCase) || item.Url.Contains(query, StringComparison.CurrentCultureIgnoreCase) || item.Tags.Any(tag => tag.Contains(query, StringComparison.CurrentCultureIgnoreCase)));
+        if (!string.IsNullOrEmpty(query)) filtered = filtered.Where(item => item.Title.Contains(query, StringComparison.CurrentCultureIgnoreCase) || item.Username.Contains(query, StringComparison.CurrentCultureIgnoreCase) || item.Url.Contains(query, StringComparison.CurrentCultureIgnoreCase));
         filtered = SelectedViewFilter.Value switch { VaultViewFilter.Favorites => filtered.Where(item => item.IsFavorite), VaultViewFilter.Passwords => filtered.Where(item => item.HasPassword), VaultViewFilter.RecoveryCodes => filtered.Where(item => item.RecoveryCodeCount > 0), _ => filtered };
         filtered = SelectedSortOrder.Value switch { VaultSortOrder.TitleDescending => filtered.OrderByDescending(item => item.Title, StringComparer.CurrentCultureIgnoreCase), VaultSortOrder.UpdatedNewest => filtered.OrderByDescending(item => item.UpdatedAt), VaultSortOrder.UpdatedOldest => filtered.OrderBy(item => item.UpdatedAt), _ => filtered.OrderBy(item => item.Title, StringComparer.CurrentCultureIgnoreCase) };
         var visible = filtered.ToList();
@@ -175,7 +175,7 @@ public sealed partial class VaultWorkspaceViewModel : ObservableObject
     private void RefreshGroupOptions()
     {
         GroupOptions.Clear();
+        GroupOptions.Add(new("All", null));
         foreach (var group in groups.OrderBy(group => group.SortOrder).ThenBy(group => group.Name, StringComparer.CurrentCultureIgnoreCase)) GroupOptions.Add(new(group.Name, group.Id));
-        GroupOptions.Add(new("Create new group...", null, true));
     }
 }

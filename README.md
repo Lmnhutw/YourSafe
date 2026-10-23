@@ -13,7 +13,7 @@ Existing WinUI Debug capture with synthetic demo accounts. [Open full size](docs
 | Feature | What you can do |
 | --- | --- |
 | **Encrypted vault** | Store passwords, website TOTP, recovery codes, usernames, URLs, and notes in an AES-256-GCM encrypted local file. |
-| **Organization** | Search locally, mark favorites, and organize entries with groups and tags. Groups appear as configurable tabs. |
+| **Organization** | Search locally, mark favorites, and organize entries with groups. All includes every entry; new entries default to All. |
 | **Password generation** | Generate cryptographically random passwords and readable passphrases with strength feedback. |
 | **Browser integration** | Fill a selected account or view/copy its website TOTP after a separate approval on the unlocked desktop. |
 | **Local Security Check** | Find weak, exactly reused, or old passwords without sending them to an online service. |
@@ -63,7 +63,7 @@ The **vault sign-in Authenticator** protects access to YourSafe. **Website TOTP*
 
 ### Save a credential
 
-Choose **Add item**, enter a title and username, then enter a website URL or select **No URL**. Add a password, website TOTP, at least two valid unique recovery codes, or a combination, then select **Save item**. Assign a group, tags, and a favorite marker as needed.
+Choose **Add item**, enter a title, username, and password, then enter a website URL or select **No URL**. Website TOTP and recovery codes are optional. Recovery codes require at least two different codes supplied by the website, separated by newlines or commas. Select **Save item**. Assign an existing group and a favorite marker as needed; All leaves the entry without a group.
 
 Password and TOTP edits stay in the editor draft until you save; Cancel discards them. Core validates the entry, encrypts the vault payload, and saves the config/storage pair through a staged transaction. A failed write rolls back the change instead of leaving a partially saved vault.
 
@@ -91,7 +91,7 @@ Live desktop code panels require an unlocked vault and stop on closure or lock. 
 
 ### Review and organize
 
-- Use favorites, groups, tags, and local search. Right-click a group tab to rename it or change its color; Settings offers horizontal/vertical tabs and System/Light/Dark themes.
+- Use favorites, groups, and local search. Right-click a group tab to rename it or change its color; Settings offers horizontal/vertical tabs and System/Light/Dark themes.
 - Run **Local Security Check** for weak passwords, exact reuse, and passwords at least 365 days old. Open the affected item through the protected editor and rescan after changes.
 - Changing a password retains its latest 10 previous values inside the encrypted vault. Deleted items stay in Trash for 30 days unless restored or permanently deleted.
 - CSV import previews new and duplicate accounts and adds only new accounts. CSV exports contain plaintext secrets; protect them and remove them when no longer needed.
@@ -107,7 +107,7 @@ Live desktop code panels require an unlocked vault and stop on closure or lock. 
 | **Windows lifecycle lock** | Windows lock/disconnect, suspend, or resume locks the vault, clears cached workspace metadata, and cancels pending authentication and secret actions. |
 | **Login expiry or app restart** | Requires a new sign-in with the Master Password and a current Authenticator code. |
 
-Changing the vault duration requires the current Master Password. The new duration takes effect after closing and reopening the app. There is no Authenticator-only sign-in or never-lock setting.
+Choose a vault duration, then select **Save security settings** and enter the current Master Password once. Cancel or an incorrect password keeps your selection without saving it. Saving from a table-locked session relocks immediately. The new duration takes effect after closing and reopening the app. Creating a new Recovery Key has its own password prompt and requires an explicitly unlocked vault. There is no Authenticator-only sign-in or never-lock setting.
 
 ![Login, unlocked, table-locked, temporary-action and screen-locked state transitions](docs/diagrams/vault-lifecycle.svg)
 
@@ -115,16 +115,18 @@ For an enrolled vault: login and vault-open deadlines are separate. Windows life
 
 ## Browser autofill
 
-Browser integration is optional and starts disabled each app session. YourSafe must already be running and its vault explicitly unlocked; the extension does not ask for your Master Password or unlock the desktop.
+Browser integration is optional and starts disabled each app session. YourSafe must already be running. Protocol v3 permits status checks and **Open YourSafe** while integration is off; account discovery and secrets require integration on and an explicitly unlocked vault. The extension never starts the desktop, enables integration, or unlocks the vault automatically.
+
+The integration-off reminder appears only on Vault. Its close button hides it for the current app session; opening Settings or another page hides it without dismissing it.
 
 1. Save an account with its complete website URL in the desktop app, then enable browser integration in **Settings**.
 2. Open the matching website and the YourSafe browser popup. Discovery returns matching account titles, usernames, and password/TOTP capability flags without another desktop prompt.
 3. Choose an account and **Fill**, **View code**, or **Copy code**. Each action requests a separate one-time approval on the desktop.
-4. Review the account, stored website, reported website, and requested action. After approval, Fill populates eligible fields; it never submits the form. If the vault is locked, use **Show YourSafe**, unlock on the desktop, then refresh the popup.
+4. Review the account, stored website, reported website, and requested action. After approval, Fill populates eligible fields; it never submits the form. If the vault is locked, use **Open YourSafe**, unlock on the desktop, then refresh the popup. While approval is pending, **Open YourSafe** and **Cancel** remain available; opening the app does not restart or extend the request.
 
 Matching uses the URL's origin: scheme, normalized host, and effective port. Paths do not restrict matching; a different subdomain or port is a different origin. Public HTTPS and explicitly allowed loopback HTTP are supported. Missing, invalid, and unrelated URLs are excluded.
 
-The extension worker communicates with `YourSafe.NativeHost.exe` through browser Native Messaging using standard input/output. NativeHost relays requests to the running desktop through a Windows named pipe; Core performs vault lookups and TOTP generation. The optional hash API is not involved.
+The extension worker communicates with `YourSafe.NativeHost.exe` through browser Native Messaging using standard input/output. NativeHost relays requests to the running desktop through a Windows named pipe; Core performs vault lookups and TOTP generation. Control requests have a separate 30-per-minute quota. The optional hash API is not involved. Ship desktop, NativeHost, and extension together for protocol v3; older protocol versions require updating both desktop and extension.
 
 The official extension checks the current browser document and destination fields. The desktop compares the stored origin with the origin reported by the client, but cannot independently confirm that website address; its approval dialog makes this limit explicit. Integration opt-in allows metadata discovery, while secret access still needs individual approval.
 
@@ -142,7 +144,9 @@ See the [extension guide](browser-extension/README.md) for supported browser ver
 
 Use **Backup & Recovery Center** to export a backup with a separate passphrase of at least 12 characters. Store it away from the PC and use the authenticated verification action to check it. The app records successful external backup and verification times and warns when no backup is recorded or the latest is older than 30 days.
 
-Backups include entry data such as passwords, website TOTP, recovery codes, notes, tags, favorites, password history, and Trash state. They exclude the Master Password configuration, vault sign-in Authenticator, vault key, appearance settings, and group definitions such as names, colors, and order. Do not rely on a backup to preserve group organization.
+Backups include entry data such as passwords, website TOTP, recovery codes, notes, favorites, password history, and Trash state. Legacy Tags fields and CSV columns are ignored. They exclude the Master Password configuration, vault sign-in Authenticator, vault key, appearance settings, and group definitions such as names, colors, and order. Do not rely on a backup to preserve group organization.
+
+Vault data version 3 removes the old built-in Ungrouped group once after successful authentication. Its entries, including Trash entries, keep their contents and timestamps and become unassigned. Renamed groups are preserved. Use the updated desktop with migrated vaults: older apps can assign unassigned items to a group again.
 
 On a fresh installation, choose **Recover from encrypted backup**, enter its passphrase, review the item counts, and set up a new Master Password, sign-in Authenticator, and Recovery Key. Recovery creates a new vault key and credentials. It is available only when neither `.config` nor `.storage` exists; a partial pair must be resolved without overwriting it.
 

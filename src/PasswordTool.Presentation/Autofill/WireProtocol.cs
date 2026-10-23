@@ -49,7 +49,7 @@ public sealed record CredentialSecret(string Username, string Password)
 {
     public override string ToString() => "CredentialSecret { redacted }";
 }
-public sealed record StatusResult(bool Unlocked);
+public sealed record StatusResult(bool IntegrationEnabled, bool Unlocked);
 public sealed record PingResult(string Host);
 public sealed record ShowAppResult(bool Shown);
 public sealed record CredentialTotp(string Code, int PeriodSeconds, long ExpiresAtUnixMs)
@@ -59,9 +59,14 @@ public sealed record CredentialTotp(string Code, int PeriodSeconds, long Expires
 public sealed record CopyTotpResult(bool Copied);
 public sealed record AutofillResponse(int Version, string RequestId, bool Ok, JsonElement? Result = null, string? Error = null);
 
+public sealed class ProtocolMismatchException(string requestId) : JsonException("Incompatible browser integration protocol.")
+{
+    public string RequestId { get; } = requestId;
+}
+
 public static class WireProtocol
 {
-    public const int Version = 2;
+    public const int Version = 3;
     public const int MaxFrameBytes = 64 * 1024;
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
@@ -88,8 +93,9 @@ public static class WireProtocol
 
     public static void Validate(AutofillRequest request)
     {
-        if (request.Version != Version || request.RequestId?.Length != 36 || !Guid.TryParseExact(request.RequestId, "D", out _)
+        if (request.RequestId?.Length != 36 || !Guid.TryParseExact(request.RequestId, "D", out _)
             || request.Payload is null) throw new JsonException("Invalid envelope.");
+        if (request.Version != Version) throw new ProtocolMismatchException(request.RequestId);
         var credentialAction = request.Action is "getCredentialSecret" or "getCredentialTotp" or "copyCredentialTotp";
         var hasOrigin = request.Action == "findCredentials" || credentialAction;
         if (request.Action is not ("ping" or "getStatus" or "findCredentials" or "getCredentialSecret" or "getCredentialTotp" or "copyCredentialTotp" or "showApp")
@@ -127,10 +133,11 @@ public static class WireProtocol
         if (document.RootElement.EnumerateObject().Any(property => property.Value.ValueKind == JsonValueKind.Null))
             throw new JsonException("Response fields must be omitted rather than null.");
         var response = document.RootElement.Deserialize<AutofillResponse>(Json) ?? throw new JsonException();
-        if (response.Version != Version || response.RequestId != request.RequestId) throw new JsonException("Invalid response envelope.");
+        if (response.RequestId != request.RequestId) throw new JsonException("Invalid response envelope.");
+        if (response.Version != Version) throw new ProtocolMismatchException(request.RequestId);
         if (!response.Ok)
         {
-            if (response.Result is not null || response.Error is not ("locked" or "unavailable" or "desktopUnavailable" or "invalidRequest"))
+            if (response.Result is not null || response.Error is not ("integrationDisabled" or "locked" or "unavailable" or "desktopUnavailable" or "invalidRequest" or "protocolMismatch"))
                 throw new JsonException("Invalid error response.");
             return response;
         }

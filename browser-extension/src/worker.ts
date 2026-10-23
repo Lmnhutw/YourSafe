@@ -1,4 +1,4 @@
-import { canonicalOrigin, isDiscovery, isSecret, isTotp, record, type Credential, type Totp } from './protocol';
+import { canonicalOrigin, isDiscovery, isSecret, isStatus, isTotp, record, type Credential, type Totp } from './protocol';
 import { nativeSession } from './native';
 import { isPopup, sameTarget, type Target } from './context';
 
@@ -114,6 +114,11 @@ async function popupAction(session: Popup, message: Record<string, unknown>): Pr
       const expiresAt = Date.now() + 60000, deadline = performance.now() + 60000;
       const target = await currentTarget(true);
       if (popup !== session || epoch !== generation) throw new Error('targetChanged');
+      const status = await native().request('getStatus');
+      if (popup !== session || epoch !== generation) throw new Error('targetChanged');
+      if (!isStatus(status)) throw new Error('invalidRequest');
+      if (!status.integrationEnabled) throw new Error('integrationDisabled');
+      if (!status.unlocked) throw new Error('locked');
       const discovery = await native().request('findCredentials', { origin: target.origin });
       const current = await currentTarget();
       if (popup !== session || epoch !== generation || !isDiscovery(discovery) || expiresAt <= Date.now()
@@ -182,16 +187,15 @@ async function popupAction(session: Popup, message: Record<string, unknown>): Pr
       return { closed: true };
     }
     case 'showApp': {
-      invalidate();
-      const appConnection = native();
+      const appConnection = nativeSession(() => {});
       try { return await appConnection.request('showApp'); }
-      finally { appConnection.close(); if (connection === appConnection) connection = undefined; }
+      finally { appConnection.close(); }
     }
     default: throw new Error('invalidRequest');
   }
 }
 function safeError(error: unknown): string {
-  const allowed = ['locked', 'unavailable', 'desktopUnavailable', 'invalidRequest', 'targetChanged', 'ambiguousFields', 'unsupportedPage'];
+  const allowed = ['locked', 'integrationDisabled', 'protocolMismatch', 'unavailable', 'desktopUnavailable', 'invalidRequest', 'targetChanged', 'ambiguousFields', 'unsupportedPage'];
   return error instanceof Error && allowed.includes(error.message) ? error.message : 'unavailable';
 }
 
@@ -215,7 +219,8 @@ chrome.runtime.onConnect.addListener(port => {
       invalidate('invalidRequest'); return;
     }
     const requestId = message.requestId;
-    const control = ['resume', 'cancel', 'closeTotp'].includes(String(message.message.action));
+    const openApp = message.message.action === 'showApp';
+    const control = ['resume', 'cancel', 'closeTotp', 'showApp'].includes(String(message.message.action));
     if (inFlight && !control) { notify({ requestId, ok: false, error: 'invalidRequest' }); return; }
     const operation = popupAction(session, message.message);
     if (!control) inFlight = operation;
@@ -227,6 +232,7 @@ chrome.runtime.onConnect.addListener(port => {
       if (inFlight === operation) inFlight = undefined;
       if (epoch !== generation) return;
       const code = safeError(error);
+      if (openApp) { if (popup === session) notify({ requestId, ok: false, error: code }); return; }
       if (popup === session) { invalidate(); notify({ requestId, ok: false, error: code }); }
       else invalidate(code);
     });

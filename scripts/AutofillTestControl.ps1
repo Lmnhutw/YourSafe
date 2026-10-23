@@ -1,6 +1,6 @@
 [CmdletBinding(DefaultParameterSetName = 'Control')]
 param(
-    [Parameter(Mandatory, ParameterSetName = 'Control')][ValidateSet('validate', 'validateInteractive', 'signIn', 'enable', 'disable', 'waitApproval', 'waitApprovalGone', 'waitApprovalDeadline', 'assertNoApproval', 'approve', 'cancel', 'lock', 'unlock', 'configureExpiry', 'waitExpired', 'closeDesktop', 'editPassword', 'resetPassword', 'editUrl', 'resetUrl', 'removePassword', 'beginDelete', 'confirmDelete', 'restoreDeleted', 'copyPassword', 'clipboardSetSentinel', 'clipboardAssertSentinel', 'clipboardAssertNumeric', 'clipboardAssertTotpOnly', 'clipboardAssertCurrentOtp', 'clipboardAssertPassword', 'clipboardAssertEmpty', 'clipboardReplaceSame', 'clipboardClearSentinel')][string]$Action,
+    [Parameter(Mandatory, ParameterSetName = 'Control')][ValidateSet('validate', 'validateInteractive', 'signIn', 'enable', 'disable', 'waitApproval', 'waitApprovalGone', 'waitApprovalDeadline', 'waitPending', 'waitPendingGone', 'assertNoApproval', 'approve', 'cancel', 'lock', 'unlock', 'configureExpiry', 'waitExpired', 'closeDesktop', 'minimizeDesktop', 'assertRestored', 'probeApprovalNotification', 'editPassword', 'resetPassword', 'editUrl', 'resetUrl', 'beginDelete', 'assertDeleteDialog', 'cancelDeleteDialog', 'confirmDelete', 'restoreDeleted', 'copyPassword', 'clipboardSetSentinel', 'clipboardAssertSentinel', 'clipboardAssertNumeric', 'clipboardAssertTotpOnly', 'clipboardAssertCurrentOtp', 'clipboardAssertPassword', 'clipboardAssertEmpty', 'clipboardReplaceSame', 'clipboardClearSentinel')][string]$Action,
     [Parameter(Mandatory, ParameterSetName = 'Control')][int]$ProcessId,
     [Parameter(Mandatory, ParameterSetName = 'Control')][string]$TestDirectory,
     [string]$WinAppPath = 'winapp',
@@ -145,6 +145,28 @@ function SyntheticRow([string]$Title, [string]$Button) {
     $matches = @((Ui search $Button).matches | Where-Object { -not $_.isOffscreen -and $_.automationId -like ($Button + '_*') })
     if ($matches.Count -ne 1) { throw 'The synthetic item must identify exactly one row action.' }
     return $matches[0].automationId
+}
+
+function TestWindow {
+    if (-not ('AutofillWindowProbe' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class AutofillWindowProbe {
+    [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr window, int command);
+    [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr window);
+    [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr window);
+    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+}
+'@
+    }
+    $process.Refresh()
+    $window = $process.MainWindowHandle
+    [uint32]$windowOwner = 0
+    [AutofillWindowProbe]::GetWindowThreadProcessId($window, [ref]$windowOwner) | Out-Null
+    if ($window -eq [IntPtr]::Zero -or $windowOwner -ne $ProcessId) { throw 'The marked test window changed ownership.' }
+    return $window
 }
 
 function ClipboardProbe {
@@ -317,6 +339,8 @@ try {
         }
         'waitApprovalGone' { Ui wait-for TxtAutofillApprovalDetails --gone -t $TimeoutMs | Out-Null }
         'waitApprovalDeadline' { Ui wait-for TxtAutofillApprovalDetails --gone -t 80000 | Out-Null }
+        'waitPending' { Ui wait-for StatusAutofillPending -p IsOffscreen --value False -t 5000 | Out-Null }
+        'waitPendingGone' { Ui wait-for StatusAutofillPending --gone -t $TimeoutMs | Out-Null }
         'assertNoApproval' {
             if (@((Ui search TxtAutofillApprovalDetails).matches | Where-Object { -not $_.isOffscreen }).Count -ne 0) {
                 throw 'An unexpected desktop approval is still visible.'
@@ -338,8 +362,10 @@ try {
             Ui wait-for '1 minute' -t 5000 | Out-Null
             Ui invoke '1 minute' | Out-Null
             Ui wait-for CmbVaultDuration --value '1 minute' -t 5000 | Out-Null
-            Ui set-value 'Master Password for settings' 'correct horse battery staple' | Out-Null
-            Ui invoke 'Save security settings' | Out-Null
+            Ui invoke BtnSaveSecuritySettings | Out-Null
+            Ui wait-for TxtUnlockMasterPassword -t 5000 | Out-Null
+            Ui set-value TxtUnlockMasterPassword 'correct horse battery staple' | Out-Null
+            Ui invoke PrimaryButton | Out-Null
             Ui wait-for 'Vault timeout saved. Restart YourSafe to apply it.' -t 15000 | Out-Null
             Ui invoke CloseButton | Out-Null
             Ui wait-for CloseButton --gone -t 5000 | Out-Null
@@ -347,6 +373,9 @@ try {
             # The application caches this setting; a fresh process is required for the one-minute campaign.
         }
         'waitExpired' {
+            if ((Get-Content -LiteralPath (Join-Path $testRoot '.config') -Raw | ConvertFrom-Json).VaultOpenDurationMinutes -ne 1) {
+                throw 'Natural expiry requires a separately seeded one-minute fixture and a fresh desktop process.'
+            }
             Ui wait-for BtnLockVault -p Name --value 'Unlock vault' -t 75000 | Out-Null
             Ui wait-for TxtAutofillApprovalDetails --gone -t 5000 | Out-Null
         }
@@ -354,7 +383,44 @@ try {
             if (-not $process.CloseMainWindow()) { throw 'The marked desktop refused a normal window close.' }
             if (-not $process.WaitForExit(15000)) { throw 'The marked desktop did not exit after a normal window close.' }
         }
-        { $_ -in 'editPassword', 'resetPassword', 'editUrl', 'resetUrl', 'removePassword' } {
+        { $_ -in 'minimizeDesktop', 'assertRestored' } {
+            $window = TestWindow
+            if ($Action -eq 'minimizeDesktop') {
+                if (-not [AutofillWindowProbe]::ShowWindowAsync($window, 6)) { throw 'The marked test window refused minimization.' }
+                $deadline = [DateTimeOffset]::UtcNow.AddMilliseconds($TimeoutMs)
+                while (-not [AutofillWindowProbe]::IsIconic($window) -and [DateTimeOffset]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 50 }
+            }
+            $windowState = @{
+                minimized = [AutofillWindowProbe]::IsIconic($window)
+                visible = [AutofillWindowProbe]::IsWindowVisible($window)
+                foreground = [AutofillWindowProbe]::GetForegroundWindow() -eq $window
+            }
+            if ($Action -eq 'minimizeDesktop' -and -not $windowState.minimized) { throw 'The marked test window was not minimized.' }
+            if ($Action -eq 'assertRestored' -and ($windowState.minimized -or -not $windowState.visible)) { throw 'The marked test window was not restored and visible.' }
+        }
+        'probeApprovalNotification' {
+            $observed = 0
+            $available = $false
+            foreach ($shell in @(Get-Process -Name ShellExperienceHost -ErrorAction SilentlyContinue)) {
+                try {
+                    # Search only the generic approval title; never read other toast contents or open notification history.
+                    $output = & $WinAppPath ui search 'YourSafe approval required' -a $shell.Id --max 10 --json 2>&1
+                    $matches = (Read-WinAppResult search $LASTEXITCODE @($output)).matches
+                    $available = $true
+                    $observed += @($matches | Where-Object { $_.name -ceq 'YourSafe approval required' -and -not $_.isOffscreen }).Count
+                }
+                catch { }
+            }
+            @{
+                action = $Action
+                status = if ($observed -gt 0) { 'observed' } elseif ($available) { 'notObserved' } else { 'unavailable' }
+                visibleGenericNotifications = $observed
+                processId = $ProcessId
+                testDirectory = $testRoot
+            } | ConvertTo-Json -Compress
+            return
+        }
+        { $_ -in 'editPassword', 'resetPassword', 'editUrl', 'resetUrl' } {
             $id = SyntheticRow 'TOTP password account' 'Edit'
             Ui invoke $id | Out-Null
             Ui wait-for TxtEditorTitle --value 'TOTP password account' -t 10000 | Out-Null
@@ -369,7 +435,7 @@ try {
                 } else { $url = (Get-Content -Raw -LiteralPath $urlRecord | ConvertFrom-Json).url }
                 Ui set-value TxtEditorUrl $url | Out-Null
             } else {
-                $value = if ($Action -eq 'editPassword') { 'changed-synthetic-password' } elseif ($Action -eq 'removePassword') { '' } else { 'synthetic-test-password' }
+                $value = if ($Action -eq 'editPassword') { 'changed-synthetic-password' } else { 'synthetic-test-password' }
                 Ui set-value TxtEditorPassword $value | Out-Null
             }
             Ui invoke BtnSaveItem | Out-Null
@@ -382,6 +448,10 @@ try {
             Ui wait-for Delete -t 5000 | Out-Null
             Ui invoke Delete | Out-Null
             Ui wait-for PrimaryButton -p Name --value 'Move to Trash' -t 5000 | Out-Null
+        }
+        { $_ -in 'assertDeleteDialog', 'cancelDeleteDialog' } {
+            Ui wait-for PrimaryButton -p Name --value 'Move to Trash' -t 5000 | Out-Null
+            if ($Action -eq 'cancelDeleteDialog') { Ui invoke CloseButton | Out-Null }
         }
         'confirmDelete' {
             Ui wait-for PrimaryButton -p Name --value 'Move to Trash' -t 5000 | Out-Null
@@ -450,7 +520,9 @@ try {
             }
         }
     }
-    @{ action = $Action; status = 'verified'; processId = $ProcessId; testDirectory = $testRoot } | ConvertTo-Json -Compress
+    $result = @{ action = $Action; status = 'verified'; processId = $ProcessId; testDirectory = $testRoot }
+    if ($Action -in 'minimizeDesktop', 'assertRestored') { $result.windowState = $windowState }
+    $result | ConvertTo-Json -Compress
 }
 catch {
     # Modal UI can prevent normal lock/settings interaction; report that boundary.

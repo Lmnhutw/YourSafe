@@ -6,7 +6,7 @@ The implemented behavior follows `win11-ui-appearance-fix-prompt.md` and the use
 
 ## Storage and rendering
 
-- Custom group names and colors use the existing encrypted vault group storage. Built-in All/Ungrouped names and colors, background, and layout use local `%LocalAppData%\PasswordTool\appearance.json`; Debug UI tests redirect this file into their disposable directory.
+- Custom group names and colors use the existing encrypted vault group storage. Built-in All names and colors, background, and layout use local `%LocalAppData%\PasswordTool\appearance.json`; Debug UI tests redirect this file into their disposable directory.
 - A selected colored tab has its chosen fill and luminance-selected black/white text. Inactive colored tabs retain an 8 px color marker. Credentials remain on a neutral table surface.
 - The color dialog previews the exact RGB value and provides Save, Cancel, and Reset color. Invalid input stays in the dialog with an error. Rename/color handlers discard results from an obsolete unlock session.
 - Owned Light/Dark brushes keep app accent blue without modifying shared native brushes. High Contrast uses system brush definitions and suppresses custom tab colors in source; runtime verification remains outstanding.
@@ -31,7 +31,7 @@ The native batch ran only against the marked disposable Debug vault. It verified
 1. Light/Dark background changes and persisted layout, while app buttons stayed blue.
 2. All tab exact RGB validation/persistence and Cancel preserving the prior color.
 3. Horizontal/vertical layout surviving page navigation.
-4. Ungrouped tab color remaining independent of All, including reset.
+4. User group tab colors persist independently, including reset.
 5. Custom Work tab color through its right-click menu and encrypted refresh, including Cancel and reset.
 6. Right-click Rename tab for custom and built-in labels.
 7. Trash Back to Vault synchronizing navigation selection.

@@ -24,6 +24,7 @@ public sealed class AppFlowCoordinator
     public Func<AutofillApprovalRequest, CancellationToken, Task<bool>>? RequestAutofillApprovalAsync { get; set; }
     private readonly object autofillSync = new();
     private readonly Queue<long> autofillRequests = new();
+    private readonly Queue<long> autofillControlRequests = new();
     private CancellationTokenSource? pendingAutofill;
     private bool browserIntegrationEnabled;
     public bool BrowserIntegrationEnabled { get { lock (autofillSync) return browserIntegrationEnabled; } }
@@ -49,17 +50,29 @@ public sealed class AppFlowCoordinator
 
     private void RequireBrowserIntegration(bool countRequest = false)
     {
-        if (!IsCurrentNormalUnlock(LifecycleVersion)) throw new OperationCanceledException("Unlock the vault on the desktop first.");
         lock (autofillSync)
         {
             if (!browserIntegrationEnabled) throw new UnauthorizedAccessException("Browser integration is disabled.");
-            if (!countRequest) return;
-            var now = System.Diagnostics.Stopwatch.GetTimestamp();
-            while (autofillRequests.TryPeek(out var previous) && System.Diagnostics.Stopwatch.GetElapsedTime(previous, now) >= TimeSpan.FromMinutes(1))
-                autofillRequests.Dequeue();
-            if (autofillRequests.Count >= 30) throw new UnauthorizedAccessException("Too many browser requests.");
-            autofillRequests.Enqueue(now);
+            if (!IsCurrentNormalUnlock(LifecycleVersion)) throw new OperationCanceledException("Unlock the vault on the desktop first.");
+            if (countRequest && !TryAcceptAutofillRequest(autofillRequests)) throw new UnauthorizedAccessException("Too many browser requests.");
         }
+    }
+
+    public StatusResult GetAutofillStatus() => new(BrowserIntegrationEnabled, IsCurrentNormalUnlock(LifecycleVersion));
+
+    public bool TryAcceptAutofillControlRequest()
+    {
+        lock (autofillSync) return TryAcceptAutofillRequest(autofillControlRequests);
+    }
+
+    private bool TryAcceptAutofillRequest(Queue<long> requests)
+    {
+        var now = timeProvider.GetTimestamp();
+        while (requests.TryPeek(out var previous) && timeProvider.GetElapsedTime(previous, now) >= TimeSpan.FromMinutes(1))
+            requests.Dequeue();
+        if (requests.Count >= 30) return false;
+        requests.Enqueue(now);
+        return true;
     }
 
     public AppFlowCoordinator(VaultService vaultService, IVaultOperationRunner operations, TotpService totpService,
@@ -598,7 +611,7 @@ public sealed class AppFlowCoordinator
                 out var message);
             if (success) tableSettings = ReadSettings();
             return new OperationResult(success, message);
-        }, cancellationToken);
+        }, cancellationToken, suppliedMasterPassword: masterPassword);
 
     public Task<OperationResult> ChangeMasterPasswordAsync(
         string currentMasterPassword,
@@ -730,7 +743,8 @@ public sealed class AppFlowCoordinator
         return ReadBoundedFile(path, VaultBackupService.MaxBackupJsonCharacters);
     }
 
-    private async Task<T> RunVaultAsync<T>(Func<T> operation, CancellationToken cancellationToken, bool allowTableLocked = true)
+    private async Task<T> RunVaultAsync<T>(Func<T> operation, CancellationToken cancellationToken, bool allowTableLocked = true,
+        string? suppliedMasterPassword = null)
     {
         var version = LifecycleVersion;
         var locked = FlowState == AppFlowState.TableLocked;
@@ -743,8 +757,9 @@ public sealed class AppFlowCoordinator
         string? actionPassword = null;
         if (locked)
         {
-            if (!allowTableLocked || !IsSignedIn || RequestActionPasswordAsync is null) throw new OperationCanceledException("Unlock the vault on the desktop first.");
-            actionPassword = await RequestActionPasswordAsync(cancellationToken);
+            if (!allowTableLocked || !IsSignedIn || suppliedMasterPassword is null && RequestActionPasswordAsync is null)
+                throw new OperationCanceledException("Unlock the vault on the desktop first.");
+            actionPassword = suppliedMasterPassword ?? await RequestActionPasswordAsync!(cancellationToken);
             if (actionPassword is null || !IsCurrentUnlock(version)) throw new OperationCanceledException();
         }
         T result;

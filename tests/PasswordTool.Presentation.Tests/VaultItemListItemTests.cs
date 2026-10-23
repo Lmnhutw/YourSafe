@@ -15,14 +15,12 @@ public sealed class VaultItemListItemTests
             Password = "secret",
             TotpSecretBase32 = "totp-secret",
             RecoveryCodes = ["code-one", "code-two"],
-            Tags = ["Work"],
             HasTotp = true
         };
 
         var projected = VaultItemListItem.FromVaultItem(source);
 
         Assert.Equal("Example", projected.Title);
-        Assert.Equal(["Work"], projected.Tags);
         Assert.True(projected.HasTotp);
         Assert.True(projected.HasPassword);
         Assert.Equal(2, projected.RecoveryCodeCount);

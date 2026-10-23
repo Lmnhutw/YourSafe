@@ -151,7 +151,7 @@ public sealed class BackupViewModelTests : IDisposable
         var shell = new ShellViewModel(flow, workspace, null!, null!, model, null!, null!,
             new NavigationService(), null!, picker, new UserErrorMapper(), null!);
         Assert.False(shell.IsBackupReminderOpen);
-        var input = new VaultItemEditorInput(null, "First item", "", "saved password", "", "", "", "", null, "", false, false, false);
+        var input = new VaultItemEditorInput(null, "First item", "user", "saved password", "", "", "", "", null, false, false, false);
         Assert.True(await shell.SaveItemAsync(input));
         Assert.Equal(!hasBackup, shell.IsBackupReminderOpen);
         shell.IsBackupReminderOpen = false; // Later

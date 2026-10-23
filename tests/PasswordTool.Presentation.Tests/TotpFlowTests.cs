@@ -19,13 +19,13 @@ public sealed class TotpFlowTests
     }
 
     [Fact]
-    public void Version_two_totp_contract_is_strict_and_secret_free()
+    public void Version_three_totp_contract_is_strict_and_secret_free()
     {
         var request = new AutofillRequest(WireProtocol.Version, Guid.NewGuid().ToString(), "getCredentialTotp",
             new AutofillPayload("https://example.com", Guid.NewGuid()));
         WireProtocol.Validate(request);
         WireProtocol.Validate(request with { Action = "copyCredentialTotp" });
-        Assert.Throws<JsonException>(() => WireProtocol.Validate(request with { Version = 1 }));
+        Assert.Throws<ProtocolMismatchException>(() => WireProtocol.Validate(request with { Version = 2 }));
         Assert.Throws<JsonException>(() => WireProtocol.Validate(request with { Payload = new AutofillPayload("https://example.com", Guid.Empty) }));
         Assert.Throws<JsonException>(() => WireProtocol.Validate(request with { Payload = new AutofillPayload("https://example.com/path", Guid.NewGuid()) }));
         var result = new CredentialTotp("001234", 60, DateTimeOffset.UtcNow.AddMinutes(1).ToUnixTimeMilliseconds());
@@ -52,7 +52,7 @@ public sealed class TotpFlowTests
         var missingMetadata = new { credentials = new[] { new { id = Guid.NewGuid(), title = "Account", username = "user" } }, truncated = false };
         Assert.Throws<JsonException>(() => WireProtocol.ParseResponse(JsonSerializer.SerializeToUtf8Bytes(
             WireProtocol.Success(request.RequestId, missingMetadata), WireProtocol.Json), request));
-        var duplicate = Encoding.UTF8.GetBytes($$$"""{"version":2,"requestId":"{{{request.RequestId}}}","ok":true,"result":{"credentials":[{"id":"{{{Guid.NewGuid()}}}","title":"Account","title":"Again","username":"user","hasPassword":true,"hasTotp":false}],"truncated":false}}""");
+        var duplicate = Encoding.UTF8.GetBytes($$$"""{"version":3,"requestId":"{{{request.RequestId}}}","ok":true,"result":{"credentials":[{"id":"{{{Guid.NewGuid()}}}","title":"Account","title":"Again","username":"user","hasPassword":true,"hasTotp":false}],"truncated":false}}""");
         Assert.Throws<JsonException>(() => WireProtocol.ParseResponse(duplicate, request));
     }
 

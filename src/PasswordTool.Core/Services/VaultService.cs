@@ -101,6 +101,10 @@ public sealed class VaultService : IDisposable
         var config = storageService.LoadConfig();
         byte[] verification = [];
         byte[] migratedKey = [];
+        var data = vaultData!;
+        var previousVersion = data.Version;
+        var previousGroups = data.Groups.ToList();
+        var previousMembership = data.Version < 3 ? data.Items.Select(item => (Item: item, item.GroupId)).ToList() : [];
         try
         {
             if (!TryVerifyCurrentMasterPassword(masterPassword, config, out verification))
@@ -120,6 +124,12 @@ public sealed class VaultService : IDisposable
                 key = migratedKey;
                 payload = encryptionService.EncryptObject(vaultData, key, MasterPasswordService.VaultContext);
             }
+            if (data.Version < 3)
+            {
+                VaultBackupService.ValidateItems(data.Items, enforceItemLimit: false);
+                MigrateGroupMembership(data);
+                payload = encryptionService.EncryptObject(data, key, MasterPasswordService.VaultContext);
+            }
             config.RecoveryKeySlot = recoveryKeys.Wrap(recoveryKey, key);
             if (config.Version < 4) config.VaultOpenDurationMinutes = 1;
             config.Version = 4;
@@ -136,6 +146,16 @@ public sealed class VaultService : IDisposable
             }
             TryDeleteTrustedUnlockToken();
             recoveryKeyRequired = false;
+        }
+        catch
+        {
+            if (ReferenceEquals(data, vaultData))
+            {
+                data.Version = previousVersion;
+                data.Groups = previousGroups;
+                foreach (var (item, groupId) in previousMembership) item.GroupId = groupId;
+            }
+            throw;
         }
         finally { CryptographicOperations.ZeroMemory(verification); CryptographicOperations.ZeroMemory(migratedKey); }
     }
@@ -347,7 +367,6 @@ public sealed class VaultService : IDisposable
             config.CredentialRevision = 1;
             config.RecoveryKeySlot = recoveryKeys.Wrap(recoveryKey, vaultKey);
             var data = new VaultData();
-            NormalizeGroupMembership(data, utcNow());
             var payload = encryptionService.EncryptObject(data, vaultKey, MasterPasswordService.VaultContext);
             SaveRecoveryState(config, payload, masterPassword, recoveryKey, vaultKey, totpSecretBase32);
 
@@ -494,7 +513,7 @@ public sealed class VaultService : IDisposable
                 ? encryptionService.DecryptObject<VaultData>(encryptedVaultJson, unlockedKey, MasterPasswordService.VaultContext)
                 : encryptionService.DecryptObject<VaultData>(encryptedVaultJson, unlockedKey);
             decryptedVault.Items ??= [];
-            NormalizeItems(decryptedVault.Items, utcNow());
+            NormalizeItems(decryptedVault.Items, utcNow(), normalizePasswordDates: false);
             NormalizeGroups(decryptedVault, utcNow());
 
             var status = VaultUnlockStatus.Unlocked;
@@ -522,6 +541,7 @@ public sealed class VaultService : IDisposable
             if (signedIn && !recoveryKeyRequired)
             {
                 EnsureOpen();
+                if (vaultData.Version < 3) SaveVault();
                 PurgeExpiredTrash();
             }
             return new VaultUnlockResult(status, message);
@@ -586,7 +606,7 @@ public sealed class VaultService : IDisposable
             var decryptedVault = encryptionService.DecryptObject<VaultData>(storageService.LoadVaultPayload(), trustedKey,
                 MasterPasswordService.VaultContext);
             decryptedVault.Items ??= [];
-            NormalizeItems(decryptedVault.Items, utcNow());
+            NormalizeItems(decryptedVault.Items, utcNow(), normalizePasswordDates: false);
             NormalizeGroups(decryptedVault, utcNow());
 
             encryptionKey = trustedKey;
@@ -598,7 +618,11 @@ public sealed class VaultService : IDisposable
             isVaultOpen = true;
             signInSessionExpiresAt = utcNow().AddMinutes(VaultSecuritySettings.MaximumSessionDurationMinutes);
             BeginVaultDeadline();
-            if (!recoveryKeyRequired) PurgeExpiredTrash();
+            if (!recoveryKeyRequired)
+            {
+                if (vaultData.Version < 3) SaveVault();
+                PurgeExpiredTrash();
+            }
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException
@@ -644,6 +668,7 @@ public sealed class VaultService : IDisposable
         if (!recoveryKeyRequired)
         {
             EnsureOpen();
+            if (vaultData!.Version < 3) SaveVault();
             PurgeExpiredTrash();
         }
         return true;
@@ -943,7 +968,6 @@ public sealed class VaultService : IDisposable
     {
         ThrowIfDisposed();
         EnsureOpen();
-        if (vaultData!.Version < 2 || vaultData.Items.Any(item => item.GroupId is null)) SaveVault();
         var groups = vaultData!.Groups.OrderBy(group => group.SortOrder).ThenBy(group => group.Name, StringComparer.CurrentCultureIgnoreCase)
             .Select(CloneGroup).ToList();
         EnsureOpen();
@@ -1314,7 +1338,7 @@ public sealed class VaultService : IDisposable
                 item.Id = Guid.NewGuid();
                 item.CreatedAt = now;
                 item.UpdatedAt = now;
-                item.PasswordChangedAt = now;
+                item.PasswordChangedAt = string.IsNullOrWhiteSpace(item.Password) ? null : now;
                 ValidateVaultItem(item);
             }
             data.Items.AddRange(newItems);
@@ -1374,6 +1398,7 @@ public sealed class VaultService : IDisposable
         var now = utcNow();
         var hadPassword = !string.IsNullOrWhiteSpace(existing.Password);
         var hasPassword = !string.IsNullOrWhiteSpace(item.Password);
+        if (hadPassword) existing.PasswordChangedAt = PasswordLifecycle.GetEffectivePasswordChangedAt(previous, now);
         var changesPassword = hadPassword && hasPassword
             && !string.Equals(existing.Password, item.Password, StringComparison.Ordinal);
         if (changesPassword)
@@ -1397,7 +1422,6 @@ public sealed class VaultService : IDisposable
         existing.HideNotes = item.HideNotes;
         existing.IsFavorite = item.IsFavorite;
         existing.GroupId = item.GroupId;
-        existing.Tags = [.. item.Tags];
         existing.UpdatedAt = now;
         if (!hasPassword)
         {
@@ -1486,10 +1510,14 @@ public sealed class VaultService : IDisposable
         var data = vaultData!;
         var previousVersion = data.Version;
         var previousGroups = data.Groups.ToList();
-        var unassigned = data.Items.Where(item => item.GroupId is null).ToList();
+        var previousMembership = data.Version < 3 ? data.Items.Select(item => (Item: item, item.GroupId)).ToList() : [];
         try
         {
-            NormalizeGroupMembership(data, utcNow());
+            if (data.Version < 3)
+            {
+                VaultBackupService.ValidateItems(data.Items, enforceItemLimit: false);
+                MigrateGroupMembership(data);
+            }
             var payload = encryptionUsesEnvelope
                 ? encryptionService.EncryptObject(data, encryptionKey!, MasterPasswordService.VaultContext)
                 : encryptionService.EncryptObject(data, encryptionKey!);
@@ -1502,7 +1530,7 @@ public sealed class VaultService : IDisposable
             {
                 data.Version = previousVersion;
                 data.Groups = previousGroups;
-                foreach (var item in unassigned) item.GroupId = null;
+                foreach (var (item, groupId) in previousMembership) item.GroupId = groupId;
             }
             throw;
         }
@@ -1725,13 +1753,7 @@ public sealed class VaultService : IDisposable
         }
 
         item.RecoveryCodes ??= [];
-        item.Tags ??= [];
         item.PasswordHistory ??= [];
-        item.Tags = item.Tags
-            .Select(tag => tag.Trim())
-            .Where(tag => tag.Length > 0)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
         if (item.GroupId is { } groupId && !vaultData!.Groups.Any(group => group.Id == groupId))
             throw new ArgumentException("The selected group does not exist.", nameof(item));
         if (string.IsNullOrWhiteSpace(item.Password) && item.RecoveryCodes.Count == 0
@@ -1788,7 +1810,6 @@ public sealed class VaultService : IDisposable
             IsFavorite = item.IsFavorite,
             GroupId = item.GroupId,
             LegacyFolder = item.LegacyFolder,
-            Tags = [.. item.Tags],
             PasswordHistory = includePassword
                 ? item.PasswordHistory.Select(entry => new PasswordHistoryEntry
                 {
@@ -1804,12 +1825,13 @@ public sealed class VaultService : IDisposable
         };
     }
 
-    private static VaultItem CloneForList(VaultItem item)
+    private VaultItem CloneForList(VaultItem item)
     {
         var clone = Clone(item, includePassword: false);
         clone.RecoveryCodeCount = item.RecoveryCodes.Count;
         clone.HasPassword = !string.IsNullOrWhiteSpace(item.Password);
         clone.HasTotp = !string.IsNullOrWhiteSpace(item.TotpSecretBase32);
+        clone.PasswordChangedAt = clone.HasPassword ? PasswordLifecycle.GetEffectivePasswordChangedAt(item, utcNow()) : null;
         if (clone.HideUrl)
         {
             clone.Url = string.Empty;
@@ -1823,13 +1845,13 @@ public sealed class VaultService : IDisposable
         return clone;
     }
 
-    private static void NormalizeItems(IEnumerable<VaultItem> items, DateTimeOffset utcNow)
+    private static void NormalizeItems(IEnumerable<VaultItem> items, DateTimeOffset utcNow, bool normalizePasswordDates = true)
     {
         foreach (var item in items)
         {
             item.RecoveryCodes ??= [];
-            item.Tags ??= [];
             item.PasswordHistory ??= [];
+            if (!normalizePasswordDates) continue;
             if (item.Type == VaultItemType.RecoveryCodes || string.IsNullOrWhiteSpace(item.Password))
             {
                 item.PasswordChangedAt = null;
@@ -1841,21 +1863,13 @@ public sealed class VaultService : IDisposable
         }
     }
 
-    private static bool NormalizeGroupMembership(VaultData data, DateTimeOffset now)
+    private static void MigrateGroupMembership(VaultData data)
     {
-        var migrating = data.Version < 2;
-        var unassigned = data.Items.Where(item => item.GroupId is null).ToList();
-        if (!migrating && unassigned.Count == 0) return false;
-        var group = migrating ? data.Groups.FirstOrDefault(group => string.Equals(group.Name, "Ungrouped", StringComparison.CurrentCultureIgnoreCase))
-            : data.Groups.OrderBy(group => group.SortOrder).FirstOrDefault();
-        if (group is null)
-        {
-            group = new VaultGroup { Name = "Ungrouped", SortOrder = -1, CreatedAt = now, UpdatedAt = now };
-            data.Groups.Add(group);
-        }
-        foreach (var item in unassigned) item.GroupId = group.Id;
-        data.Version = Math.Max(data.Version, 2);
-        return true;
+        var removed = data.Groups.Where(group => string.Equals(group.Name, "Ungrouped", StringComparison.OrdinalIgnoreCase))
+            .Select(group => group.Id).ToHashSet();
+        foreach (var item in data.Items.Where(item => item.GroupId is { } id && removed.Contains(id))) item.GroupId = null;
+        data.Groups.RemoveAll(group => removed.Contains(group.Id));
+        data.Version = 3;
     }
 
     private static void NormalizeGroups(VaultData data, DateTimeOffset now)

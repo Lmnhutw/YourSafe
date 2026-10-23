@@ -55,9 +55,15 @@ public sealed partial class SettingsViewModel(AppFlowCoordinator flow, IUserErro
 
     public async Task<bool> SaveAsync(string masterPassword)
     {
-        return await CompleteAsync(flow.UpdateSettingsAsync(
-            masterPassword,
-            (int)VaultDurationMinutes), "Security settings saved.");
+        if (IsBusy) return false;
+        IsBusy = true;
+        try
+        {
+            return await CompleteAsync(flow.UpdateSettingsAsync(
+                masterPassword,
+                (int)VaultDurationMinutes), "Security settings saved.");
+        }
+        finally { IsBusy = false; }
     }
 
     public async Task<bool> ChangeMasterPasswordAsync(string currentPassword, string newPassword, string confirmation)
@@ -91,6 +97,11 @@ public sealed partial class SettingsViewModel(AppFlowCoordinator flow, IUserErro
         OperationResult result;
         try { result = await operation; }
         catch (OperationCanceledException) { return false; }
+        catch (UnauthorizedAccessException exception) when (exception.Message == "The Master Password is incorrect.")
+        {
+            if (flow.IsCurrentUnlock(version)) ShowError("The Master Password is incorrect.");
+            return false;
+        }
         catch (Exception exception) { if (flow.IsCurrentUnlock(version)) ShowError(errorMapper.Map(exception)); return false; }
         if (!flow.IsCurrentUnlock(version)) return false;
         StatusMessage = result.Success ? successMessage : result.Message;

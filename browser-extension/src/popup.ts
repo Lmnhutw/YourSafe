@@ -8,6 +8,9 @@ const status = element('status', HTMLParagraphElement);
 const origin = element('origin', HTMLParagraphElement);
 const accounts = element('accounts', HTMLDivElement);
 const showApp = element('show-app', HTMLButtonElement);
+const integrationOff = element('integration-off', HTMLElement);
+const integrationOffOpen = element('integration-off-open', HTMLButtonElement);
+const openAppFeedback = element('open-app-feedback', HTMLParagraphElement);
 const refresh = element('refresh', HTMLButtonElement);
 const cancel = element('cancel', HTMLButtonElement);
 const panel = element('totp-panel', HTMLDivElement);
@@ -20,16 +23,19 @@ const copy = element('totp-copy', HTMLButtonElement);
 const close = element('totp-close', HTMLButtonElement);
 const errors: Record<string, string> = {
   locked: 'Your vault is locked. Open YourSafe, unlock your vault, then click Refresh here.',
-  desktopUnavailable: 'Could not connect to YourSafe. Make sure the Windows app is running and Browser integration is enabled in Settings.',
+  desktopUnavailable: 'Could not connect to YourSafe. Make sure the Windows app is running. If it is running, update both YourSafe and this extension, then try again.',
+  integrationDisabled: 'Browser integration is off. Enable it in YourSafe Settings, then click Refresh.',
+  protocolMismatch: 'YourSafe and this extension use different protocol versions. Update both the Windows app and extension, then try again.',
   ambiguousFields: 'Click the username or password field you want to fill, then reopen this extension.',
   targetChanged: 'The page changed or access expired. Refresh and choose an account again.',
-  unavailable: "This request wasn't completed. Refresh to try again. If browser integration is off, enable it in YourSafe Settings.",
+  unavailable: "This request wasn't completed. Refresh to try again.",
   unsupportedPage: 'Open an HTTPS sign-in page, then reopen YourSafe.'
 };
 const port = chrome.runtime.connect({ name: 'popup-session' });
 const pending = new Map<string, { resolve(value: unknown): void; reject(error: Error): void; timeout: ReturnType<typeof setTimeout> }>();
 let connected = true;
 let busy = false;
+let openingApp = false;
 let epoch = 0;
 let selected: { account: Credential; token: string } | undefined;
 let displayed: Totp | undefined;
@@ -38,12 +44,14 @@ let timer: ReturnType<typeof setInterval> | undefined;
 let authorizationToken: string | undefined;
 function setBusy(value: boolean): void {
   busy = value;
-  refresh.disabled = showApp.disabled = value;
+  refresh.disabled = value;
+  showApp.disabled = integrationOffOpen.disabled = openingApp;
   copy.disabled = value || !selected || panel.hidden;
   cancel.hidden = !value || !authorizationToken;
   close.disabled = false;
   accounts.querySelectorAll('button').forEach(button => { button.disabled = value; });
   accounts.setAttribute('aria-busy', String(value));
+  if (value && authorizationToken) status.dataset.state = 'pending';
 }
 function clearPanel(): void {
   epoch++;
@@ -58,6 +66,10 @@ function clearPanel(): void {
   code.removeAttribute('aria-label');
   progress.value = 0;
   copy.disabled = true;
+  integrationOff.hidden = true;
+  showApp.hidden = false;
+  openAppFeedback.hidden = true;
+  openAppFeedback.textContent = '';
 }
 function rejectPending(error: Error): void {
   for (const operation of pending.values()) { clearTimeout(operation.timeout); operation.reject(error); }
@@ -65,14 +77,19 @@ function rejectPending(error: Error): void {
 }
 function errorFor(value: unknown): Error {
   return new Error(typeof value === 'string' ? errors[value] ?? 'YourSafe could not complete this request. Refresh to try again.'
-    : 'YourSafe is unavailable. Refresh to try again.');
+    : 'YourSafe is unavailable. Refresh to try again.', { cause: value });
 }
 function failure(error: unknown): void {
   authorizationToken = undefined;
   clearPanel();
   accounts.replaceChildren();
   if (!origin.textContent) origin.textContent = 'Website unavailable';
-  status.dataset.state = 'error';
+  const reason = error instanceof Error ? error.cause : undefined;
+  const off = reason === 'integrationDisabled';
+  integrationOff.hidden = !off;
+  showApp.hidden = off;
+  status.dataset.state = off ? 'off' : reason === 'locked' ? 'locked'
+    : reason === 'desktopUnavailable' ? 'unavailable' : reason === 'protocolMismatch' ? 'incompatible' : 'error';
   status.textContent = error instanceof Error ? error.message : 'YourSafe is unavailable.';
   setBusy(false);
 }
@@ -108,8 +125,7 @@ function request(message: unknown): Promise<unknown> {
     const timeout = setTimeout(() => {
       pending.delete(requestId);
       reject(errorFor('desktopUnavailable'));
-      connected = false;
-      port.disconnect();
+      if (!record(message) || message.action !== 'showApp') { connected = false; port.disconnect(); }
     }, 72000);
     pending.set(requestId, { resolve, reject, timeout });
     try { port.postMessage({ requestId, message }); }
@@ -319,20 +335,30 @@ cancel.addEventListener('click', () => {
   rejectPending(errorFor('targetChanged'));
   void request({ action: 'cancel', token }).then(async () => { setBusy(false); await discover(); }).catch(failure);
 });
-showApp.addEventListener('click', () => {
-  if (busy) return;
-  clearPanel();
-  authorizationToken = undefined;
+async function openYourSafe(): Promise<void> {
+  if (openingApp) return;
   const currentEpoch = epoch;
-  setBusy(true);
-  accounts.replaceChildren();
-  void request({ action: 'showApp' }).then(result => {
+  openingApp = true;
+  showApp.disabled = integrationOffOpen.disabled = true;
+  openAppFeedback.hidden = false;
+  openAppFeedback.textContent = 'Opening YourSafe…';
+  try {
+    const result = await request({ action: 'showApp' });
     if (currentEpoch !== epoch) return;
-    status.dataset.state = record(result) && result.shown === true ? 'ready' : 'error';
-    status.textContent = record(result) && result.shown === true
-      ? 'Unlock on the desktop, then refresh and choose an account again.' : 'YourSafe could not open its window.';
-  }).catch(failure).finally(() => { if (currentEpoch === epoch) setBusy(false); });
-});
+    openAppFeedback.textContent = record(result) && result.shown === true
+      ? busy ? 'YourSafe is open. Review the pending request on Windows.'
+        : !integrationOff.hidden ? 'Enable Browser integration in Settings, then click Refresh here.'
+          : 'YourSafe is open. Unlock your vault if needed, then click Refresh here.'
+      : 'YourSafe could not open its window. Open it from the taskbar.';
+  } catch (error) {
+    if (currentEpoch === epoch) openAppFeedback.textContent = error instanceof Error ? error.message : 'YourSafe could not open its window.';
+  } finally {
+    openingApp = false;
+    showApp.disabled = integrationOffOpen.disabled = false;
+  }
+}
+showApp.addEventListener('click', () => { void openYourSafe(); });
+integrationOffOpen.addEventListener('click', () => { void openYourSafe(); });
 window.addEventListener('pagehide', () => {
   clearPanel();
   accounts.replaceChildren();

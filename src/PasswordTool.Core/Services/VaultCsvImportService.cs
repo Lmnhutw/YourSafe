@@ -51,7 +51,6 @@ public sealed class VaultCsvImportService
         var notesIndex = FindHeader(header, "notes", "note");
         var folderIndex = FindHeader(header, "folder", "foldername");
         var favoriteIndex = FindHeader(header, "favorite", "favourite");
-        var tagsIndex = FindHeader(header, "tags", "tag");
         var typeIndex = FindHeader(header, "type");
 
         var items = new List<VaultItem>();
@@ -111,8 +110,7 @@ public sealed class VaultCsvImportService
                 Url = url,
                 Notes = GetField(row, notesIndex),
                 LegacyFolder = GetField(row, folderIndex).Trim(),
-                IsFavorite = ParseBoolean(GetField(row, favoriteIndex)),
-                Tags = ParseTags(GetField(row, tagsIndex))
+                IsFavorite = ParseBoolean(GetField(row, favoriteIndex))
             };
             item.SetTotpConfiguration(configuration);
             VaultBackupService.ValidateItems([item]);
@@ -266,13 +264,6 @@ public sealed class VaultCsvImportService
     private static bool ParseBoolean(string value) => value.Trim().Equals("true", StringComparison.OrdinalIgnoreCase)
         || value.Trim().Equals("yes", StringComparison.OrdinalIgnoreCase)
         || value.Trim() == "1";
-
-    private static List<string> ParseTags(string value) => value
-        .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-        .Where(tag => tag.Length > 0)
-        .Distinct(StringComparer.OrdinalIgnoreCase)
-        .Take(20)
-        .ToList();
 
     private static bool AreEquivalentAccount(VaultItem left, VaultItem right) => left.Type == VaultItemType.Password
         && right.Type == VaultItemType.Password

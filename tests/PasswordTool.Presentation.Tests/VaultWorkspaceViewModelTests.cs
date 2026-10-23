@@ -23,7 +23,7 @@ public sealed class VaultWorkspaceViewModelTests : IDisposable
         vault.AddGroup("Empty");
         vault.AddItem(new VaultItem { Title = "GitHub work", Username = "work-user", Password = "test-password", GroupId = work.Id, IsFavorite = true });
         vault.AddItem(new VaultItem { Title = "Alpha", Password = "test-password", GroupId = work.Id });
-        vault.AddItem(new VaultItem { Title = "GitHub personal", Password = "test-password", GroupId = personal.Id, Tags = ["social"] });
+        vault.AddItem(new VaultItem { Title = "GitHub personal", Password = "test-password", GroupId = personal.Id });
         vault.AddItem(new VaultItem { Title = "Recovery", Type = VaultItemType.RecoveryCodes, RecoveryCodes = ["test-code-1", "test-code-2"] });
         workspace = new(new AppFlowCoordinator(vault, runner, totp));
     }
@@ -76,7 +76,9 @@ public sealed class VaultWorkspaceViewModelTests : IDisposable
         Assert.False(workspace.FilterByGroup);
         Assert.False(workspace.IsVerticalTabs);
         Assert.Equal(["Alpha", "GitHub personal", "GitHub work", "Recovery"], workspace.Items.Select(item => item.Title));
-        Assert.Equal(["Ungrouped", "Work", "Personal", "Empty"], workspace.GroupTabs.Select(group => group.Name));
+        Assert.Equal(["Work", "Personal", "Empty"], workspace.GroupTabs.Select(group => group.Name));
+        Assert.Equal(["All", "Work", "Personal", "Empty"], workspace.GroupOptions.Select(group => group.Label));
+        Assert.Null(workspace.GroupOptions[0].GroupId);
         Assert.All(workspace.GroupTabs, group => Assert.NotNull(group.Id));
         Assert.Equal(4, workspace.AllGroup.Count);
         Assert.Equal(0, workspace.GroupTabs.Single(group => group.Name == "Empty").Count);
@@ -86,7 +88,7 @@ public sealed class VaultWorkspaceViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Scoped_search_and_view_filter_stay_in_selected_group_including_ungrouped()
+    public async Task Scoped_search_and_view_filter_stay_in_selected_group_and_all_includes_unassigned_items()
     {
         await workspace.RefreshAsync();
         workspace.FilterByGroup = true;
@@ -100,10 +102,10 @@ public sealed class VaultWorkspaceViewModelTests : IDisposable
         Assert.Empty(workspace.Items);
         workspace.ResetToDefaultView();
         workspace.FilterByGroup = true;
-        workspace.SelectGroup(workspace.GroupTabs.Single(group => group.Name == "Ungrouped"));
         workspace.SelectedViewFilter = workspace.ViewFilters[3];
         Assert.Equal("Recovery", Assert.Single(workspace.Items).Title);
-        Assert.False(workspace.SelectedGroup.IsAll);
+        Assert.True(workspace.SelectedGroup.IsAll);
+        Assert.Null(Assert.Single(workspace.Items).GroupId);
     }
 
     [Fact]
@@ -208,6 +210,9 @@ public sealed class VaultWorkspaceViewModelTests : IDisposable
         AssertDefaultView();
         Assert.Null(workspace.SelectedItem);
         Assert.Equal(0, workspace.AllGroup.Count);
+        var allOption = Assert.Single(workspace.GroupOptions);
+        Assert.Equal("All", allOption.Label);
+        Assert.Null(allOption.GroupId);
     }
 
     private VaultItemGroup Tab(Guid? id) => workspace.GroupTabs.Single(group => group.Id == id);

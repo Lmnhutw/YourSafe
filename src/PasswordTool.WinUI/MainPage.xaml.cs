@@ -19,8 +19,12 @@ public sealed partial class MainPage : Page
     private readonly ISystemLockMonitor systemLockMonitor = App.Services.GetRequiredService<ISystemLockMonitor>();
     private readonly ISensitiveClipboardService sensitiveClipboard = App.Services.GetRequiredService<ISensitiveClipboardService>();
     private readonly IUserDialogService dialogs = App.Services.GetRequiredService<IUserDialogService>();
+    private readonly AutofillApprovalService autofillApproval = App.Services.GetRequiredService<AutofillApprovalService>();
     private readonly AppearanceService appearance = App.Services.GetRequiredService<AppearanceService>();
     private readonly PasswordGeneratorDialogService passwordGeneratorDialog = App.Services.GetRequiredService<PasswordGeneratorDialogService>();
+    private readonly PasswordTool.Core.Services.PasswordGeneratorService passwordGenerator = App.Services.GetRequiredService<PasswordTool.Core.Services.PasswordGeneratorService>();
+    private long toolGenerationVersion;
+    private long toolGeneratedLifecycleVersion;
     private int lifecycleLockInProgress;
     private Guid? editingItemId;
     private TotpConfiguration? draftTotp;
@@ -28,9 +32,12 @@ public sealed partial class MainPage : Page
     private bool recoveryWizardInProgress;
     private bool setupCompletionInProgress;
     private bool rotatingRecoveryKey;
+    private bool savingSettings;
+    private bool integrationReminderDismissed;
     private bool updatingAppearanceInputs = true;
     private bool updatingNavigation;
     private bool confirmingEditorDiscard;
+    private bool editorValidationAttempted;
     private VaultItemEditorInput? editorBaseline;
     private readonly DispatcherTimer signInTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private bool hadSignIn;
@@ -74,6 +81,8 @@ public sealed partial class MainPage : Page
             signInTimer.Start();
             uiSettings.ColorValuesChanged += UiSettings_ColorValuesChanged;
             appearance.Changed += Appearance_Changed;
+            autofillApproval.PendingChanged += AutofillApproval_PendingChanged;
+            AutofillApproval_PendingChanged();
             SyncAppearanceInputs();
             ApplyGroupTabPlacement();
             ApplyShellState();
@@ -84,6 +93,7 @@ public sealed partial class MainPage : Page
             systemLockMonitor.LockRequired -= SystemLockMonitor_LockRequired;
             uiSettings.ColorValuesChanged -= UiSettings_ColorValuesChanged;
             appearance.Changed -= Appearance_Changed;
+            autofillApproval.PendingChanged -= AutofillApproval_PendingChanged;
             systemLockMonitor.Stop();
             signInTimer.Stop();
             CloseTotpPanel();
@@ -92,7 +102,16 @@ public sealed partial class MainPage : Page
     }
 
     public static Visibility BoolToVisibility(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
+    private void AutofillApproval_PendingChanged() => AutofillPendingInfoBar.IsOpen = autofillApproval.IsPending;
+    public bool ShowIntegrationReminder(AppRoute route, bool integrationEnabled) =>
+        route == AppRoute.Vault && !integrationEnabled && !integrationReminderDismissed;
+
+    private void IntegrationReminder_Closing(InfoBar sender, InfoBarClosingEventArgs args)
+    {
+        if (args.Reason == InfoBarCloseReason.CloseButton) integrationReminderDismissed = true;
+    }
     public static bool Not(bool value) => !value;
+    public static InfoBarSeverity StatusSeverity(bool success) => success ? InfoBarSeverity.Success : InfoBarSeverity.Error;
     public static bool CanEditItem(bool isSaving, bool isSignedIn) => !isSaving && isSignedIn;
     public static bool HasSelection(object? value) => value is not null;
     public static Visibility EmptyVisibility(int count) => count == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -447,6 +466,9 @@ public sealed partial class MainPage : Page
     {
         var locked = ViewModel.IsTableLocked;
         VaultLockLabel.Text = locked ? "Unlock vault" : "Lock vault";
+        VaultLockHint.Text = locked
+            ? "Your vault is locked. Enter your Master Password to view or edit saved items."
+            : "Lock your vault to protect saved passwords and verification codes. Your sign-in session stays active.";
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(VaultLockButton, VaultLockLabel.Text);
         VaultLockIcon.Glyph = locked != hover ? "\uE72E" : "\uE785";
     }
@@ -641,23 +663,31 @@ public sealed partial class MainPage : Page
     private async void RotateRecoveryKeyButton_Click(object sender, RoutedEventArgs e)
     {
         if (rotatingRecoveryKey) return;
+        if (!ViewModel.IsCurrentNormalUnlock(ViewModel.LifecycleVersion))
+        {
+            await dialogs.ShowErrorAsync("Unlock vault first", "Unlock your vault before creating a new Recovery Key.");
+            return;
+        }
         rotatingRecoveryKey = true;
         var version = ViewModel.LifecycleVersion;
         string? key = null;
+        string? password = null;
         try
         {
-            if (!await ViewModel.ValidateMasterPasswordAsync(SettingsMasterPassword.Password) || !ViewModel.IsCurrentUnlock(version)
+            password = await dialogs.PromptMasterPasswordAsync("Create a new Recovery Key", "Continue");
+            if (password is null || !ViewModel.IsCurrentNormalUnlock(version)
+                || !await ViewModel.ValidateMasterPasswordAsync(password) || !ViewModel.IsCurrentNormalUnlock(version)
                 || ViewModel.CurrentRoute != AppRoute.Settings) return;
             key = await ConfirmRecoveryKeyAsync();
-            if (key is null || !ViewModel.IsCurrentUnlock(version)) return;
-            await ViewModel.SaveRecoveryKeyAsync(SettingsMasterPassword.Password, key, true);
+            if (key is null || !ViewModel.IsCurrentNormalUnlock(version)) return;
+            await ViewModel.SaveRecoveryKeyAsync(password, key, true);
         }
         catch (OperationCanceledException) { }
         catch (Exception) { await dialogs.ShowErrorAsync("Recovery Key was not changed", "Verify your Master Password and try again."); }
         finally
         {
             key = null;
-            if (version == ViewModel.LifecycleVersion) SettingsMasterPassword.Password = string.Empty;
+            password = null;
             rotatingRecoveryKey = false;
         }
     }
@@ -758,6 +788,8 @@ public sealed partial class MainPage : Page
     }
 
     private void SensitiveTextBox_ContextMenuOpening(object sender, ContextMenuEventArgs e) => e.Handled = true;
+    private void SensitiveTextBox_CopyingToClipboard(TextBox sender, TextControlCopyingToClipboardEventArgs args) => args.Handled = true;
+    private void SensitiveTextBox_CuttingToClipboard(TextBox sender, TextControlCuttingToClipboardEventArgs args) => args.Handled = true;
 
     private void SystemLockMonitor_LockRequired(object? sender, EventArgs e)
     {
@@ -794,7 +826,7 @@ public sealed partial class MainPage : Page
     private void ApplyShellState()
     {
         UpdateVaultLockButton();
-        if (ViewModel.FlowState != AppFlowState.Unlocked) ToolGeneratedPassword.Text = string.Empty;
+        if (ViewModel.FlowState != AppFlowState.Unlocked) ResetToolGenerator();
         if (ViewModel.FlowState != AppFlowState.Unlocked) CloseTotpPanel();
         if (ViewModel.IsTableLocked)
         {
@@ -907,6 +939,7 @@ public sealed partial class MainPage : Page
 
     private void ApplyRoute(AppRoute route)
     {
+        if (route != AppRoute.HashTool) ResetToolGenerator();
         if (route != AppRoute.Vault) CloseTotpPanel();
         WorkspaceContent.MaxWidth = double.PositiveInfinity;
         updatingNavigation = true;
@@ -941,7 +974,7 @@ public sealed partial class MainPage : Page
 
     private async void AddGroupButton_Click(object sender, RoutedEventArgs e)
     {
-        var name = await PromptAsync("Create group", "Group name", string.Empty);
+        var name = await PromptAsync("Create group", "Group name", string.Empty, automationId: "TxtNewGroupName");
         if (name is not null) await ViewModel.CreateGroupAsync(name);
     }
 
@@ -1083,6 +1116,7 @@ public sealed partial class MainPage : Page
         var item = await ViewModel.GetItemForEditingAsync(itemId);
         if (item is null || !ViewModel.IsCurrentUnlock(version) || ViewModel.CurrentRoute != route) return;
 
+        ResetEditorValidation();
         editingItemId = duplicate ? null : item.Id;
         EditorTitle.Text = duplicate ? "Duplicate item" : "Edit item";
         EditorItemTitle.Text = item.Title + (duplicate ? " (copy)" : string.Empty);
@@ -1094,8 +1128,7 @@ public sealed partial class MainPage : Page
         EditorUrl.Text = item.Url;
         EditorNoUrl.IsChecked = string.IsNullOrWhiteSpace(item.Url);
         EditorUrl.IsEnabled = EditorNoUrl.IsChecked != true;
-        EditorGroup.SelectedItem = ViewModel.Vault.GroupOptions.FirstOrDefault(option => option.GroupId == item.GroupId && !option.CreatesNew) ?? ViewModel.Vault.GroupOptions[0];
-        EditorTags.Text = string.Join(", ", item.Tags);
+        EditorGroup.SelectedItem = ViewModel.Vault.GroupOptions.FirstOrDefault(option => option.GroupId == item.GroupId) ?? ViewModel.Vault.GroupOptions[0];
         EditorNotes.Text = item.Notes;
         EditorFavorite.IsChecked = item.IsFavorite;
         EditorHideUrl.IsChecked = item.HideUrl;
@@ -1133,7 +1166,7 @@ public sealed partial class MainPage : Page
         var version = ViewModel.LifecycleVersion;
         var item = await ViewModel.GetItemForEditingAsync(id);
         if (item is null || !ViewModel.IsCurrentUnlock(version)) return;
-        var picker = new AppComboBox { Header = "Group", ItemsSource = ViewModel.Vault.GroupOptions.Where(group => !group.CreatesNew).ToList(), DisplayMemberPath = "Label" };
+        var picker = new AppComboBox { Header = "Group", ItemsSource = ViewModel.Vault.GroupOptions, DisplayMemberPath = "Label" };
         picker.SelectedItem = ((IEnumerable<VaultGroupOption>)picker.ItemsSource).FirstOrDefault(group => group.GroupId == item.GroupId);
         var dialog = new AppContentDialog { Title = "Move to group", Content = picker, PrimaryButtonText = "Move", CloseButtonText = "Cancel" };
         if (await App.Services.GetRequiredService<DialogLifetime>().ShowAsync(dialog, CancellationToken.None) != ContentDialogResult.Primary
@@ -1224,28 +1257,8 @@ public sealed partial class MainPage : Page
         {
             var version = ViewModel.LifecycleVersion;
             if (!ViewModel.IsCurrentUnlock(version) || ViewModel.CurrentRoute != AppRoute.ItemEditor) return;
-            if (string.IsNullOrWhiteSpace(EditorItemTitle.Text) || string.IsNullOrWhiteSpace(EditorUsername.Text)
-                || string.IsNullOrWhiteSpace(EditorPassword.Password) && draftTotp is null && string.IsNullOrWhiteSpace(EditorRecoveryCodes.Text)
-                || EditorNoUrl.IsChecked != true && string.IsNullOrWhiteSpace(EditorUrl.Text))
-            {
-                var dialog = new AppContentDialog
-                {
-                    Title = "Required fields",
-                    Content = "Enter a title, username, and a password, verification code, or recovery codes. Enter a URL or check No URL.",
-                    CloseButtonText = "OK"
-                };
-                await App.Services.GetRequiredService<DialogLifetime>().ShowAsync(dialog, CancellationToken.None);
-                return;
-            }
-            var groupOption = EditorGroup.SelectedItem as VaultGroupOption ?? ViewModel.Vault.GroupOptions[0];
-            if (groupOption.CreatesNew)
-            {
-                var name = await PromptAsync("Create group", "Group name", string.Empty);
-                if (name is null || !ViewModel.IsCurrentUnlock(version) || ViewModel.CurrentRoute != AppRoute.ItemEditor) return;
-                var group = await ViewModel.CreateGroupAsync(name);
-                if (group is null || !ViewModel.IsCurrentUnlock(version) || ViewModel.CurrentRoute != AppRoute.ItemEditor) return;
-                EditorGroup.SelectedItem = ViewModel.Vault.GroupOptions.First(option => option.GroupId == group.Id);
-            }
+            editorValidationAttempted = true;
+            if (!ValidateEditor(focusFirstError: true)) return;
             var saved = await ViewModel.SaveItemAsync(ReadEditorInput());
             if (!saved || !ViewModel.IsCurrentUnlock(version)) return;
             ClearEditor();
@@ -1265,14 +1278,73 @@ public sealed partial class MainPage : Page
     private VaultItemEditorInput ReadEditorInput() => new(
         editingItemId, EditorItemTitle.Text, EditorUsername.Text, EditorPassword.Password,
         EditorRecoveryCodes.Text, string.Empty, EditorUrl.Text, EditorNotes.Text,
-        (EditorGroup.SelectedItem as VaultGroupOption)?.GroupId, EditorTags.Text,
+        (EditorGroup.SelectedItem as VaultGroupOption)?.GroupId,
         EditorFavorite.IsChecked == true, EditorHideUrl.IsChecked == true, EditorHideNotes.IsChecked == true, draftTotp);
+
+    private bool ValidateEditor(bool focusFirstError = false)
+    {
+        var errors = new Dictionary<string, string>(ReadEditorInput().Validate());
+        if (EditorNoUrl.IsChecked != true && string.IsNullOrWhiteSpace(EditorUrl.Text))
+            errors.Add(nameof(VaultItemEditorInput.Url), "Enter a URL or select No URL.");
+        var fields = new (string Name, Control Input, TextBlock Error)[]
+        {
+            (nameof(VaultItemEditorInput.Title), EditorItemTitle, EditorTitleError),
+            (nameof(VaultItemEditorInput.Username), EditorUsername, EditorUsernameError),
+            (nameof(VaultItemEditorInput.Password), EditorPassword, EditorPasswordError),
+            (nameof(VaultItemEditorInput.RecoveryCodesText), EditorRecoveryCodes, EditorRecoveryCodesError),
+            (nameof(VaultItemEditorInput.Url), EditorUrl, EditorUrlError)
+        };
+        Control? firstInvalid = null;
+        foreach (var (name, input, error) in fields)
+        {
+            var message = errors.GetValueOrDefault(name, string.Empty);
+            error.Text = message;
+            error.Visibility = message.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetHelpText(input, message);
+            if (message.Length > 0) firstInvalid ??= input;
+        }
+        if (focusFirstError) firstInvalid?.Focus(FocusState.Programmatic);
+        return errors.Count == 0;
+    }
+
+    private void ResetEditorValidation()
+    {
+        editorValidationAttempted = false;
+        foreach (var error in new[] { EditorTitleError, EditorUsernameError, EditorPasswordError, EditorRecoveryCodesError, EditorUrlError })
+        {
+            error.Text = string.Empty;
+            error.Visibility = Visibility.Collapsed;
+        }
+        foreach (var input in new Control[] { EditorItemTitle, EditorUsername, EditorPassword, EditorRecoveryCodes, EditorUrl })
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetHelpText(input, string.Empty);
+    }
+
+    private void EditorField_Changed(object sender, RoutedEventArgs e)
+    {
+        if (editorValidationAttempted) ValidateEditor();
+    }
+
+    private void EditorHelp_GotFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { FocusState: FocusState.Keyboard } button && ToolTipService.GetToolTip(button) is ToolTip tooltip)
+            tooltip.IsOpen = true;
+    }
+
+    private void EditorHelp_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && ToolTipService.GetToolTip(button) is ToolTip tooltip) tooltip.IsOpen = false;
+    }
+
+    private void EditorHelp_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && ToolTipService.GetToolTip(button) is ToolTip tooltip) tooltip.IsOpen = true;
+    }
 
     private async Task<bool> CanLeaveEditorAsync()
     {
         if (ViewModel.CurrentRoute != AppRoute.ItemEditor) return true;
         if (ViewModel.IsSavingItem || confirmingEditorDiscard) return false;
-        if (editorBaseline == ReadEditorInput() && EditorGroup.SelectedItem is not VaultGroupOption { CreatesNew: true }) return true;
+        if (editorBaseline == ReadEditorInput()) return true;
         var version = ViewModel.LifecycleVersion;
         confirmingEditorDiscard = true;
         try
@@ -1292,6 +1364,7 @@ public sealed partial class MainPage : Page
 
     private void ClearEditor()
     {
+        ResetEditorValidation();
         editorBaseline = null;
         editingItemId = null;
         draftTotp = null;
@@ -1305,7 +1378,6 @@ public sealed partial class MainPage : Page
         EditorNoUrl.IsChecked = false;
         EditorUrl.IsEnabled = true;
         EditorGroup.SelectedIndex = 0;
-        EditorTags.Text = string.Empty;
         EditorNotes.Text = string.Empty;
         EditorFavorite.IsChecked = false;
         EditorHideUrl.IsChecked = false;
@@ -1317,11 +1389,11 @@ public sealed partial class MainPage : Page
         var noUrl = EditorNoUrl.IsChecked == true;
         EditorUrl.IsEnabled = !noUrl;
         if (noUrl) EditorUrl.Text = string.Empty;
+        if (editorValidationAttempted) ValidateEditor();
     }
 
     private void ClearSettingsInputs()
     {
-        SettingsMasterPassword.Password = string.Empty;
         CurrentMasterPassword.Password = string.Empty;
         ReplacementMasterPassword.Password = string.Empty;
         ConfirmReplacementMasterPassword.Password = string.Empty;
@@ -1415,6 +1487,7 @@ public sealed partial class MainPage : Page
         HashGeneratePanel.Visibility = mode == 0 ? Visibility.Visible : Visibility.Collapsed;
         HashVerifyPanel.Visibility = mode == 1 ? Visibility.Visible : Visibility.Collapsed;
         HashInspectPanel.Visibility = mode == 2 ? Visibility.Visible : Visibility.Collapsed;
+        ResetToolGenerator();
         HashErrorInfoBar.IsOpen = false;
     }
 
@@ -1427,28 +1500,112 @@ public sealed partial class MainPage : Page
         HashGenerateTitle.Text = hash ? "Generate a hash" : "Generate a password";
         HashGenerateDescription.Text = hash
             ? "Choose an algorithm and enter the password to hash. Legacy algorithms are for learning only."
-            : "Choose the length and character options, or create a passphrase, using the password generator.";
-        ToolGeneratedPassword.Text = string.Empty;
+            : "Choose the options, then generate a password or passphrase.";
+        ResetToolGenerator();
         HashGeneratePassword.Password = string.Empty;
         ViewModel.HashTool.GeneratedHash = string.Empty;
         ViewModel.HashTool.ErrorMessage = string.Empty;
         HashErrorInfoBar.IsOpen = false;
     }
 
-    private async void ToolGeneratePasswordButton_Click(object sender, RoutedEventArgs e)
+    private void ResetToolGenerator()
     {
-        var button = (Button)sender;
-        if (!button.IsEnabled) return;
-        button.IsEnabled = false;
+        if (ToolGeneratedPassword is null) return;
+        toolGenerationVersion++;
+        ToolGeneratedPassword.Text = string.Empty;
+        ToolGeneratedStrength.Text = string.Empty;
+        ToolCopyGeneratedPassword.IsEnabled = false;
+        ToolGeneratorStatus.IsOpen = false;
+        ToolGeneratorStatus.Message = string.Empty;
+    }
+
+    private void ToolPasswordType_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (ToolWordPairs is null || ToolCharacterOptions is null) return;
+        var passphrase = ToolPasswordType.SelectedIndex == 1;
+        ToolPasswordLength.Visibility = ToolCharacterOptions.Visibility = passphrase ? Visibility.Collapsed : Visibility.Visible;
+        ToolWordPairs.Visibility = passphrase ? Visibility.Visible : Visibility.Collapsed;
+        ResetToolGenerator();
+    }
+
+    private void ToolGeneratorOptions_Changed(object sender, RoutedEventArgs e) => ResetToolGenerator();
+    private void ToolGeneratorNumber_Changed(NumberBox sender, NumberBoxValueChangedEventArgs args) => ResetToolGenerator();
+
+    private void ToolGeneratePasswordButton_Click(object sender, RoutedEventArgs e)
+    {
+        var version = ViewModel.LifecycleVersion;
+        ResetToolGenerator();
+        if (!ViewModel.IsCurrentUnlock(version) || ViewModel.CurrentRoute != AppRoute.HashTool
+            || HashGenerationToggle.IsChecked == true || HashModeSelector.SelectedItem != HashModeSelector.Items[0]) return;
         try
         {
-            var version = ViewModel.LifecycleVersion;
-            var generated = await passwordGeneratorDialog.ShowAsync();
-            if (generated is not null && version == ViewModel.LifecycleVersion
-                && ViewModel.CurrentRoute == AppRoute.HashTool && HashGenerationToggle.IsChecked != true)
-                ToolGeneratedPassword.Text = generated;
+            var passphrase = ToolPasswordType.SelectedIndex == 1;
+            var count = passphrase ? ToolWordPairs.Value : ToolPasswordLength.Value;
+            if (!double.IsFinite(count) || count != Math.Truncate(count))
+                throw new ArgumentException(passphrase ? "Enter a whole number of word pairs." : "Enter a whole number of characters.");
+            var generated = passphrase ? passwordGenerator.GeneratePassphrase((int)count)
+                : passwordGenerator.GeneratePassword(new PasswordGenerationOptions
+                {
+                    Length = (int)count,
+                    IncludeUppercase = ToolUppercase.IsChecked == true,
+                    IncludeLowercase = ToolLowercase.IsChecked == true,
+                    IncludeDigits = ToolDigits.IsChecked == true,
+                    IncludeSymbols = ToolSymbols.IsChecked == true
+                });
+            var strength = passphrase ? passwordGenerator.EstimatePassphraseStrength((int)count)
+                : passwordGenerator.EstimatePasswordStrength(generated);
+            toolGeneratedLifecycleVersion = version;
+            ToolGeneratedPassword.Text = generated;
+            ToolGeneratedStrength.Text = $"{strength.Rating} · approximately {strength.EstimatedEntropyBits:0} bits";
+            ToolCopyGeneratedPassword.IsEnabled = true;
+            DispatcherQueue.TryEnqueue(() => { if (version == ViewModel.LifecycleVersion && ViewModel.CurrentRoute == AppRoute.HashTool) ToolGeneratedStrength.StartBringIntoView(); });
         }
-        finally { button.IsEnabled = true; }
+        catch (ArgumentException error)
+        {
+            ToolGeneratorStatus.Title = "Could not generate password";
+            ToolGeneratorStatus.Message = error.Message;
+            ToolGeneratorStatus.Severity = InfoBarSeverity.Error;
+            ToolGeneratorStatus.IsOpen = true;
+            DispatcherQueue.TryEnqueue(() => { if (version == ViewModel.LifecycleVersion && ViewModel.CurrentRoute == AppRoute.HashTool) ToolGeneratorStatus.StartBringIntoView(); });
+        }
+    }
+
+    private async void CopyToolGeneratedPassword_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ToolCopyGeneratedPassword.IsEnabled || string.IsNullOrEmpty(ToolGeneratedPassword.Text)) return;
+        var generation = toolGenerationVersion;
+        var version = toolGeneratedLifecycleVersion;
+        var value = ToolGeneratedPassword.Text;
+        bool CanCopy() => generation == toolGenerationVersion && ViewModel.IsCurrentUnlock(version)
+            && ViewModel.CurrentRoute == AppRoute.HashTool && HashGenerationToggle.IsChecked != true
+            && HashModeSelector.SelectedItem == HashModeSelector.Items[0];
+        if (!CanCopy()) return;
+        ToolCopyGeneratedPassword.IsEnabled = false;
+        try
+        {
+            await sensitiveClipboard.CopyAsync(value, CanCopy);
+            if (!CanCopy()) return;
+            ToolGeneratorStatus.Title = "Copied";
+            ToolGeneratorStatus.Message = "Generated password copied. YourSafe will try to clear it after 30 seconds.";
+            ToolGeneratorStatus.Severity = InfoBarSeverity.Success;
+            ToolGeneratorStatus.IsOpen = true;
+            DispatcherQueue.TryEnqueue(() => { if (CanCopy()) ToolGeneratorStatus.StartBringIntoView(); });
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception)
+        {
+            if (!CanCopy()) return;
+            ToolGeneratorStatus.Title = "Copy failed";
+            ToolGeneratorStatus.Message = "The clipboard is unavailable. Try copying again.";
+            ToolGeneratorStatus.Severity = InfoBarSeverity.Error;
+            ToolGeneratorStatus.IsOpen = true;
+            DispatcherQueue.TryEnqueue(() => { if (CanCopy()) ToolGeneratorStatus.StartBringIntoView(); });
+        }
+        finally
+        {
+            value = string.Empty;
+            if (CanCopy()) ToolCopyGeneratedPassword.IsEnabled = true;
+        }
     }
 
     private void GenerateHashButton_Click(object sender, RoutedEventArgs e)
@@ -1488,12 +1645,17 @@ public sealed partial class MainPage : Page
 
     private async void SaveSettingsButton_Click(object sender, RoutedEventArgs e)
     {
-        if (VaultDurationInput.SelectedIndex < 0) return;
+        if (savingSettings || ViewModel.Settings.IsBusy || sender is not Button button || !button.IsEnabled || VaultDurationInput.SelectedIndex < 0) return;
+        savingSettings = true;
+        button.IsEnabled = false;
+        string? password = null;
         ViewModel.Settings.VaultDurationMinutes = new[] { 1, 2, 5, 10, 30, 60, 120, 300 }[VaultDurationInput.SelectedIndex];
         try
         {
             var version = ViewModel.LifecycleVersion;
-            if (await ViewModel.Settings.SaveAsync(SettingsMasterPassword.Password) && ViewModel.IsCurrentUnlock(version))
+            password = await dialogs.PromptMasterPasswordAsync("Save security settings", "Save security settings");
+            if (password is null || !ViewModel.IsCurrentUnlock(version)) return;
+            if (await ViewModel.Settings.SaveAsync(password) && ViewModel.IsCurrentUnlock(version))
             {
                 var dialog = new AppContentDialog
                 {
@@ -1504,7 +1666,7 @@ public sealed partial class MainPage : Page
                 await App.Services.GetRequiredService<DialogLifetime>().ShowAsync(dialog, CancellationToken.None);
             }
         }
-        finally { SettingsMasterPassword.Password = string.Empty; }
+        finally { password = null; savingSettings = false; button.IsEnabled = true; }
     }
 
 
@@ -1571,6 +1733,16 @@ public sealed partial class MainPage : Page
         ViewModel.Navigate(AppRoute.Backup);
         ApplyRoute(AppRoute.Backup);
         await ViewModel.Backup.LoadAsync();
+    }
+
+    private async void OpenIntegrationSettings_Click(object sender, RoutedEventArgs e)
+    {
+        var version = ViewModel.LifecycleVersion;
+        if (!await CanLeaveEditorAsync() || !ViewModel.IsCurrentUnlock(version)) return;
+        ClearEditor();
+        ViewModel.Navigate(AppRoute.Settings);
+        await ViewModel.Settings.LoadAsync();
+        if (ViewModel.IsCurrentUnlock(version)) ApplyRoute(AppRoute.Settings);
     }
 
     private void BackupReminderLater_Click(object sender, RoutedEventArgs e) => ViewModel.IsBackupReminderOpen = false;

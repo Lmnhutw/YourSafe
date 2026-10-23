@@ -30,7 +30,7 @@ public sealed class AutofillTests
             if (valid) Assert.Equal(expected, origin);
         }
         Assert.Throws<JsonException>(() => WireProtocol.ParseRequest(Encoding.UTF8.GetBytes(
-            "{\"version\":2,\"version\":2,\"requestId\":\"12345678-1234-1234-1234-123456789abc\",\"action\":\"ping\",\"payload\":{}}")));
+            "{\"version\":3,\"version\":3,\"requestId\":\"12345678-1234-1234-1234-123456789abc\",\"action\":\"ping\",\"payload\":{}}")));
         if (fixtures.RootElement.TryGetProperty("responses", out var responses))
         {
             foreach (var fixture in responses.EnumerateArray())
@@ -141,8 +141,45 @@ public sealed class AutofillTests
             WireProtocol.Success(request.RequestId, new { username = "test" }), WireProtocol.Json), request));
         Assert.Throws<JsonException>(() => WireProtocol.ParseResponse(JsonSerializer.SerializeToUtf8Bytes(response, WireProtocol.Json), request with { RequestId = Guid.NewGuid().ToString() }));
         Assert.False(WireProtocol.ParseResponse(JsonSerializer.SerializeToUtf8Bytes(WireProtocol.Failure(request.RequestId, "locked"), WireProtocol.Json), request).Ok);
-        var explicitNull = Encoding.UTF8.GetBytes("{\"version\":2,\"requestId\":\"12345678-1234-1234-1234-123456789abc\",\"ok\":false,\"error\":\"locked\",\"result\":null}");
+        var explicitNull = Encoding.UTF8.GetBytes("{\"version\":3,\"requestId\":\"12345678-1234-1234-1234-123456789abc\",\"ok\":false,\"error\":\"locked\",\"result\":null}");
         Assert.Throws<JsonException>(() => WireProtocol.ParseResponse(explicitNull, request));
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void NativeHost_status_requires_both_flags_and_rejects_account_metadata(bool integrationEnabled, bool unlocked)
+    {
+        var request = new AutofillRequest(WireProtocol.Version, Guid.NewGuid().ToString(), "getStatus", new AutofillPayload());
+        var response = WireProtocol.Success(request.RequestId, new StatusResult(integrationEnabled, unlocked));
+        var parsed = WireProtocol.ParseResponse(JsonSerializer.SerializeToUtf8Bytes(response, WireProtocol.Json), request);
+        Assert.Equal(new StatusResult(integrationEnabled, unlocked), parsed.Result!.Value.Deserialize<StatusResult>(WireProtocol.Json));
+        Assert.Throws<JsonException>(() => WireProtocol.ParseResponse(JsonSerializer.SerializeToUtf8Bytes(
+            WireProtocol.Success(request.RequestId, new { unlocked }), WireProtocol.Json), request));
+        Assert.Throws<JsonException>(() => WireProtocol.ParseResponse(JsonSerializer.SerializeToUtf8Bytes(
+            WireProtocol.Success(request.RequestId, new { integrationEnabled }), WireProtocol.Json), request));
+        Assert.Throws<JsonException>(() => WireProtocol.ParseResponse(JsonSerializer.SerializeToUtf8Bytes(
+            WireProtocol.Success(request.RequestId, new { integrationEnabled, unlocked, credentials = Array.Empty<CredentialMetadata>() }), WireProtocol.Json), request));
+    }
+
+    [Fact]
+    public void Protocol_mismatch_replies_only_use_validated_request_identifiers()
+    {
+        const string requestId = "12345678-1234-1234-1234-123456789abc";
+        var legacy = Encoding.UTF8.GetBytes($$$"""{"version":2,"requestId":"{{{requestId}}}","action":"getStatus","payload":{}}""");
+        var mismatch = Assert.Throws<ProtocolMismatchException>(() => WireProtocol.ParseRequest(legacy));
+        Assert.Equal(requestId, mismatch.RequestId);
+        var current = new AutofillRequest(WireProtocol.Version, requestId, "getStatus", new AutofillPayload());
+        var failure = WireProtocol.Failure(mismatch.RequestId, "protocolMismatch");
+        Assert.Equal("protocolMismatch", WireProtocol.ParseResponse(JsonSerializer.SerializeToUtf8Bytes(failure, WireProtocol.Json), current).Error);
+        Assert.Throws<JsonException>(() => WireProtocol.ParseRequest(Encoding.UTF8.GetBytes(
+            "{\"version\":2,\"requestId\":\"unsafe\",\"action\":\"getStatus\",\"payload\":{}}")));
+        Assert.Throws<JsonException>(() => WireProtocol.ParseRequest(Encoding.UTF8.GetBytes(
+            $$$"""{"version":2,"requestId":"{{{requestId}}}","requestId":"{{{requestId}}}","action":"getStatus","payload":{}}""")));
+        Assert.Throws<ProtocolMismatchException>(() => WireProtocol.ParseResponse(Encoding.UTF8.GetBytes(
+            $$$"""{"version":2,"requestId":"{{{requestId}}}","ok":true,"result":{"unlocked":true}}"""), current));
     }
 
     [Fact]
@@ -273,7 +310,11 @@ public sealed class AutofillTests
             var blocked = runner.RunAsync(() => { entered.SetResult(); release.Task.GetAwaiter().GetResult(); });
             await entered.Task;
             var pending = flow.GetAutofillCredentialSecretAsync("https://example.com", item.Id);
+            Assert.Equal(new StatusResult(true, true), flow.GetAutofillStatus());
             now = (signInExpiry ? vault.LoginExpiresAt : vault.VaultExpiresAt)!.Value;
+            Assert.Equal(AppFlowState.Unlocked, flow.FlowState);
+            Assert.Equal(new StatusResult(true, false), flow.GetAutofillStatus());
+            Assert.True(flow.TryAcceptAutofillControlRequest());
             release.SetResult();
             await blocked;
             await Assert.ThrowsAsync<OperationCanceledException>(() => pending);

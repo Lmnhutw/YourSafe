@@ -18,7 +18,7 @@ public sealed class VaultCsvImportServiceTests
     }
 
     [Fact]
-    public void Bitwarden_csv_maps_metadata_and_otpauth_secret()
+    public void Bitwarden_csv_maps_metadata_and_otpauth_secret_and_ignores_legacy_tags()
     {
         const string csv = "folder,favorite,type,name,notes,login_uri,login_username,login_password,login_totp,tags\nPersonal,1,login,Email,note,https://mail.example,user@example.com,password,otpauth://totp/Email?secret=JBSWY3DPEHPK3PXP,mail;important";
         var item = Assert.Single(new VaultCsvImportService().Parse(csv));
@@ -26,7 +26,7 @@ public sealed class VaultCsvImportServiceTests
         Assert.Equal("Personal", item.LegacyFolder);
         Assert.True(item.IsFavorite);
         Assert.Equal("JBSWY3DPEHPK3PXP", item.TotpSecretBase32);
-        Assert.Equal(["mail", "important"], item.Tags);
+        Assert.DoesNotContain("\"Tags\"", System.Text.Json.JsonSerializer.Serialize(item));
     }
 
     [Fact]

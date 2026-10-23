@@ -619,16 +619,16 @@ public sealed class RecoveryKeyAndDeadlineTests : IDisposable
         var work = vault.AddGroup("Work", "#336699");
         var services = new[]
         {
-            ("YouTube", "https://www.youtube.com", "video"),
-            ("Google", "https://accounts.google.com", "email"),
-            ("GitHub", "https://github.com", "development"),
-            ("Facebook", "https://www.facebook.com", "social"),
-            ("Netflix", "https://www.netflix.com", "streaming"),
-            ("Spotify", "https://www.spotify.com", "music"),
-            ("Microsoft", "https://login.microsoftonline.com", "work"),
-            ("Discord", "https://discord.com", "social")
+            ("YouTube", "https://www.youtube.com"),
+            ("Google", "https://accounts.google.com"),
+            ("GitHub", "https://github.com"),
+            ("Facebook", "https://www.facebook.com"),
+            ("Netflix", "https://www.netflix.com"),
+            ("Spotify", "https://www.spotify.com"),
+            ("Microsoft", "https://login.microsoftonline.com"),
+            ("Discord", "https://discord.com")
         };
-        foreach (var (title, url, tag) in services)
+        foreach (var (title, url) in services)
         {
             var item = new VaultItem
             {
@@ -636,7 +636,7 @@ public sealed class RecoveryKeyAndDeadlineTests : IDisposable
                 Password = title == "Netflix" ? "demo123" : $"Demo-Only!{title}-2026#",
                 Notes = "Demo account for product screenshots. All credentials are fake.",
                 GroupId = title is "GitHub" or "Microsoft" ? work.Id : personal.Id,
-                Tags = [tag], IsFavorite = title is "Google" or "GitHub"
+                IsFavorite = title is "Google" or "GitHub"
             };
             if (title is "Google" or "GitHub")
             {

@@ -3,24 +3,118 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Markup;
+using Microsoft.Windows.AppNotifications;
+using Microsoft.Windows.AppNotifications.Builder;
 using PasswordTool.Presentation.Autofill;
+using System.Runtime.InteropServices;
 
 namespace PasswordTool_WinUI;
 
-internal sealed class AutofillApprovalService(DialogLifetime dialogs)
+internal sealed class AutofillApprovalService(DialogLifetime dialogs) : IDisposable
 {
+    private AppNotificationManager? notifications;
+    private Guid? pendingRequest;
+    private CancellationToken pendingCancellation;
+    private uint pendingNotification;
+    private bool disposed;
+    public bool IsPending => pendingRequest is not null;
+    public event Action? PendingChanged;
+
+    [DllImport("user32.dll")]
+    private static extern nint GetForegroundWindow();
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(nint hwnd, out uint processId);
+    [DllImport("user32.dll")]
+    private static extern bool FlashWindowEx(ref FlashInfo info);
+    [StructLayout(LayoutKind.Sequential)]
+    private struct FlashInfo
+    {
+        public uint Size;
+        public nint Window;
+        public uint Flags;
+        public uint Count;
+        public uint Timeout;
+    }
+
+    public void InitializeNotifications()
+    {
+        if (disposed || notifications is not null) return;
+        try
+        {
+            var manager = AppNotificationManager.Default;
+            // Register the handler first so warm activation stays in this process.
+            manager.NotificationInvoked += NotificationInvoked;
+            try { manager.Register(); notifications = manager; }
+            catch { manager.NotificationInvoked -= NotificationInvoked; }
+        }
+        catch { } // Taskbar attention and Open YourSafe remain available without notifications.
+    }
+
+    private static void ShowWindow()
+    {
+        if (App.Window.AppWindow.Presenter is OverlappedPresenter presenter && presenter.State != OverlappedPresenterState.Restored)
+            presenter.Restore();
+        App.Window.AppWindow.Show();
+        App.Window.Activate();
+    }
+
+    private static void Flash(bool enabled)
+    {
+        var info = new FlashInfo { Size = (uint)Marshal.SizeOf<FlashInfo>(), Window = App.WindowHandle, Flags = enabled ? 2u : 0u, Count = 3 };
+        FlashWindowEx(ref info);
+    }
+
+    private uint RequestAttention(Guid requestId)
+    {
+        ShowWindow();
+        GetWindowThreadProcessId(GetForegroundWindow(), out var foregroundProcess);
+        if (foregroundProcess == Environment.ProcessId) return 0;
+        Flash(true);
+        if (notifications is null) return 0;
+        try
+        {
+            var notification = new AppNotificationBuilder().AddArgument("request", requestId.ToString("N"))
+                .AddText("YourSafe approval required").AddText("Open YourSafe to review a browser request.").BuildNotification();
+            notification.Expiration = DateTimeOffset.UtcNow.AddMinutes(1);
+            notifications.Show(notification);
+            return notification.Id;
+        }
+        catch { return 0; }
+    }
+
+    private void NotificationInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args)
+    {
+        if (!args.Arguments.TryGetValue("request", out var value) || !Guid.TryParseExact(value, "N", out var requestId)) return;
+        App.DispatcherQueue.TryEnqueue(() =>
+        {
+            if (disposed || pendingRequest != requestId || pendingCancellation.IsCancellationRequested) return;
+            try { ShowWindow(); }
+            catch { } // Activation can race with the existing window closing.
+        });
+    }
+
+    private async Task RemoveNotificationAsync(uint notificationId)
+    {
+        if (notificationId == 0 || notifications is not { } manager) return;
+        try { await manager.RemoveByIdAsync(notificationId); }
+        catch { } // An expired notification cannot recover the in-memory request.
+    }
+
     public Task<bool> ApproveAsync(AutofillApprovalRequest request, CancellationToken cancellationToken)
     {
         var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         if (!App.DispatcherQueue.TryEnqueue(async () =>
         {
-            if (cancellationToken.IsCancellationRequested) { completion.TrySetResult(false); return; }
+            if (disposed || cancellationToken.IsCancellationRequested) { completion.TrySetResult(false); return; }
+            var requestId = Guid.NewGuid();
+            var notificationId = 0u;
+            var approved = false;
             try
             {
-                if (App.Window.AppWindow.Presenter is OverlappedPresenter presenter && presenter.State != OverlappedPresenterState.Restored)
-                    presenter.Restore();
-                App.Window.AppWindow.Show();
-                App.Window.Activate();
+                pendingRequest = requestId;
+                pendingCancellation = cancellationToken;
+                PendingChanged?.Invoke();
+                notificationId = pendingNotification = RequestAttention(requestId);
                 var action = request.Action switch
                 {
                     AutofillAction.Password => "Approve to fill password?",
@@ -111,12 +205,41 @@ internal sealed class AutofillApprovalService(DialogLifetime dialogs)
                 dialog.Resources["ContentDialogMaxWidth"] = 440d;
                 AutomationProperties.SetAutomationId(dialog, "DlgAutofillApproval");
                 AutomationProperties.SetName(dialog, action);
-                completion.TrySetResult(await dialogs.ShowAsync(dialog, cancellationToken,
+                approved = await dialogs.ShowAsync(dialog, cancellationToken,
                     () => !cancellationToken.IsCancellationRequested) == ContentDialogResult.Primary
-                    && !cancellationToken.IsCancellationRequested);
+                    && !cancellationToken.IsCancellationRequested;
             }
-            catch { completion.TrySetResult(false); }
+            catch { approved = false; }
+            finally
+            {
+                if (pendingRequest == requestId)
+                {
+                    pendingRequest = null;
+                    pendingCancellation = default;
+                    pendingNotification = 0;
+                    try { Flash(false); PendingChanged?.Invoke(); }
+                    catch { } // Window shutdown must still complete the pending request.
+                }
+                _ = RemoveNotificationAsync(notificationId);
+                completion.TrySetResult(approved && !cancellationToken.IsCancellationRequested);
+            }
         })) completion.TrySetResult(false);
         return completion.Task;
+    }
+
+    public void Dispose()
+    {
+        disposed = true;
+        pendingRequest = null;
+        pendingCancellation = default;
+        try { Flash(false); PendingChanged?.Invoke(); }
+        catch { }
+        _ = RemoveNotificationAsync(pendingNotification);
+        pendingNotification = 0;
+        if (notifications is not { } manager) return;
+        manager.NotificationInvoked -= NotificationInvoked;
+        try { manager.Unregister(); }
+        catch { }
+        notifications = null;
     }
 }

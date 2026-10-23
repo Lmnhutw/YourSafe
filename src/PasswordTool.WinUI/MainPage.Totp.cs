@@ -66,7 +66,7 @@ public sealed partial class MainPage
 
     private void UpdateTotpEditorStatus()
     {
-        EditorTotpStatus.Text = draftTotp is null ? "No verification code added" : "Verification code added";
+        EditorTotpStatus.Visibility = draftTotp is null ? Visibility.Collapsed : Visibility.Visible;
         EditorTotpButton.Content = draftTotp is null ? "Add verification code" : "Edit verification code";
         EditorRemoveTotpButton.Visibility = draftTotp is null ? Visibility.Collapsed : Visibility.Visible;
     }

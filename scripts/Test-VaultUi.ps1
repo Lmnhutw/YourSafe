@@ -179,9 +179,9 @@ try {
         if ($script:copyMore -eq $script:originalMore) { throw 'Duplicate reused the original item ID.' }
         Ui set-value 'TxtVaultSearch' $originalTitle | Out-Null
     }
-    Test 'Move to Ungrouped and back to Work persists the selected group' {
-        MoveTestItem 'Work' 'Ungrouped'
-        MoveTestItem 'Ungrouped' 'Work'
+    Test 'Move to All and back to Work persists the selected group' {
+        MoveTestItem 'Work' 'All'
+        MoveTestItem 'All' 'Work'
         Menu $script:originalMore 'Move to group'
         $picker = @(Matches 'Group' | Where-Object { $_.type -eq 'ComboBox' }) | Select-Object -Last 1
         Ui wait-for $picker.selector --value Work -t 5000 | Out-Null

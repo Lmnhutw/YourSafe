@@ -17,8 +17,8 @@ Context and boundaries
 Required implementation
 1. P1: Display ShellViewModel status/error messages inside the unlocked workspace. Invalid color/editor input must remain visible and recoverable.
 2. P2: Keep buttons and normal app selection blue #204BDB. Do not expose global button recoloring. Appearance settings only choose Background System/Light/Dark and Horizontal/Vertical tab layout; apply immediately to controls and dialogs.
-3. P2: Persist background, tab layout, and optional built-in All/Ungrouped tab labels/colors in one local appearance.json, isolated by the existing Debug test directory. Missing/corrupt preferences fall back safely. Save failures must be visible. Appearance requires no Master Password.
-4. P2: Right-click every tab, including All and Ungrouped, to Rename tab or Change tab color. Use native ColorPicker with a sample tab preview, explicit Save, Cancel and Reset color. Reuse encrypted group name/color storage for user groups; reject stale dialog results after locking.
+3. P2: Persist background, tab layout, and optional built-in All tab labels/colors in one local appearance.json, isolated by the existing Debug test directory. Missing/corrupt preferences fall back safely. Save failures must be visible. Appearance requires no Master Password.
+4. P2: Right-click every tab, including All, to Rename tab or Change tab color. Use native ColorPicker with a sample tab preview, explicit Save, Cancel and Reset color. Reuse encrypted group name/color storage for user groups; reject stale dialog results after locking.
 5. P2: Give each tab an independent color; show a color marker on inactive tabs and a separate selected/focused indicator. Support both Windows 10 and 11. Keep credential table text on a neutral surface.
 6. P2: Choose black/white text using actual relative-luminance contrast, at least 4.5:1 for ordinary text. High Contrast must always use system brushes, preserving the stored preference for later.
 7. P2: Restore native normal/hover/pressed/disabled/focus states. Prefer the default Button template with lightweight styling over a ContentPresenter-only template.

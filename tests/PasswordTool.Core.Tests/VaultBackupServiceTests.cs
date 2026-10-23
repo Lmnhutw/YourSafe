@@ -27,7 +27,6 @@ public sealed class VaultBackupServiceTests
         Assert.Equal("JBSWY3DPEHPK3PXP", restored[0].TotpSecretBase32);
         Assert.True(restored[0].IsFavorite);
         Assert.Equal("Personal", restored[0].LegacyFolder);
-        Assert.Equal(["email", "important"], restored[0].Tags);
         Assert.Equal(VaultItemType.RecoveryCodes, restored[1].Type);
         Assert.Equal(["abcd-1234", "efgh-5678"], restored[1].RecoveryCodes);
     }
@@ -144,6 +143,35 @@ public sealed class VaultBackupServiceTests
         Assert.Equal(["abcd-1234", "efgh-5678"], restored.RecoveryCodes);
     }
 
+    [Fact]
+    public void Legacy_backup_tags_are_ignored_and_never_written_to_new_backups()
+    {
+        var service = new VaultBackupService();
+        var encryption = new EncryptionService();
+        var envelope = JsonNode.Parse(service.CreateBackup(CreateItems(), BackupPassphrase, DateTimeOffset.UtcNow))!.AsObject();
+        var key = Rfc2898DeriveBytes.Pbkdf2(BackupPassphrase,
+            Convert.FromBase64String(envelope["SaltBase64"]!.GetValue<string>()), 600_000, HashAlgorithmName.SHA256, 32);
+        try
+        {
+            var payload = encryption.DecryptObject<JsonObject>(envelope["EncryptedPayload"]!.ToJsonString(), key);
+            foreach (var item in payload["Items"]!.AsArray()) item!["Tags"] = new JsonArray("work", "old tag");
+            envelope["EncryptedPayload"] = JsonNode.Parse(encryption.EncryptObject(payload, key));
+            var restored = service.ReadBackup(envelope.ToJsonString(), BackupPassphrase);
+            Assert.Equal(CreateItems().Select(item => item.Title), restored.Select(item => item.Title));
+            Assert.DoesNotContain("\"Tags\"", JsonSerializer.Serialize(restored));
+            var rewritten = JsonNode.Parse(service.CreateBackup(restored, BackupPassphrase, DateTimeOffset.UtcNow))!.AsObject();
+            var rewrittenKey = Rfc2898DeriveBytes.Pbkdf2(BackupPassphrase,
+                Convert.FromBase64String(rewritten["SaltBase64"]!.GetValue<string>()), 600_000, HashAlgorithmName.SHA256, 32);
+            try
+            {
+                Assert.DoesNotContain("\"Tags\"", encryption.DecryptString(rewritten["EncryptedPayload"]!.ToJsonString(), rewrittenKey));
+                Assert.Equal(1, rewritten["Version"]!.GetValue<int>());
+            }
+            finally { CryptographicOperations.ZeroMemory(rewrittenKey); }
+        }
+        finally { CryptographicOperations.ZeroMemory(key); }
+    }
+
     private static List<VaultItem> CreateItems()
     {
         return
@@ -156,7 +184,6 @@ public sealed class VaultBackupServiceTests
                 TotpSecretBase32 = "JBSWY3DPEHPK3PXP",
                 IsFavorite = true,
                 LegacyFolder = "Personal",
-                Tags = ["email", "important"]
             },
             new VaultItem
             {
@@ -214,7 +241,6 @@ public sealed class VaultBackupServiceTests
             HideNotes = item.HideNotes,
             IsFavorite = item.IsFavorite,
             LegacyFolder = item.LegacyFolder,
-            Tags = [.. item.Tags],
             CreatedAt = item.CreatedAt,
             UpdatedAt = item.UpdatedAt
         };

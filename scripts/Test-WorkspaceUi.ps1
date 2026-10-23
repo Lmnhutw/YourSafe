@@ -37,6 +37,19 @@ function Matches([string]$Selector) {
     return @((Ui search $Selector --max 100).matches | Where-Object { -not $_.isOffscreen })
 }
 
+function WaitForNamedType([string]$Name, [string]$Type, [int]$TimeoutMs = 5000) {
+    $watch = [Diagnostics.Stopwatch]::StartNew()
+    do {
+        $element = @(Matches $Name | Where-Object { $_.name -eq $Name -and $_.type -eq $Type }) | Select-Object -Last 1
+        if ($null -ne $element) {
+            Ui wait-for $element.selector -p IsOffscreen --value False -t 1000 | Out-Null
+            return $element
+        }
+        Start-Sleep -Milliseconds 100
+    } while ($watch.ElapsedMilliseconds -lt $TimeoutMs)
+    throw "Visible $Type named '$Name' was not found."
+}
+
 function Element([string]$Selector) {
     $matches = @(Matches $Selector | Where-Object { $_.width -gt 0 -and $_.height -gt 0 })
     if ($matches.Count -ne 1) { throw "Expected one visible element with nonzero bounds: $Selector" }
@@ -110,34 +123,60 @@ if ((Ui get-property YourSafeDisposableUiTest -p HelpText).properties.HelpText -
     throw 'Disposable vault marker mismatch.'
 }
 Ui invoke NavVault | Out-Null
+if ((Ui get-property TogglePaneButton -p Name).properties.Name -eq 'Close Navigation') { Ui invoke TogglePaneButton | Out-Null }
 Ui wait-for BtnLockVault -p Name --value 'Lock vault' -t 5000 | Out-Null
 New-Item -ItemType Directory -Force -Path $outputDirectory | Out-Null
 
 try {
-    Test 'Password Tool defaults to password generation; Cancel produces no password' {
+    Test 'Password Tool shows inline defaults and only Generate produces a copyable result' {
         Ui invoke NavHashTool | Out-Null
         Ui invoke HashModeGenerate | Out-Null
         Ui wait-for TxtPasswordToolTitle --value 'Password Tool' -t 5000 | Out-Null
         Ui wait-for ChkGenerateHash --value Off -t 5000 | Out-Null
         Ui wait-for BtnToolGeneratePassword -t 5000 | Out-Null
         Ui wait-for CmbHashAlgorithm --gone -t 5000 | Out-Null
+        Ui wait-for CmbToolPasswordType --value 'Password' -t 5000 | Out-Null
+        Ui wait-for 'Number of characters Minimum8 Maximum128' --value '24' -t 5000 | Out-Null
+        Ui wait-for BtnCopyToolGeneratedPassword -p IsEnabled --value False -t 5000 | Out-Null
         Capture 'tool-default'
         Ui invoke BtnToolGeneratePassword | Out-Null
-        Ui wait-for PrimaryButton -t 10000 | Out-Null
-        Capture 'tool-generator'
-        Ui invoke CloseButton | Out-Null
-        if ((Ui get-property TxtToolGeneratedPassword -p Value).properties.Value -ne '') { throw 'Cancel produced a password.' }
-        Ui invoke BtnToolGeneratePassword | Out-Null
-        Ui wait-for PrimaryButton -t 5000 | Out-Null
-        Ui invoke PrimaryButton | Out-Null
+        Ui wait-for BtnCopyToolGeneratedPassword -p IsEnabled --value True -t 5000 | Out-Null
         $generated = (Ui get-value TxtToolGeneratedPassword).text
         if ($generated.Length -ne 24 -or $generated -cnotmatch '[A-Z]' -or $generated -cnotmatch '[a-z]' -or
             $generated -notmatch '[0-9]' -or $generated -notmatch '[^A-Za-z0-9]') {
             throw 'Password generator did not return the shared default password options.'
         }
         Capture 'tool-password'
+        Ui invoke BtnCopyToolGeneratedPassword | Out-Null
+        Ui wait-for 'Generated password copied. YourSafe will try to clear it after 30 seconds.' -t 5000 | Out-Null
+        if ((Get-Clipboard -Raw) -cne $generated) { throw 'Copy did not place the current generated password on the clipboard.' }
+        Set-Clipboard -Value 'YOURSAFE-DISPOSABLE-GENERATOR-SENTINEL'
+        Ui send-keys 'ctrl+a' --target TxtToolGeneratedPassword --via send-input | Out-Null
+        Ui send-keys 'ctrl+c' --target TxtToolGeneratedPassword --via send-input | Out-Null
+        if ((Get-Clipboard -Raw) -cne 'YOURSAFE-DISPOSABLE-GENERATOR-SENTINEL') { throw 'Native Ctrl+C bypassed secure Copy.' }
+        Ui send-keys 'ctrl+insert' --target TxtToolGeneratedPassword --via send-input | Out-Null
+        if ((Get-Clipboard -Raw) -cne 'YOURSAFE-DISPOSABLE-GENERATOR-SENTINEL') { throw 'Native Ctrl+Insert bypassed secure Copy.' }
+        Ui invoke BtnCopyToolGeneratedPassword | Out-Null
+        if ((Get-Clipboard -Raw) -cne $generated) { throw 'Secure Copy did not replace the test sentinel.' }
+    }
+    Test 'Generator option and type changes discard old output and require Generate again' {
+        Ui invoke ChkToolSymbols | Out-Null
+        Ui wait-for BtnCopyToolGeneratedPassword -p IsEnabled --value False -t 5000 | Out-Null
+        if ((Ui get-property TxtToolGeneratedPassword -p Value).properties.Value -ne '') { throw 'Options retained a stale generated password.' }
+        Ui invoke BtnToolGeneratePassword | Out-Null
+        if ((Ui get-value TxtToolGeneratedPassword).text -match '[^A-Za-z0-9]') { throw 'Generator ignored the disabled symbols option.' }
+        Ui invoke CmbToolPasswordType | Out-Null
+        $type = WaitForNamedType 'Passphrase' 'ListItem'
+        Ui invoke $type.selector | Out-Null
+        Ui wait-for 'Number of word pairs Minimum4 Maximum12' --value '6' -t 5000 | Out-Null
+        Ui wait-for BtnCopyToolGeneratedPassword -p IsEnabled --value False -t 5000 | Out-Null
+        Ui invoke BtnToolGeneratePassword | Out-Null
+        if (((Ui get-value TxtToolGeneratedPassword).text -split '-').Count -ne 6) { throw 'Passphrase did not use six word pairs.' }
+        Capture 'tool-inline-passphrase'
     }
     Test 'Hash generation validates missing input and accepts a password' {
+        Ui invoke NavHashTool | Out-Null
+        Ui invoke HashModeGenerate | Out-Null
         Ui invoke ChkGenerateHash | Out-Null
         Ui wait-for CmbHashAlgorithm -t 5000 | Out-Null
         Ui wait-for BtnToolGeneratePassword --gone -t 5000 | Out-Null
@@ -235,6 +274,60 @@ try {
         Capture '09-unlocked-add'
         CancelEditor
     }
+    Test 'Editor required fields validate inline and optional recovery codes clear their error' {
+        Ui invoke BtnAddItem | Out-Null
+        AssertEditor
+        Ui wait-for CmbEditorGroup --value 'All' -t 5000 | Out-Null
+        Reveal BtnSaveItem
+        Ui invoke BtnSaveItem | Out-Null
+        Ui wait-for TxtEditorTitleError --value 'Enter a title.' -t 5000 | Out-Null
+        Ui wait-for TxtEditorTitle -p HasKeyboardFocus --value True -t 5000 | Out-Null
+        Ui set-value TxtEditorTitle 'Inline validation fixture' | Out-Null
+        Ui wait-for TxtEditorTitleError --gone -t 5000 | Out-Null
+        Ui set-value TxtEditorUsername 'synthetic-user' | Out-Null
+        Ui wait-for TxtEditorUsernameError --gone -t 5000 | Out-Null
+        Ui wait-for TxtEditorPasswordError --value 'Enter a password.' -t 5000 | Out-Null
+        Ui set-value TxtEditorPassword 'synthetic-test-password' | Out-Null
+        Ui wait-for TxtEditorPasswordError --gone -t 5000 | Out-Null
+        Reveal ChkEditorNoUrl
+        Ui invoke ChkEditorNoUrl | Out-Null
+        Ui wait-for TxtEditorUrlError --gone -t 5000 | Out-Null
+        Reveal TxtEditorRecoveryCodes
+        Ui set-value TxtEditorRecoveryCodes 'only-one-code' | Out-Null
+        Ui wait-for TxtEditorRecoveryCodesError -t 5000 | Out-Null
+        Ui set-value TxtEditorRecoveryCodes '' | Out-Null
+        Ui wait-for TxtEditorRecoveryCodesError --gone -t 5000 | Out-Null
+        Reveal BtnEditorRecoveryHelp
+        Ui send-keys enter --target BtnEditorRecoveryHelp --via send-input | Out-Null
+        $help = WaitForNamedType 'Use the recovery codes supplied by the website. Enter at least two different codes, one per line or separated by commas. For example: 1234-5678, 8765-4321. You can leave this field empty.' 'ToolTip'
+        Ui wait-for $help.selector -p Name --value 'Use the recovery codes supplied by the website. Enter at least two different codes, one per line or separated by commas. For example: 1234-5678, 8765-4321. You can leave this field empty.' -t 5000 | Out-Null
+        Capture 'editor-recovery-help'
+        Ui focus TxtEditorRecoveryCodes | Out-Null
+        Capture 'editor-inline-validation'
+        Reveal BtnCancelItem
+        Ui invoke BtnCancelItem | Out-Null
+        Ui wait-for PrimaryButton -t 5000 | Out-Null
+        Ui invoke PrimaryButton | Out-Null
+        Ui wait-for TxtEditorTitle --gone -t 5000 | Out-Null
+    }
+    Test 'Security settings prompt uses the action label and Cancel preserves the chosen duration' {
+        Ui invoke NavSettings | Out-Null
+        Reveal CmbVaultDuration
+        Ui invoke CmbVaultDuration | Out-Null
+        Ui wait-for CmbVaultDuration -p ExpandCollapseState --value Expanded -t 5000 | Out-Null
+        $duration = @(Matches '2 minutes' | Where-Object { $_.name -eq '2 minutes' -and $_.type -eq 'ListItem' }) | Select-Object -Last 1
+        if ($null -eq $duration) { throw 'Two minute duration was not found.' }
+        Ui invoke $duration.selector | Out-Null
+        Reveal BtnSaveSecuritySettings
+        Ui invoke BtnSaveSecuritySettings | Out-Null
+        Ui wait-for TxtUnlockMasterPassword -t 5000 | Out-Null
+        Ui wait-for PrimaryButton -p Name --value 'Save security settings' -t 5000 | Out-Null
+        Capture 'settings-single-prompt'
+        Ui invoke CloseButton | Out-Null
+        Ui wait-for TxtUnlockMasterPassword --gone -t 5000 | Out-Null
+        Ui wait-for CmbVaultDuration --value '2 minutes' -t 5000 | Out-Null
+        Ui invoke NavVault | Out-Null
+    }
     Test 'Locked Add asks to unlock first; Cancel stays on Vault' {
         Ui invoke BtnLockVault | Out-Null
         Ui wait-for BtnLockVault -p Name --value 'Unlock vault' -t 10000 | Out-Null
@@ -258,6 +351,42 @@ try {
         AssertEditor
         Capture '11-unlocked-keyboard-add'
         CancelEditor
+    }
+    Test 'Creating a group reports success after persistence' {
+        Ui invoke BtnAddGroup | Out-Null
+        Ui wait-for TxtNewGroupName -t 5000 | Out-Null
+        Ui set-value TxtNewGroupName 'UI flow created group' | Out-Null
+        Ui invoke PrimaryButton | Out-Null
+        Ui wait-for 'Group “UI flow created group” created.' -t 15000 | Out-Null
+        Capture 'group-success-feedback'
+    }
+    Test 'Locked settings save verifies one password, rejects wrong input and relocks after success' {
+        Ui invoke BtnLockVault | Out-Null
+        Ui invoke NavSettings | Out-Null
+        Reveal BtnSaveSecuritySettings
+        $before = Get-Content -LiteralPath (Join-Path $testRoot '.config') -Raw
+        Ui invoke BtnSaveSecuritySettings | Out-Null
+        Ui wait-for TxtUnlockMasterPassword -t 5000 | Out-Null
+        Ui set-value TxtUnlockMasterPassword 'incorrect synthetic password' | Out-Null
+        Ui invoke PrimaryButton | Out-Null
+        Ui wait-for TxtUnlockMasterPassword --gone -t 15000 | Out-Null
+        Ui wait-for BtnSaveSecuritySettings -p IsEnabled --value True -t 15000 | Out-Null
+        if ((Get-Content -LiteralPath (Join-Path $testRoot '.config') -Raw) -cne $before) { throw 'Wrong settings password changed persistent configuration.' }
+        Ui invoke BtnSaveSecuritySettings | Out-Null
+        Ui wait-for TxtUnlockMasterPassword -t 5000 | Out-Null
+        Ui set-value TxtUnlockMasterPassword 'correct horse battery staple' | Out-Null
+        Ui invoke PrimaryButton | Out-Null
+        $saved = WaitForNamedType 'Settings saved' 'Window' 15000
+        Ui wait-for TxtUnlockMasterPassword --gone -t 5000 | Out-Null
+        Ui invoke CloseButton | Out-Null
+        Ui invoke NavVault | Out-Null
+        Ui wait-for BtnLockVault -p Name --value 'Unlock vault' -t 5000 | Out-Null
+        Capture 'settings-relocked'
+        Ui invoke BtnLockVault | Out-Null
+        Ui wait-for TxtUnlockMasterPassword -t 5000 | Out-Null
+        Ui set-value TxtUnlockMasterPassword 'correct horse battery staple' | Out-Null
+        Ui invoke PrimaryButton | Out-Null
+        Ui wait-for BtnLockVault -p Name --value 'Lock vault' -t 15000 | Out-Null
     }
 }
 catch { Write-Warning $_.Exception.Message }

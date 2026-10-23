@@ -24,7 +24,7 @@ const account = { id: '11111111-1111-1111-1111-111111111111', title: '<Account>'
 const discovery = accounts => ({ ok: true, result: { token: 'consent', origin: 'https://example.com', accounts, truncated: false } });
 async function scenario(result, resumed = { resumed: false }) {
   const elements = Object.fromEntries(['status', 'origin', 'accounts', 'show-app', 'refresh', 'totp-panel', 'totp-title', 'totp-username',
-    'totp-code', 'totp-countdown', 'totp-progress', 'totp-copy', 'totp-close', 'cancel'].map(id => [id, new Element()]));
+    'totp-code', 'totp-countdown', 'totp-progress', 'totp-copy', 'totp-close', 'cancel', 'integration-off', 'integration-off-open', 'open-app-feedback'].map(id => [id, new Element()]));
   const requests = [], callbacks = new Map(), timeouts = new Map(), windowEvents = {};
   let timerId = 0, now = 1900000010000, monotonic = 1000, replyHook, disconnected = false;
   const onMessage = event(), onDisconnect = event();
@@ -72,16 +72,30 @@ assert.equal(ready.elements.accounts.children.length, 0);
 assert.equal(ready.requests[2].action, 'select');
 assert.equal(ready.elements.refresh.disabled, false);
 const locked = await scenario({ ok: false, error: 'locked' });
-assert.equal(locked.elements.status.dataset.state, 'error');
+assert.equal(locked.elements.status.dataset.state, 'locked');
 assert.equal(locked.elements.status.textContent, 'Your vault is locked. Open YourSafe, unlock your vault, then click Refresh here.');
 locked.elements['show-app'].click();
 await settle();
-assert.equal(locked.elements.status.dataset.state, 'ready');
+assert.equal(locked.elements.status.dataset.state, 'locked', 'Opening the app alone does not change vault status');
 const empty = await scenario(discovery([]));
 assert.equal(empty.elements.status.dataset.state, 'empty');
 const unavailable = await scenario({ ok: false, error: 'desktopUnavailable' });
-assert.match(unavailable.elements.status.textContent, /Windows app is running and Browser integration is enabled in Settings/);
+assert.match(unavailable.elements.status.textContent, /Windows app is running.*update both YourSafe and this extension/);
+assert.equal(unavailable.elements.status.dataset.state, 'unavailable');
 assert.equal(unavailable.elements['show-app'].disabled, false);
+const off = await scenario({ ok: false, error: 'integrationDisabled' });
+assert.equal(off.elements.status.dataset.state, 'off');
+assert.equal(off.elements['integration-off'].hidden, false);
+assert.equal(off.elements['show-app'].hidden, true);
+assert.equal(off.elements['integration-off-open'].disabled, false);
+assert.equal(off.elements.accounts.children.length, 0);
+off.elements['integration-off-open'].click();
+await settle();
+assert.equal(off.elements.status.dataset.state, 'off');
+assert.match(off.elements['open-app-feedback'].textContent, /Settings.*Refresh/);
+const incompatible = await scenario({ ok: false, error: 'protocolMismatch' });
+assert.equal(incompatible.elements.status.dataset.state, 'incompatible');
+assert.match(incompatible.elements.status.textContent, /Update both the Windows app and extension/);
 
 const otp = await scenario(discovery([{ ...account, hasPassword: false }]));
 assert.equal(otp.elements.accounts.querySelectorAll().length, 1, 'TOTP-only accounts have no Fill action');
@@ -160,6 +174,17 @@ const recovered = await scenario(discovery([account]), { resumed: true, interact
 assert.deepEqual(recovered.requests.map(request => request.action), ['resume'], 'reopening does not trigger discovery or native replay');
 assert.equal(recovered.elements.cancel.hidden, false);
 assert.equal(recovered.elements.refresh.disabled, true);
+assert.equal(recovered.elements.status.dataset.state, 'pending');
+assert.equal(recovered.elements['show-app'].disabled, false, 'Open YourSafe remains available during approval');
+recovered.setReply(message => message.action === 'showApp' ? { ok: false, error: 'desktopUnavailable' } : undefined);
+recovered.elements['show-app'].click();
+await settle();
+assert.equal(recovered.elements.status.dataset.state, 'pending', 'opening failure preserves the approval UI');
+assert.equal(recovered.elements.cancel.hidden, false);
+assert.equal(recovered.elements.cancel.disabled, false);
+assert.equal(recovered.elements['totp-panel'].hidden, false);
+assert.match(recovered.elements['open-app-feedback'].textContent, /Could not connect/);
+assert.deepEqual(recovered.requests.map(request => request.action), ['resume', 'showApp'], 'Open does not rediscover, cancel or repeat the secret request');
 recovered.port.onMessage.emit({ event: 'updated', interaction: { ...state, busy: false,
   result: { code: '00001234', periodSeconds: 60, expiresAtUnixMs: 1900000070000 } } });
 assert.equal(recovered.elements['totp-code'].textContent, '0000 1234');
@@ -167,7 +192,7 @@ assert.equal(recovered.elements.refresh.disabled, false);
 assert.equal(recovered.elements.cancel.hidden, true);
 await recovered.tick(70000);
 assert.equal(recovered.elements['totp-code'].textContent, '—');
-assert.equal(recovered.requests.length, 1);
+assert.equal(recovered.requests.length, 2);
 const recoverFill = await scenario(discovery([account]), { resumed: true,
   interaction: { ...state, action: 'select', accounts: [], busy: false, result: { filled: true } } });
 assert.match(recoverFill.elements.status.textContent, /Login details filled/);

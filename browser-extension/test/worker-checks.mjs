@@ -18,6 +18,7 @@ let currentUrl = 'https://example.com/login';
 let documentId = 'document-one';
 let changeDuringSecret = false;
 let nativeError;
+let integrationEnabled = true, unlocked = true, showAppError;
 let frameHook;
 let nativeHook;
 let frameReads = 0;
@@ -40,13 +41,15 @@ globalThis.chrome = {
               currentUrl += '#changed'; nav.emit({ tabId: 1, frameId: 0 });
             }
             nativeHook?.(request.action);
-            const result = request.action === 'findCredentials' ? { credentials: [{ id, title: 'Synthetic', username: 'test', hasPassword, hasTotp: true }], truncated: false }
+            const result = request.action === 'getStatus' ? { integrationEnabled, unlocked }
+              : request.action === 'findCredentials' ? { credentials: [{ id, title: 'Synthetic', username: 'test', hasPassword, hasTotp: true }], truncated: false }
               : request.action === 'getCredentialSecret' ? { username: 'test', password: 'synthetic' }
               : request.action === 'getCredentialTotp' ? { code: '001234', periodSeconds: 30, expiresAtUnixMs: Math.floor(Date.now() / 30000) * 30000 + 30000 }
               : request.action === 'copyCredentialTotp' ? { copied: true } : { shown: true };
-            onMessage.emit(malformed ? { invalid: true } : nativeError
-              ? { version: 2, requestId: request.requestId, ok: false, error: nativeError }
-              : { version: 2, requestId: request.requestId, ok: true, result });
+            const error = request.action === 'showApp' ? showAppError : nativeError;
+            onMessage.emit(malformed ? { invalid: true } : error
+              ? { version: 3, requestId: request.requestId, ok: false, error }
+              : { version: 3, requestId: request.requestId, ok: true, result });
           };
           if (request.action === delayedAction) delayedReply = reply;
           else queueMicrotask(reply);
@@ -101,8 +104,21 @@ assert.equal((await send({ action: 'discover' }, content)).ok, false);
 assert.equal((await send({ action: 'select', id }, content)).ok, false);
 assert.equal(nativeActions.length, 0, 'content cannot trigger discovery/retrieval');
 assert.equal((await send({ action: 'showApp' })).result.shown, true, 'showApp closes its connection after returning a response');
+for (const state of [{ integrationEnabled: false, unlocked: false, error: 'integrationDisabled' },
+  { integrationEnabled: false, unlocked: true, error: 'integrationDisabled' },
+  { integrationEnabled: true, unlocked: false, error: 'locked' }]) {
+  integrationEnabled = state.integrationEnabled;
+  unlocked = state.unlocked;
+  const before = nativeActions.length;
+  assert.equal((await send({ action: 'discover' })).error, state.error);
+  assert.deepEqual(nativeActions.slice(before), ['getStatus'], 'OFF and locked status never request credential metadata');
+  assert.equal((await send({ action: 'showApp' })).result.shown, true, 'control requests remain available while OFF or locked');
+}
+integrationEnabled = unlocked = true;
+const beforeReady = nativeActions.length;
 let discovery = await send({ action: 'discover' });
 assert.equal(discovery.ok, true);
+assert.deepEqual(nativeActions.slice(beforeReady), ['getStatus', 'findCredentials'], 'status precedes account discovery');
 assert.equal((await send({ action: 'select', token: discovery.result.token, id })).ok, true);
 assert.deepEqual(nativeActions.slice(-2), ['findCredentials', 'getCredentialSecret']);
 assert.equal(deliveries.at(-1).options.documentId, documentId);
@@ -142,7 +158,7 @@ for (const checkAt of [1, 2]) {
   frameReads = 0;
   frameHook = read => { if (read === checkAt) nav.emit({ tabId: 1, frameId: 0 }); };
   assert.equal((await send({ action: 'discover' })).error, 'targetChanged');
-  assert.equal(nativeActions.length, before + (checkAt === 2 ? 1 : 0));
+  assert.equal(nativeActions.length, before + (checkAt === 2 ? 2 : 0));
   frameHook = undefined;
 }
 const realNow = Date.now;
@@ -309,12 +325,49 @@ assert.equal(deliveries.filter(item => item.message.action === 'fill').length, f
   'navigation cancels even without a popup');
 delayedAction = undefined;
 session = connect();
+// Opening the desktop has its own connection and never touches a pending approval's authority or deadline.
+for (const action of ['select', 'viewTotp', 'copyTotp']) {
+  hasPassword = true;
+  discovery = await send({ action: 'discover' });
+  delayedAction = action === 'select' ? 'getCredentialSecret' : action === 'viewTotp' ? 'getCredentialTotp' : 'copyCredentialTotp';
+  const approval = send({ action, token: discovery.result.token, id });
+  await new Promise(resolve => setImmediate(resolve));
+  const beforeOpen = nativeConnections;
+  const beforeDisconnect = nativeDisconnects;
+  const beforeCancel = deliveries.filter(item => item.message.action === 'cancel').length;
+  const beforeSnapshot = (await send({ action: 'resume' })).result.interaction;
+  assert.equal((await send({ action: 'showApp' })).result.shown, true, 'Open YourSafe does not queue behind a pending secret');
+  assert.equal(nativeConnections, beforeOpen + 1);
+  assert.equal(nativeDisconnects, beforeDisconnect + 1, 'only the control connection closes');
+  showAppError = 'desktopUnavailable';
+  assert.equal((await send({ action: 'showApp' })).error, 'desktopUnavailable');
+  showAppError = undefined;
+  assert.deepEqual((await send({ action: 'resume' })).result.interaction, beforeSnapshot,
+    'failed Open YourSafe preserves token, target, selected action and pending approval');
+  assert.equal(deliveries.filter(item => item.message.action === 'cancel').length, beforeCancel);
+  delayedReply();
+  assert.equal((await approval).ok, true, 'approval still completes after the control failure');
+  delayedAction = undefined;
+}
+discovery = await send({ action: 'discover' });
+delayedAction = 'getCredentialTotp';
+void send({ action: 'viewTotp', token: discovery.result.token, id });
+await new Promise(resolve => setImmediate(resolve));
+await send({ action: 'showApp' });
+assert.equal((await send({ action: 'cancel', token: discovery.result.token })).result.closed, true,
+  'Cancel remains available after opening YourSafe');
+delayedReply();
+await new Promise(resolve => setImmediate(resolve));
+assert.equal((await send({ action: 'resume' })).result.resumed, false);
+delayedAction = undefined;
 discovery = await send({ action: 'discover' });
 delayedAction = 'getCredentialSecret';
 const expiredApproval = send({ action: 'select', token: discovery.result.token, id });
 await new Promise(resolve => setImmediate(resolve));
 const beforeExpiredApproval = deliveries.filter(item => item.message.action === 'fill').length;
-monotonic += 70001;
+monotonic += 69000;
+await send({ action: 'showApp' });
+monotonic += 1001;
 delayedReply();
 assert.equal((await expiredApproval).error, 'targetChanged');
 assert.equal(deliveries.filter(item => item.message.action === 'fill').length, beforeExpiredApproval,

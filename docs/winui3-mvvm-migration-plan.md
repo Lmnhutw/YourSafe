@@ -90,7 +90,7 @@
 
 ### Phase 4 — Vault workspace
 
-- Port list/filter/search/sort/favorites/folders/tags, add/edit/delete/trash/history và website TOTP.
+- Port list/filter/search/sort/favorites/groups, add/edit/delete/trash/history và website TOTP.
 - Port protected reveal/copy flows, clipboard expiry và CSV import review.
 - Hoàn thiện responsive states, keyboard navigation, accessibility và empty/error/busy states.
 
@@ -136,7 +136,7 @@
 
 - Test `900×600` trở lên ở 100%, 125%, 150% và 200% scaling.
 - Test Light, Dark, High Contrast, keyboard-only và Narrator/automation names.
-- Test empty vault, một item, hàng trăm items, long title/URL/tags và mọi validation/error/cancel state.
+- Test empty vault, một item, hàng trăm items, long title/URL/notes và mọi validation/error/cancel state.
 
 ### Release acceptance
 

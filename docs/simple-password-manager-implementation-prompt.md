@@ -20,7 +20,7 @@ Turn PasswordTool into a useful single-user offline Windows vault for passwords,
 ## Scope
 
 1. Add cryptographically secure password and passphrase generation with strength feedback.
-2. Add local search, favorites, folders, and tags for vault items.
+2. Add local search, favorites, folders, and groups for vault items.
 3. Allow password entries to store an optional website TOTP secret and generate its current six-digit code.
 4. Import common plaintext CSV exports from browsers and password managers through a preview-and-confirm workflow.
 5. Add intentional copy actions for username, password, and website TOTP code. Clear the Windows clipboard after 30 seconds only when it still contains the exact value copied by PasswordTool.
@@ -30,7 +30,7 @@ Turn PasswordTool into a useful single-user offline Windows vault for passwords,
 
 - Preserve offline-only operation. Add no account, database, sync, network request, telemetry, browser extension, mobile client, passkey, sharing, or attachment feature.
 - Use cryptographically secure randomness; never use `Random` for secrets.
-- Website TOTP secrets, imported passwords, notes, folders, and tags must remain inside the encrypted vault payload and encrypted backups.
+- Website TOTP secrets, imported passwords, notes, folders, and groups must remain inside the encrypted vault payload and encrypted backups.
 - Treat CSV content and all persisted JSON as untrusted. Bound file size, row count, field lengths, and parsing complexity.
 - Do not log, place in exception messages, or display in vault list rows any password, recovery code, TOTP secret, or generated secret.
 - Preserve the distinction between the application authenticator secret and each website's optional TOTP secret.

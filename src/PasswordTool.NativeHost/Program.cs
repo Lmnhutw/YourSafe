@@ -22,21 +22,29 @@ try
         try
         {
             watching = CancelOnExtraInputAsync(input.WatchNextByte(), timeout, requestFinished.Token);
-            var request = WireProtocol.ParseRequest(bytes);
             try
             {
-                using var pipe = new NamedPipeClientStream(".", PipePeer.PipeName, PipeDirection.InOut,
-                    PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
-                await pipe.ConnectAsync(3000, timeout.Token);
-                PipePeer.Verify(pipe, server: false, "YourSafe.exe");
-                await Framing.WriteAsync(pipe, bytes, timeout.Token);
-                responseBytes = await Framing.ReadAsync(pipe, timeout.Token) ?? throw new EndOfStreamException();
-                _ = WireProtocol.ParseResponse(responseBytes, request);
+                var request = WireProtocol.ParseRequest(bytes);
+                try
+                {
+                    using var pipe = new NamedPipeClientStream(".", PipePeer.PipeName, PipeDirection.InOut,
+                        PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+                    await pipe.ConnectAsync(3000, timeout.Token);
+                    PipePeer.Verify(pipe, server: false, "YourSafe.exe");
+                    await Framing.WriteAsync(pipe, bytes, timeout.Token);
+                    responseBytes = await Framing.ReadAsync(pipe, timeout.Token) ?? throw new EndOfStreamException();
+                    _ = WireProtocol.ParseResponse(responseBytes, request);
+                }
+                catch (Exception error) when (error is IOException or TimeoutException or OperationCanceledException or UnauthorizedAccessException)
+                {
+                    if (responseBytes is not null) CryptographicOperations.ZeroMemory(responseBytes);
+                    responseBytes = JsonSerializer.SerializeToUtf8Bytes(WireProtocol.Failure(request.RequestId, "desktopUnavailable"), WireProtocol.Json);
+                }
             }
-            catch (Exception error) when (error is IOException or TimeoutException or OperationCanceledException or UnauthorizedAccessException)
+            catch (ProtocolMismatchException mismatch)
             {
                 if (responseBytes is not null) CryptographicOperations.ZeroMemory(responseBytes);
-                responseBytes = JsonSerializer.SerializeToUtf8Bytes(WireProtocol.Failure(request.RequestId, "desktopUnavailable"), WireProtocol.Json);
+                responseBytes = JsonSerializer.SerializeToUtf8Bytes(WireProtocol.Failure(mismatch.RequestId, "protocolMismatch"), WireProtocol.Json);
             }
             requestFinished.Cancel();
             await watching;

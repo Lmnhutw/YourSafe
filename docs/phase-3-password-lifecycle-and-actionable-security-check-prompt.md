@@ -37,7 +37,7 @@ Required semantics:
 - CSV-imported password items set it to the import instant.
 - Changing a password to a different ordinal string sets `PasswordChangedAt` to the change instant.
 - That same captured instant must be used for the previous password's `PasswordHistoryEntry.ChangedAt`; do not call the clock separately for the two values.
-- Editing title, username, URL, notes, tags, folder, favorite state, hidden-field flags, or website TOTP must not change `PasswordChangedAt`.
+- Editing title, username, URL, notes, folder, favorite state, hidden-field flags, or website TOTP must not change `PasswordChangedAt`.
 - Moving an item to Trash, restoring it, backup-health changes, Master Password rotation, KDF upgrades, Authenticator rotation, and other vault/config rewrites must not change it.
 - Converting a recovery-code item into a password item initializes it to the conversion instant.
 - Converting a password item into a recovery-code item clears password-only state, including password history and `PasswordChangedAt`, so obsolete secrets and metadata do not remain attached to that item type.

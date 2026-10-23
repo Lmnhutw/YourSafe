@@ -229,7 +229,13 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
-                <InfoBar AutomationProperties.AutomationId="StatusWorkspace" Margin="24,12,24,0" IsClosable="True" IsOpen="{x:Bind ViewModel.IsStatusOpen, Mode=TwoWay}" Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" Severity="Error" Title="Action could not complete" />
+                <StackPanel Margin="24,12,24,0" Spacing="8">
+                    <InfoBar AutomationProperties.AutomationId="StatusWorkspace" IsClosable="True" IsOpen="{x:Bind ViewModel.IsStatusOpen, Mode=TwoWay}" Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" Severity="{x:Bind local:MainPage.StatusSeverity(ViewModel.IsStatusSuccess), Mode=OneWay}" Title="{x:Bind ViewModel.StatusTitle, Mode=OneWay}" />
+                    <InfoBar AutomationProperties.AutomationId="StatusBrowserIntegrationOff" IsClosable="True" IsOpen="{x:Bind ShowIntegrationReminder(ViewModel.CurrentRoute, ViewModel.Settings.BrowserIntegrationEnabled), Mode=OneWay}" Closing="IntegrationReminder_Closing" Background="{ThemeResource IntegrationReminderBackgroundBrush}" BorderBrush="{ThemeResource IntegrationReminderBorderBrush}" Title="Browser integration is off" Message="Enable browser integration in Settings to use YourSafe in your browser." Severity="Informational">
+                        <InfoBar.ActionButton><Button AutomationProperties.AutomationId="BtnIntegrationSettings" Content="Open Settings" Click="OpenIntegrationSettings_Click" /></InfoBar.ActionButton>
+                    </InfoBar>
+                    <InfoBar x:Name="AutofillPendingInfoBar" AutomationProperties.AutomationId="StatusAutofillPending" AutomationProperties.LiveSetting="Polite" IsClosable="False" IsOpen="False" Title="Browser approval pending" Message="A browser request is waiting for review. Finish any open dialog to continue, or cancel it from the extension." Severity="Informational" />
+                </StackPanel>
                 <Grid x:Name="VaultPage" Grid.Row="1" Padding="{StaticResource PasswordToolPagePadding}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -274,8 +280,7 @@
                                 <TextBlock x:Name="VaultLockLabel" FontSize="16" Text="Lock vault" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
-                        <TextBlock AutomationProperties.AutomationId="TxtVaultLockHint"
-                            Visibility="{x:Bind local:MainPage.BoolToVisibility(ViewModel.IsTableLocked), Mode=OneWay}"
+                        <TextBlock x:Name="VaultLockHint" AutomationProperties.AutomationId="TxtVaultLockHint"
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextAlignment="Right" TextWrapping="Wrap"
                             Text="Your vault is locked. Enter your Master Password to view or edit saved items." />
                         </StackPanel>
@@ -547,6 +552,14 @@
                 </Grid>
 
                 <ScrollViewer x:Name="EditorPage" Grid.Row="1" MaxWidth="1024" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled" Visibility="Collapsed" IsEnabled="{x:Bind local:MainPage.CanEditItem(ViewModel.IsSavingItem, ViewModel.IsSignedIn), Mode=OneWay}">
+                    <ScrollViewer.Resources>
+                        <Style x:Key="EditorFieldErrorStyle" TargetType="TextBlock">
+                            <Setter Property="FontSize" Value="12" />
+                            <Setter Property="TextWrapping" Value="Wrap" />
+                            <Setter Property="Foreground" Value="{ThemeResource SystemFillColorCriticalBrush}" />
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </Style>
+                    </ScrollViewer.Resources>
                     <Grid Margin="24" RowSpacing="24" VerticalAlignment="Top">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -570,33 +583,70 @@
                             <Border x:Name="EditorCredentials" Style="{StaticResource PasswordToolCardStyle}">
                                 <StackPanel Spacing="12">
                                     <TextBlock Text="Details" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                                    <TextBox x:Name="EditorItemTitle" AutomationProperties.AutomationId="TxtEditorTitle" AutomationProperties.Name="Item title" Header="Title" />
-                                    <TextBox x:Name="EditorUsername" AutomationProperties.AutomationId="TxtEditorUsername" AutomationProperties.Name="Username (required)" Header="Username (required)" />
-                                    <Grid ColumnSpacing="8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <PasswordBox x:Name="EditorPassword" AutomationProperties.AutomationId="TxtEditorPassword" AutomationProperties.Name="Password" Header="Password" />
-                                        <Button Grid.Column="1" VerticalAlignment="Bottom" AutomationProperties.AutomationId="BtnGeneratePassword" AutomationProperties.Name="Generate a password or passphrase" Click="GeneratePasswordButton_Click" Content="Generate" />
-                                    </Grid>
-                                    <TextBox x:Name="EditorRecoveryCodes" AutomationProperties.AutomationId="TxtEditorRecoveryCodes" AcceptsReturn="True" AutomationProperties.Name="Recovery codes" ContextMenuOpening="SensitiveTextBox_ContextMenuOpening" Header="Recovery codes, one per line" Height="140" Tag="SensitiveInput" TextWrapping="Wrap" />
+                                    <StackPanel Spacing="4">
+                                        <TextBox x:Name="EditorItemTitle" AutomationProperties.AutomationId="TxtEditorTitle" AutomationProperties.Name="Item title (required)" AutomationProperties.IsRequiredForForm="True" Header="Title *" TextChanged="EditorField_Changed" />
+                                        <TextBlock x:Name="EditorTitleError" AutomationProperties.AutomationId="TxtEditorTitleError" AutomationProperties.LiveSetting="Polite" Style="{StaticResource EditorFieldErrorStyle}" />
+                                    </StackPanel>
+                                    <StackPanel Spacing="4">
+                                        <TextBox x:Name="EditorUsername" AutomationProperties.AutomationId="TxtEditorUsername" AutomationProperties.Name="Username (required)" AutomationProperties.IsRequiredForForm="True" Header="Username *" TextChanged="EditorField_Changed" />
+                                        <TextBlock x:Name="EditorUsernameError" AutomationProperties.AutomationId="TxtEditorUsernameError" AutomationProperties.LiveSetting="Polite" Style="{StaticResource EditorFieldErrorStyle}" />
+                                    </StackPanel>
+                                    <StackPanel Spacing="4">
+                                        <Grid ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <PasswordBox x:Name="EditorPassword" AutomationProperties.AutomationId="TxtEditorPassword" AutomationProperties.Name="Password (required)" AutomationProperties.IsRequiredForForm="True" Header="Password *" PasswordChanged="EditorField_Changed" />
+                                            <Button Grid.Column="1" VerticalAlignment="Bottom" AutomationProperties.AutomationId="BtnGeneratePassword" AutomationProperties.Name="Generate a password or passphrase" Click="GeneratePasswordButton_Click" Content="Generate" />
+                                        </Grid>
+                                        <TextBlock x:Name="EditorPasswordError" AutomationProperties.AutomationId="TxtEditorPasswordError" AutomationProperties.LiveSetting="Polite" Style="{StaticResource EditorFieldErrorStyle}" />
+                                    </StackPanel>
+                                    <StackPanel Spacing="4">
+                                        <TextBox x:Name="EditorRecoveryCodes" AutomationProperties.AutomationId="TxtEditorRecoveryCodes" AcceptsReturn="True" AutomationProperties.Name="Recovery codes (optional)" ContextMenuOpening="SensitiveTextBox_ContextMenuOpening" CopyingToClipboard="SensitiveTextBox_CopyingToClipboard" CuttingToClipboard="SensitiveTextBox_CuttingToClipboard" Height="140" Tag="SensitiveInput" TextWrapping="Wrap" TextChanged="EditorField_Changed">
+                                            <TextBox.Header>
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <TextBlock VerticalAlignment="Center"><Run Text="Recovery codes" /><Run Text=" (Optional)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></TextBlock>
+                                                    <Button Style="{StaticResource SubtleButtonStyle}" Width="24" Height="24" MinWidth="0" MinHeight="0" Padding="2" AutomationProperties.AutomationId="BtnEditorRecoveryHelp" AutomationProperties.Name="About recovery codes" AutomationProperties.HelpText="Use the recovery codes supplied by the website. Enter at least two different codes, one per line or separated by commas. For example: 1234-5678, 8765-4321. You can leave this field empty." GotFocus="EditorHelp_GotFocus" LostFocus="EditorHelp_LostFocus" Click="EditorHelp_Click">
+                                                        <FontIcon Glyph="&#xE946;" FontSize="14" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                        <ToolTipService.ToolTip><ToolTip><TextBlock MaxWidth="300" TextWrapping="Wrap" Text="Use the recovery codes supplied by the website. Enter at least two different codes, one per line or separated by commas. For example: 1234-5678, 8765-4321. You can leave this field empty." /></ToolTip></ToolTipService.ToolTip>
+                                                    </Button>
+                                                </StackPanel>
+                                            </TextBox.Header>
+                                        </TextBox>
+                                        <TextBlock x:Name="EditorRecoveryCodesError" AutomationProperties.AutomationId="TxtEditorRecoveryCodesError" AutomationProperties.LiveSetting="Polite" Style="{StaticResource EditorFieldErrorStyle}" />
+                                    </StackPanel>
                                 </StackPanel>
                             </Border>
                             <Border x:Name="EditorDetails" Grid.Row="1" Style="{StaticResource PasswordToolCardStyle}">
                                 <StackPanel Spacing="12">
                                     <TextBlock Text="Organization" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                                    <Grid ColumnSpacing="12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                    <TextBox x:Name="EditorUrl" AutomationProperties.AutomationId="TxtEditorUrl" AutomationProperties.Name="URL (required unless No URL is checked)" Header="URL (or select No URL)" />
-                                        <CheckBox x:Name="EditorNoUrl" Grid.Column="1" MinWidth="0" VerticalAlignment="Bottom" AutomationProperties.AutomationId="ChkEditorNoUrl" AutomationProperties.Name="No URL" Checked="EditorNoUrl_Changed" Unchecked="EditorNoUrl_Changed" Content="No URL" />
-                                    </Grid>
-                                    <local:AppComboBox x:Name="EditorGroup" AutomationProperties.AutomationId="CmbEditorGroup" AutomationProperties.Name="Group" DisplayMemberPath="Label" Header="Group" ItemsSource="{x:Bind ViewModel.Vault.GroupOptions, Mode=OneWay}" />
-                                    <TextBox x:Name="EditorTags" AutomationProperties.AutomationId="TxtEditorTags" AutomationProperties.Name="Tags" Header="Tags, comma separated" />
-                                    <TextBox x:Name="EditorNotes" AutomationProperties.AutomationId="TxtEditorNotes" AcceptsReturn="True" AutomationProperties.Name="Notes" ContextMenuOpening="SensitiveTextBox_ContextMenuOpening" Header="Notes" Height="96" Tag="SensitiveInput" TextWrapping="Wrap" />
+                                    <StackPanel Spacing="4">
+                                        <Grid ColumnSpacing="12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Spacing="4">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <TextBlock Text="URL (or select No URL)" VerticalAlignment="Center" />
+                                                    <Button Style="{StaticResource SubtleButtonStyle}" Width="24" Height="24" MinWidth="0" MinHeight="0" Padding="2" AutomationProperties.AutomationId="BtnEditorUrlHelp" AutomationProperties.Name="About URLs and browser autofill" AutomationProperties.HelpText="Add the website's sign-in URL so YourSafe can match this item for browser autofill. Choose No URL if you do not need autofill for this item." GotFocus="EditorHelp_GotFocus" LostFocus="EditorHelp_LostFocus" Click="EditorHelp_Click">
+                                                        <FontIcon Glyph="&#xE946;" FontSize="14" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                        <ToolTipService.ToolTip><ToolTip><TextBlock MaxWidth="300" TextWrapping="Wrap" Text="Add the website's sign-in URL so YourSafe can match this item for browser autofill. Choose No URL if you do not need autofill for this item." /></ToolTip></ToolTipService.ToolTip>
+                                                    </Button>
+                                                </StackPanel>
+                                                <TextBox x:Name="EditorUrl" AutomationProperties.AutomationId="TxtEditorUrl" AutomationProperties.Name="URL (required unless No URL is checked)" TextChanged="EditorField_Changed" />
+                                            </StackPanel>
+                                            <CheckBox x:Name="EditorNoUrl" Grid.Column="1" MinWidth="0" VerticalAlignment="Bottom" AutomationProperties.AutomationId="ChkEditorNoUrl" AutomationProperties.Name="No URL" Checked="EditorNoUrl_Changed" Unchecked="EditorNoUrl_Changed" Content="No URL" />
+                                        </Grid>
+                                        <TextBlock x:Name="EditorUrlError" AutomationProperties.AutomationId="TxtEditorUrlError" AutomationProperties.LiveSetting="Polite" Style="{StaticResource EditorFieldErrorStyle}" />
+                                    </StackPanel>
+                                    <local:AppComboBox x:Name="EditorGroup" AutomationProperties.AutomationId="CmbEditorGroup" AutomationProperties.Name="Group (optional)" DisplayMemberPath="Label" ItemsSource="{x:Bind ViewModel.Vault.GroupOptions, Mode=OneWay}">
+                                        <local:AppComboBox.Header><TextBlock><Run Text="Group" /><Run Text=" (Optional)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></TextBlock></local:AppComboBox.Header>
+                                    </local:AppComboBox>
+                                    <TextBox x:Name="EditorNotes" AutomationProperties.AutomationId="TxtEditorNotes" AcceptsReturn="True" AutomationProperties.Name="Notes (optional)" ContextMenuOpening="SensitiveTextBox_ContextMenuOpening" CopyingToClipboard="SensitiveTextBox_CopyingToClipboard" CuttingToClipboard="SensitiveTextBox_CuttingToClipboard" Height="96" Tag="SensitiveInput" TextWrapping="Wrap">
+                                        <TextBox.Header><TextBlock><Run Text="Notes" /><Run Text=" (Optional)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></TextBlock></TextBox.Header>
+                                    </TextBox>
                                     <Grid ColumnSpacing="12">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
@@ -617,22 +667,29 @@
                             </Border>
                             <Border x:Name="EditorTotpSection" Grid.Row="2" Style="{StaticResource PasswordToolCardStyle}">
                                 <StackPanel Spacing="12">
-                                    <TextBlock Text="Authentication codes - TOTP" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                                    <TextBlock x:Name="EditorTotpStatus" Text="No TOTP added" TextWrapping="Wrap" />
-                                    <StackPanel Spacing="4">
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <Button x:Name="EditorTotpButton" AutomationProperties.AutomationId="BtnEditorTotp" Click="EditTotpButton_Click" Content="Add TOTP" />
-                                            <Button x:Name="EditorRemoveTotpButton" AutomationProperties.AutomationId="BtnRemoveTotp" Click="RemoveTotpButton_Click" Content="Remove" Visibility="Collapsed" />
-                                        </StackPanel>
-                                        <TextBlock Style="{StaticResource PasswordToolHintStyle}" Text="Click 'Save item' to keep your changes." />
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <TextBlock VerticalAlignment="Center" Style="{ThemeResource SubtitleTextBlockStyle}"><Run Text="Authenticator" /><Run Text=" (Optional)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></TextBlock>
+                                        <Button Style="{StaticResource SubtleButtonStyle}" Width="24" Height="24" MinWidth="0" MinHeight="0" Padding="2" AutomationProperties.AutomationId="BtnEditorAuthenticatorHelp" AutomationProperties.Name="About the account Authenticator" AutomationProperties.HelpText="Add the website's Authenticator setup key or setup link to generate its verification codes. This is optional and separate from your YourSafe sign-in Authenticator. Changes are kept when you save the item." GotFocus="EditorHelp_GotFocus" LostFocus="EditorHelp_LostFocus" Click="EditorHelp_Click">
+                                            <FontIcon Glyph="&#xE946;" FontSize="14" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            <ToolTipService.ToolTip><ToolTip><TextBlock MaxWidth="300" TextWrapping="Wrap" Text="Add the website's Authenticator setup key or setup link to generate its verification codes. This is optional and separate from your YourSafe sign-in Authenticator. Changes are kept when you save the item." /></ToolTip></ToolTipService.ToolTip>
+                                        </Button>
+                                    </StackPanel>
+                                    <TextBlock x:Name="EditorTotpStatus" Text="Verification code added" Visibility="Collapsed" TextWrapping="Wrap" />
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button x:Name="EditorTotpButton" AutomationProperties.AutomationId="BtnEditorTotp" Click="EditTotpButton_Click" Content="Add TOTP" />
+                                        <Button x:Name="EditorRemoveTotpButton" AutomationProperties.AutomationId="BtnRemoveTotp" Click="RemoveTotpButton_Click" Content="Remove" Visibility="Collapsed" />
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
                         </Grid>
-                        <StackPanel Grid.Row="2" HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
-                            <Button AutomationProperties.AutomationId="BtnCancelItem" Click="CancelEditorButton_Click" Content="Cancel" />
-                            <Button Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="BtnSaveItem" Click="SaveEditorButton_Click" Content="Save item" />
-                        </StackPanel>
+                        <Grid Grid.Row="2" ColumnSpacing="16">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <TextBlock AutomationProperties.AutomationId="TxtEditorSaveHint" Style="{StaticResource PasswordToolHintStyle}" Text="Click 'Save item' to keep your changes." VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal" Spacing="8">
+                                <Button AutomationProperties.AutomationId="BtnCancelItem" Click="CancelEditorButton_Click" Content="Cancel" />
+                                <Button Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="BtnSaveItem" Click="SaveEditorButton_Click" Content="Save item" />
+                            </StackPanel>
+                        </Grid>
                     </Grid>
                 </ScrollViewer>
 
@@ -667,8 +724,34 @@
                                         </CheckBox.Resources>
                                     </CheckBox>
                                     <StackPanel x:Name="PasswordGenerationPanel" Spacing="16">
-                                        <TextBox x:Name="ToolGeneratedPassword" AutomationProperties.AutomationId="TxtToolGeneratedPassword" AutomationProperties.Name="Generated password" Header="Generated password" FontFamily="Consolas" IsReadOnly="True" TextWrapping="Wrap" />
-                                        <Button AutomationProperties.AutomationId="BtnToolGeneratePassword" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Right" Click="ToolGeneratePasswordButton_Click" Content="Generate password" />
+                                        <Grid ColumnSpacing="16">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                            <local:AppComboBox x:Name="ToolPasswordType" AutomationProperties.AutomationId="CmbToolPasswordType" AutomationProperties.Name="Password type" Header="Password type" SelectedIndex="0" SelectionChanged="ToolPasswordType_SelectionChanged">
+                                                <x:String>Password</x:String><x:String>Passphrase</x:String>
+                                            </local:AppComboBox>
+                                            <NumberBox x:Name="ToolPasswordLength" Grid.Column="1" AutomationProperties.AutomationId="NumToolPasswordLength" AutomationProperties.Name="Number of characters" Header="Number of characters" Minimum="8" Maximum="128" Value="24" SmallChange="1" LargeChange="8" SpinButtonPlacementMode="Inline" ValueChanged="ToolGeneratorNumber_Changed" />
+                                            <NumberBox x:Name="ToolWordPairs" Grid.Column="1" AutomationProperties.AutomationId="NumToolWordPairs" AutomationProperties.Name="Number of word pairs" Header="Number of word pairs" Minimum="4" Maximum="12" Value="6" SmallChange="1" LargeChange="2" SpinButtonPlacementMode="Inline" Visibility="Collapsed" ValueChanged="ToolGeneratorNumber_Changed" />
+                                        </Grid>
+                                        <Grid x:Name="ToolCharacterOptions" ColumnSpacing="16" RowSpacing="4">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                            <CheckBox x:Name="ToolUppercase" AutomationProperties.AutomationId="ChkToolUppercase" Content="Uppercase" IsChecked="True" Checked="ToolGeneratorOptions_Changed" Unchecked="ToolGeneratorOptions_Changed" />
+                                            <CheckBox x:Name="ToolLowercase" Grid.Column="1" AutomationProperties.AutomationId="ChkToolLowercase" Content="Lowercase" IsChecked="True" Checked="ToolGeneratorOptions_Changed" Unchecked="ToolGeneratorOptions_Changed" />
+                                            <CheckBox x:Name="ToolDigits" Grid.Row="1" AutomationProperties.AutomationId="ChkToolDigits" Content="Digits" IsChecked="True" Checked="ToolGeneratorOptions_Changed" Unchecked="ToolGeneratorOptions_Changed" />
+                                            <CheckBox x:Name="ToolSymbols" Grid.Row="1" Grid.Column="1" AutomationProperties.AutomationId="ChkToolSymbols" Content="Symbols" IsChecked="True" Checked="ToolGeneratorOptions_Changed" Unchecked="ToolGeneratorOptions_Changed" />
+                                        </Grid>
+                                        <Button AutomationProperties.AutomationId="BtnToolGeneratePassword" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Right" Click="ToolGeneratePasswordButton_Click" Content="Generate" />
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="Generated password" />
+                                            <Grid>
+                                                <TextBox x:Name="ToolGeneratedPassword" AutomationProperties.AutomationId="TxtToolGeneratedPassword" AutomationProperties.Name="Generated password" FontFamily="Consolas" IsReadOnly="True" TextWrapping="Wrap" MinHeight="44" Padding="12,8,52,8" Tag="SensitiveInput" ContextMenuOpening="SensitiveTextBox_ContextMenuOpening" CopyingToClipboard="SensitiveTextBox_CopyingToClipboard" CuttingToClipboard="SensitiveTextBox_CuttingToClipboard">
+                                                    <TextBox.KeyboardAccelerators><KeyboardAccelerator Key="Insert" Modifiers="Control" Invoked="SensitiveClipboardKeyboardAccelerator_Invoked" /></TextBox.KeyboardAccelerators>
+                                                </TextBox>
+                                                <Button x:Name="ToolCopyGeneratedPassword" AutomationProperties.AutomationId="BtnCopyToolGeneratedPassword" AutomationProperties.Name="Copy generated password" Style="{StaticResource SubtleButtonStyle}" Width="32" Height="32" MinWidth="0" MinHeight="0" Padding="6" Margin="0,6,6,6" HorizontalAlignment="Right" VerticalAlignment="Center" IsEnabled="False" ToolTipService.ToolTip="Copy generated password" Click="CopyToolGeneratedPassword_Click"><FontIcon Glyph="&#xE8C8;" FontSize="16" /></Button>
+                                            </Grid>
+                                            <TextBlock x:Name="ToolGeneratedStrength" AutomationProperties.AutomationId="TxtToolGeneratedStrength" Style="{StaticResource PasswordToolHintStyle}" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <InfoBar x:Name="ToolGeneratorStatus" AutomationProperties.AutomationId="StatusToolGenerator" IsOpen="False" IsClosable="True" Severity="Informational" Title="Password generator" />
                                     </StackPanel>
                                     <StackPanel x:Name="HashGenerationFields" Spacing="16" Visibility="Collapsed">
                                         <StackPanel Spacing="4">
@@ -909,16 +992,16 @@
                                 </local:AppComboBox>
                                 <TextBlock AutomationProperties.AutomationId="TxtVaultLockDescription" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" Text="Your vault locks after this time, starting when you unlock it. Restart YourSafe to apply changes." TextWrapping="Wrap" />
                                 </StackPanel>
-                                <PasswordBox x:Name="SettingsMasterPassword" AutomationProperties.Name="Master Password for settings" Header="Current Master Password" />
-                                <Button Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Right" Click="SaveSettingsButton_Click" Content="Save security settings" />
+                                <Button AutomationProperties.AutomationId="BtnSaveSecuritySettings" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Right" Click="SaveSettingsButton_Click" Content="Save security settings" />
                                 <StackPanel Spacing="4">
                                     <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Recovery Key" />
                                     <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Use your Recovery Key to reset your Master Password and Authenticator. Create a new key if you need to replace the one you saved." TextWrapping="Wrap" />
                                 </StackPanel>
-                                <StackPanel Spacing="4">
-                                    <Button HorizontalAlignment="Right" Click="RotateRecoveryKeyButton_Click" Content="Create a new Recovery Key" />
-                                    <TextBlock Style="{StaticResource PasswordToolHintStyle}" Text="{x:Bind ViewModel.Settings.BackupHealthText, Mode=OneWay}" />
-                                </StackPanel>
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                    <TextBlock AutomationProperties.AutomationId="TxtBackupHealth" Style="{StaticResource PasswordToolHintStyle}" Text="{x:Bind ViewModel.Settings.BackupHealthText, Mode=OneWay}" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" VerticalAlignment="Center" AutomationProperties.AutomationId="BtnCreateRecoveryKey" Click="RotateRecoveryKeyButton_Click" Content="Create a new Recovery Key" />
+                                </Grid>
                             </StackPanel>
                         </Border>
 

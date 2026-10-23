@@ -87,8 +87,6 @@ public sealed class VaultPersistenceRollbackTests : IDisposable
         var secret = totp.GenerateSecret();
         using var vault = new VaultService(storage, new EncryptionService(), totp);
         vault.InitializeNewVault(Password, secret, totp.GetCurrentCode(secret).Code, RecoveryKeyService.Generate(), true);
-        var initial = Assert.Single(vault.GetGroups());
-        vault.DeleteGroup(initial.Id, "Confirm delete all data in \"Ungrouped\"", "");
         fail = true;
         Assert.Throws<IOException>(() => vault.AddItem(new VaultItem { Title = "Failed", Password = "synthetic password" }));
         Assert.Empty(vault.GetItems());

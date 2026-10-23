@@ -3,7 +3,10 @@ param(
     [Parameter(Mandatory)][int]$ProcessId,
     [Parameter(Mandatory)][string]$TestDirectory,
     [string]$WinAppPath = 'winapp',
-    [string]$CaptureLabel = 'current'
+    [string]$CaptureLabel = 'current',
+    [switch]$LayoutsOnly,
+    [ValidateRange(900, 4096)][int]$ExpectedLogicalWidth,
+    [switch]$RequireHighContrast
 )
 
 # Run against an already unlocked DEBUG app using Create_opt_in_disposable_ui_vault.
@@ -75,10 +78,10 @@ function Reveal([string]$Id) {
     throw "Element '$Id' has no visible, nonzero bounds after scrolling."
 }
 
-function Capture([string]$Name, [switch]$Popup) {
+function Capture([string]$Name) {
     $path = Join-Path $outputDirectory "$captureName-$Name.png"
-    [string[]]$options = @(if ($Popup) { '--capture-screen' })
-    Ui screenshot -o $path @options | Out-Null
+    Start-Sleep -Milliseconds 150
+    Ui screenshot --capture-screen -o $path | Out-Null
     $captures.Add($path)
 }
 
@@ -154,10 +157,88 @@ if ((Ui get-property YourSafeDisposableUiTest -p HelpText).properties.HelpText -
     throw 'Disposable vault marker mismatch.'
 }
 Ui invoke NavVault | Out-Null
-Ui wait-for BtnLockVault -t 5000 | Out-Null
+if ((Ui get-property TogglePaneButton -p Name).properties.Name -eq 'Close Navigation') { Ui invoke TogglePaneButton | Out-Null }
+Ui wait-for BtnLockVault -p Name --value 'Lock vault' -t 5000 | Out-Null
 New-Item -ItemType Directory -Force -Path $outputDirectory | Out-Null
 
+if (-not ('AppearanceUiEnvironment' -as [type])) {
+    Add-Type @'
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+public static class AppearanceUiEnvironment {
+    [StructLayout(LayoutKind.Sequential)] public struct Rect { public int Left, Top, Right, Bottom; }
+    [StructLayout(LayoutKind.Sequential)] public struct Contrast { public uint Size, Flags; public IntPtr Scheme; }
+    [DllImport("user32.dll", SetLastError = true)] public static extern bool GetWindowRect(IntPtr window, out Rect rect);
+    [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr window);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool SystemParametersInfo(uint action, uint size, ref Contrast contrast, uint flags);
+    public static bool IsHighContrast() {
+        var contrast = new Contrast { Size = (uint)Marshal.SizeOf<Contrast>() };
+        if (!SystemParametersInfo(0x0042, contrast.Size, ref contrast, 0)) throw new Win32Exception(Marshal.GetLastWin32Error());
+        return (contrast.Flags & 1) != 0;
+    }
+}
+'@
+}
+$windowBounds = [AppearanceUiEnvironment+Rect]::new()
+if (-not [AppearanceUiEnvironment]::GetWindowRect($windowHandle, [ref]$windowBounds)) { throw 'Cannot read the marked window bounds.' }
+$windowDpi = [AppearanceUiEnvironment]::GetDpiForWindow($windowHandle)
+if ($windowDpi -eq 0) { throw 'Cannot read the marked window DPI.' }
+$windowEnvironment = @{
+    physicalWidth = $windowBounds.Right - $windowBounds.Left
+    physicalHeight = $windowBounds.Bottom - $windowBounds.Top
+    dpi = $windowDpi
+    logicalWidth = ($windowBounds.Right - $windowBounds.Left) * 96.0 / $windowDpi
+    logicalHeight = ($windowBounds.Bottom - $windowBounds.Top) * 96.0 / $windowDpi
+    highContrast = [AppearanceUiEnvironment]::IsHighContrast()
+}
+
 try {
+    if ($ExpectedLogicalWidth -and [Math]::Abs($windowEnvironment.logicalWidth - $ExpectedLogicalWidth) -gt 2) {
+        throw "Expected a $ExpectedLogicalWidth DIP window; actual width is $($windowEnvironment.logicalWidth) DIP."
+    }
+    if ($RequireHighContrast -and -not $windowEnvironment.highContrast) { throw 'A Windows Contrast theme must already be active for this batch.' }
+    if ($LayoutsOnly) {
+        $themes = if ($RequireHighContrast) { @('System') } else { @('Light', 'Dark') }
+        foreach ($theme in $themes) {
+            Test "$theme new workspace layouts and keyboard tooltips remain reachable" {
+                Ui invoke NavSettings | Out-Null
+                SelectCombo CmbAppTheme $theme
+                Reveal CmbVaultDuration
+                Capture "$theme-settings-security"
+                Reveal BtnSaveSecuritySettings
+                Capture "$theme-settings-security-actions"
+                Ui invoke NavHashTool | Out-Null
+                Ui invoke HashModeGenerate | Out-Null
+                if ((Ui get-value ChkGenerateHash).text -eq 'On') { Ui invoke ChkGenerateHash | Out-Null }
+                Reveal CmbToolPasswordType
+                Ui wait-for BtnCopyToolGeneratedPassword -p IsEnabled --value False -t 5000 | Out-Null
+                Capture "$theme-generator-options"
+                Reveal TxtToolGeneratedPassword
+                Capture "$theme-generator-output"
+                Ui invoke NavVault | Out-Null
+                Ui invoke BtnAddItem | Out-Null
+                Ui wait-for TxtEditorTitle -t 5000 | Out-Null
+                Reveal TxtEditorTitle
+                Capture "$theme-editor-fields"
+                Reveal BtnEditorRecoveryHelp
+                EnsureForeground BtnEditorRecoveryHelp
+                Ui send-keys enter --target BtnEditorRecoveryHelp --via send-input | Out-Null
+                Ui wait-for 'Use the recovery codes supplied by the website. Enter at least two different codes, one per line or separated by commas. For example: 1234-5678, 8765-4321. You can leave this field empty.' -t 5000 | Out-Null
+                Capture "$theme-recovery-keyboard-help"
+                Reveal BtnEditorAuthenticatorHelp
+                EnsureForeground BtnEditorAuthenticatorHelp
+                Ui send-keys enter --target BtnEditorAuthenticatorHelp --via send-input | Out-Null
+                Ui wait-for "Add the website's Authenticator setup key or setup link to generate its verification codes. This is optional and separate from your YourSafe sign-in Authenticator. Changes are kept when you save the item." -t 5000 | Out-Null
+                Capture "$theme-authenticator-keyboard-help"
+                Reveal BtnCancelItem
+                Ui invoke BtnCancelItem | Out-Null
+                Ui wait-for TxtEditorTitle --gone -t 5000 | Out-Null
+            }
+        }
+    }
+    else {
     Test 'Item filter popup opens downward and selects on the first click' {
         foreach ($value in @('Recovery codes', 'Favorites', 'Passwords', 'All items', 'Recovery codes', 'All items')) {
             $combo = VisibleItem 'Item type filter' ComboBox
@@ -221,27 +302,8 @@ try {
         SelectCombo CmbGroupTabPlacement Horizontal
         AssertPreferences Dark $false
     }
-    Test 'Ungrouped tab color persists independently and Reset clears it' {
-        Ui invoke NavVault | Out-Null
-        $ungrouped = VisibleItem Ungrouped Button
-        $ungroupedId = $ungrouped.automationId
-        OpenTabColor $ungroupedId
-        Ui set-value TxtGroupColorHex '#00AAFF' | Out-Null
-        Ui invoke PrimaryButton | Out-Null
-        Ui wait-for GroupColorPicker --gone -t 5000 | Out-Null
-        Ui invoke $ungroupedId | Out-Null
-        Capture '07-ungrouped-custom-buttons-blue'
-        OpenTabColor $ungroupedId
-        Ui wait-for TxtGroupColorHex --value '#00AAFF' -t 5000 | Out-Null
-        Ui invoke SecondaryButton | Out-Null
-        Ui wait-for GroupColorPicker --gone -t 5000 | Out-Null
-        OpenTabColor $ungroupedId
-        if ((Ui get-value TxtGroupColorHex).text -eq '#00AAFF') { throw 'Reset retained the group color.' }
-        Ui invoke CloseButton | Out-Null
-        Ui wait-for GroupColorPicker --gone -t 5000 | Out-Null
-        Capture '08-system-tabs-reset'
-    }
     Test 'Custom tab color uses its right-click menu and persists through encrypted refresh' {
+        Ui invoke NavVault | Out-Null
         Ui invoke Group_All | Out-Null
         $group = @(Matches Work | Where-Object { $_.name -eq 'Work' -and $_.type -eq 'Button' -and $_.automationId -like 'Group_*' }) | Select-Object -First 1
         if ($null -eq $group) { throw 'The disposable Work tab was not found.' }
@@ -289,9 +351,12 @@ try {
     Test 'Editor validation stays visible and Ctrl+N preserves the draft' {
         Ui invoke BtnAddItem | Out-Null
         Ui wait-for TxtEditorTitle -t 5000 | Out-Null
+        Reveal BtnSaveItem
         Ui invoke BtnSaveItem | Out-Null
-        Ui wait-for StatusWorkspace -t 5000 | Out-Null
-        Ui wait-for TxtEditorTitle -t 5000 | Out-Null
+        Ui wait-for TxtEditorTitleError --value 'Enter a title.' -t 5000 | Out-Null
+        Ui wait-for TxtEditorUsernameError --value 'Enter a username.' -t 5000 | Out-Null
+        Ui wait-for TxtEditorPasswordError --value 'Enter a password.' -t 5000 | Out-Null
+        Reveal TxtEditorTitleError
         Capture '12-editor-error'
         Ui set-value TxtEditorTitle $draftTitle | Out-Null
         EnsureForeground
@@ -302,7 +367,7 @@ try {
         Ui invoke BtnCancelItem | Out-Null
         Ui wait-for PrimaryButton -t 5000 | Out-Null
         AssertDialogButtons
-        Capture '13-discard-confirmation' -Popup
+        Capture '13-discard-confirmation'
         Ui invoke CloseButton | Out-Null
         Ui wait-for TxtEditorTitle --value $draftTitle -t 5000 | Out-Null
         Ui invoke BtnCancelItem | Out-Null
@@ -315,7 +380,10 @@ try {
         Ui invoke BtnAddItem | Out-Null
         Ui wait-for TxtEditorTitle -t 5000 | Out-Null
         Ui set-value TxtEditorTitle $savedTitle | Out-Null
+        Ui set-value TxtEditorUsername 'appearance@example.test' | Out-Null
         Ui set-value TxtEditorPassword 'synthetic-test-password' | Out-Null
+        Reveal ChkEditorNoUrl
+        Ui invoke ChkEditorNoUrl | Out-Null
         Reveal BtnSaveItem
         EnsureForeground BtnSaveItem
         Ui click BtnSaveItem --double | Out-Null
@@ -337,15 +405,23 @@ try {
         Ui wait-for CmbAppTheme --value System -t 5000 | Out-Null
         Capture '15-system-background-buttons-blue'
     }
+    }
 }
-catch { Write-Warning $_.Exception.Message }
+catch {
+    if (@($results | Where-Object { $_.status -eq 'FAIL' }).Count -eq 0) {
+        $results.Add(@{ name = 'Appearance environment preflight'; status = 'FAIL'; detail = $_.Exception.Message })
+    }
+    Write-Warning $_.Exception.Message
+}
 finally {
     @{
         processId = $ProcessId
         testDirectory = $testRoot
+        windowEnvironment = $windowEnvironment
+        layoutsOnly = [bool]$LayoutsOnly
         results = @($results)
         screenshots = @($captures)
-        visualReviewRequired = 'Confirm filled buttons remain #204BDB before and after each individual tab color change. Inspect tab previews, text contrast, clipping and hover/focus/disabled states. Repeat at small widths, 125/150 percent DPI, Win11 Snap and a Windows Contrast theme.'
+        visualReviewRequired = 'Confirm filled buttons remain #204BDB outside Windows Contrast themes; Contrast themes use system brushes. Inspect text contrast, clipping, optional labels, copy-button placement, and focus/disabled states. The windowEnvironment records actual DPI, logical width and Windows Contrast status; a label alone is not verification.'
     } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $outputDirectory "appearance-ui-$captureName.json") -Encoding utf8
 }
 if (@($results | Where-Object { $_.status -eq 'FAIL' }).Count -gt 0) { exit 1 }

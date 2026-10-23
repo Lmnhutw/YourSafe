@@ -56,6 +56,8 @@ public sealed partial class ShellViewModel : ObservableObject
     [ObservableProperty] public partial AppFlowState FlowState { get; set; }
     [ObservableProperty] public partial AppRoute CurrentRoute { get; set; } = AppRoute.Vault;
     [ObservableProperty] public partial string StatusMessage { get; set; } = string.Empty;
+    [ObservableProperty] public partial string StatusTitle { get; set; } = "Unable to complete action";
+    [ObservableProperty] public partial bool IsStatusSuccess { get; set; }
     [ObservableProperty] public partial bool IsStatusOpen { get; set; }
     [ObservableProperty] public partial bool IsSavingItem { get; set; }
     [ObservableProperty] public partial bool IsRecovering { get; set; }
@@ -443,7 +445,12 @@ public sealed partial class ShellViewModel : ObservableObject
         {
             var group = await flow.AddGroupAsync(name, accentColor);
             await Vault.RefreshAsync();
-            return IsCurrentUnlock(version) ? group : null;
+            if (!IsCurrentUnlock(version)) return null;
+            StatusMessage = $"Group “{group.Name}” created.";
+            StatusTitle = "Group created";
+            IsStatusSuccess = true;
+            IsStatusOpen = true;
+            return group;
         }
         catch (Exception exception) { ShowMappedError(exception); return null; }
     }
@@ -602,6 +609,12 @@ public sealed partial class ShellViewModel : ObservableObject
         OnPropertyChanged(nameof(IsUnlocked));
         OnPropertyChanged(nameof(IsTableLocked));
         OnPropertyChanged(nameof(IsSignedIn));
+    }
+
+    partial void OnStatusMessageChanged(string value)
+    {
+        StatusTitle = "Unable to complete action";
+        IsStatusSuccess = false;
     }
 
     private async Task CompleteUnlockAsync(VaultUnlockResult result)

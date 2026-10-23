@@ -11,6 +11,8 @@ public interface INavigationService
 public interface IUserDialogService
 {
     Task<string?> PromptMasterPasswordAsync(CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
+    Task<string?> PromptMasterPasswordAsync(string title, string confirmText, CancellationToken cancellationToken = default) =>
+        PromptMasterPasswordAsync(cancellationToken);
     Task<(string Confirmation, string TotpCode)?> ConfirmGroupDeletionAsync(string groupName, CancellationToken cancellationToken = default);
     Task<bool> ConfirmAsync(string title, string message, string confirmText, CancellationToken cancellationToken = default);
     Task ShowErrorAsync(string title, string message, CancellationToken cancellationToken = default);

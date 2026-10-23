@@ -13,6 +13,13 @@ main { padding: 18px 20px 22px; min-height: 0; overflow-y: auto; scrollbar-gutte
 .origin { margin: 4px 0 0; font-weight: 600; overflow-wrap: anywhere; }
 .origin:empty::before { content: "Checking this tab…"; color: var(--muted); font-weight: 400; }
 #status { margin: 16px 0 12px; color: var(--muted); overflow-wrap: anywhere; }
+.integration-off { display: grid; justify-items: start; gap: 10px; margin-top: 16px; padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.integration-off[hidden], .open-app-feedback[hidden] { display: none; }
+.integration-off-icon { color: var(--muted); }
+.integration-off h2 { margin: 0; font-size: 16px; line-height: 1.35; }
+.integration-off p { margin: 0; color: var(--muted); }
+.integration-off button { margin-top: 2px; font-weight: 600; }
+.open-app-feedback { margin: 12px 0; color: var(--muted); overflow-wrap: anywhere; }
 #accounts { display: grid; gap: 8px; padding: 3px; margin: -3px; }
 #accounts[hidden] { display: none; }
 button { font: inherit; color: var(--text); border: 1px solid var(--border); border-radius: 9px; background: var(--surface); cursor: pointer; min-height: 40px; padding: 9px 13px; overflow-wrap: anywhere; }
@@ -28,7 +35,7 @@ button:disabled { cursor: wait; opacity: .6; }
 #status[data-state="error"] { color: #a12b25; }
 #status[data-state="success"] { color: #24664b; }
 @media (prefers-color-scheme: dark) { #status[data-state="error"] { color: #ffb4ab; } #status[data-state="success"] { color: #8bdbb4; } }
-@media (forced-colors: active) { button:focus-visible { outline-color: Highlight; } #status[data-state] { color: CanvasText; } }
+@media (forced-colors: active) { button:focus-visible { outline-color: Highlight; } #status[data-state], .integration-off-icon, .integration-off p, .open-app-feedback { color: CanvasText; } .integration-off { border-color: CanvasText; } }
 .totp-panel { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
 .totp-panel[hidden] { display: none; }
 .totp-heading, .totp-value, .totp-timing { display: flex; align-items: center; justify-content: space-between; gap: 12px; }

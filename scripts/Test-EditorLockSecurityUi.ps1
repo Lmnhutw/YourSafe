@@ -18,6 +18,8 @@ if (-not $windowHandle) { throw 'The supplied process has no YourSafe main windo
 $outputDirectory = Join-Path $testRoot 'ui-results'
 $results = [System.Collections.Generic.List[object]]::new()
 $captures = [System.Collections.Generic.List[string]]::new()
+$skippedCaptures = [System.Collections.Generic.List[string]]::new()
+$settingsPromptEvidence = @{}
 $password = 'correct horse battery staple'
 $draftRecovery = 'DEMO-R1-RECOVERY-ONLY'
 $draftNotes = 'DEMO-R1-PRIVATE-NOTE-ONLY'
@@ -47,6 +49,10 @@ function Test([string]$Name, [scriptblock]$Action) {
 }
 
 function Capture([string]$Name) {
+    if (-not @((Ui list-windows) | Where-Object isForeground).Count) {
+        $skippedCaptures.Add($Name)
+        return
+    }
     $path = Join-Path $outputDirectory "editor-security-$Name.png"
     Ui screenshot -o $path --capture-screen | Out-Null
     $captures.Add($path)
@@ -98,6 +104,10 @@ function AssertFreshEditor {
 Ui wait-for YourSafeDisposableUiTest -p HelpText --value $testRoot -t 5000 | Out-Null
 if ((Ui get-property YourSafeDisposableUiTest -p HelpText).properties.HelpText -ne $testRoot) {
     throw 'Disposable vault marker mismatch.'
+}
+$configPath = Join-Path $testRoot '.config'
+if ((Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json).VaultOpenDurationMinutes -ne 1) {
+    throw 'This batch requires a fresh disposable fixture seeded with a one-minute vault duration before app launch.'
 }
 if ((Ui get-property BtnLockVault -p Name).properties.Name -eq 'Unlock vault') { UnlockTable }
 Ui wait-for BtnLockVault -p Name --value 'Lock vault' -t 5000 | Out-Null
@@ -156,6 +166,51 @@ try {
             AssertFreshEditor
         }
     }
+    Test 'Natural vault timeout dismisses the settings password prompt without saving the selected duration' {
+        # Re-unlock for a fresh real deadline after the editor cases.
+        Ui invoke BtnLockVault | Out-Null
+        Ui wait-for BtnLockVault -p Name --value 'Unlock vault' -t 5000 | Out-Null
+        UnlockTable
+        Ui invoke NavSettings | Out-Null
+        Reveal CmbVaultDuration
+        Ui wait-for CmbVaultDuration --value '1 minute' -t 5000 | Out-Null
+        Ui invoke CmbVaultDuration | Out-Null
+        Ui wait-for CmbVaultDuration -p ExpandCollapseState --value Expanded -t 5000 | Out-Null
+        $duration = @((Ui search '2 minutes' --max 100).matches | Where-Object {
+            -not $_.isOffscreen -and $_.name -eq '2 minutes' -and $_.type -eq 'ListItem'
+        }) | Select-Object -Last 1
+        if ($null -eq $duration) { throw 'Two minute duration was not found.' }
+        Ui invoke $duration.selector | Out-Null
+        Ui wait-for CmbVaultDuration --value '2 minutes' -t 5000 | Out-Null
+        $settingsPromptEvidence.selectedDuration = '2 minutes'
+        $settingsPromptEvidence.configBeforeHash = (Get-FileHash -LiteralPath $configPath -Algorithm SHA256).Hash
+        Reveal BtnSaveSecuritySettings
+        Ui invoke BtnSaveSecuritySettings | Out-Null
+        Ui wait-for TxtUnlockMasterPassword -t 5000 | Out-Null
+        Ui wait-for PrimaryButton -p Name --value 'Save security settings' -t 5000 | Out-Null
+        Ui set-value TxtUnlockMasterPassword $password | Out-Null
+        Capture 'settings-password-pending'
+        $deadline = [DateTime]::UtcNow.AddSeconds(75)
+        do {
+            if ((Ui search TxtUnlockMasterPassword).matchCount -eq 0) { break }
+            Start-Sleep -Milliseconds 500
+        } while ([DateTime]::UtcNow -lt $deadline)
+        Ui wait-for TxtUnlockMasterPassword --gone -t 1000 | Out-Null
+        Ui wait-for BtnLockVault -p Name --value 'Unlock vault' -t 1000 | Out-Null
+        AssertNoDraft
+        $settingsPromptEvidence.configAfterHash = (Get-FileHash -LiteralPath $configPath -Algorithm SHA256).Hash
+        if ($settingsPromptEvidence.configAfterHash -cne $settingsPromptEvidence.configBeforeHash) {
+            throw 'The expired settings prompt changed persistent configuration.'
+        }
+        Ui invoke NavSettings | Out-Null
+        Reveal CmbVaultDuration
+        Ui wait-for CmbVaultDuration --value '1 minute' -t 5000 | Out-Null
+        Ui wait-for BtnSaveSecuritySettings -p IsEnabled --value True -t 5000 | Out-Null
+        $settingsPromptEvidence.persistedDurationMinutes = (Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json).VaultOpenDurationMinutes
+        if ($settingsPromptEvidence.persistedDurationMinutes -ne 1) { throw 'The expired settings selection was committed.' }
+        Capture 'settings-timeout-not-saved'
+        Ui invoke NavVault | Out-Null
+    }
 }
 catch { Write-Warning $_.Exception.Message }
 finally {
@@ -165,8 +220,10 @@ finally {
         testLayer = 'Real WinUI controls and natural table-lock timer; synthetic vault'
         results = @($results)
         screenshots = @($captures)
+        skippedScreenCapturesWhenNotForeground = @($skippedCaptures)
+        settingsPromptTimeout = $settingsPromptEvidence
         residualLimitations = 'PasswordBox content and managed references are not readable through UIA. Review screenshots. Windows lock/suspend and late callbacks require separate lifecycle tests.'
     } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $outputDirectory 'editor-lock-security-ui.json') -Encoding utf8
 }
-if ($results.Count -ne 4 -or @($results | Where-Object { $_.status -eq 'FAIL' }).Count -gt 0) { exit 1 }
+if ($results.Count -ne 5 -or @($results | Where-Object { $_.status -eq 'FAIL' }).Count -gt 0) { exit 1 }
 exit 0

@@ -17,10 +17,10 @@ const control = resolve(root, 'scripts/AutofillTestControl.ps1');
 const origin = args.origin ?? 'http://127.0.0.1:49173';
 const results = [];
 function ui(action) {
-  execFileSync(pwsh, ['-NoProfile', '-File', control, '-Action', action,
-    '-ProcessId', String(appPid), '-TestDirectory', testDirectory], { timeout: action === 'signIn' ? 60000 : 20000, stdio: 'pipe' });
+  return JSON.parse(execFileSync(pwsh, ['-NoProfile', '-File', control, '-Action', action,
+    '-ProcessId', String(appPid), '-TestDirectory', testDirectory], { timeout: action === 'signIn' ? 60000 : 20000, stdio: 'pipe', encoding: 'utf8' }));
 }
-function request(action, payload = {}) { return { version: 2, requestId: randomUUID(), action, payload }; }
+function request(action, payload = {}) { return { version: 3, requestId: randomUUID(), action, payload }; }
 function frame(body) {
   const bytes = typeof body === 'string' ? Buffer.from(body) : Buffer.isBuffer(body) ? body : Buffer.from(JSON.stringify(body));
   const header = Buffer.alloc(4); header.writeUInt32LE(bytes.length);
@@ -89,9 +89,8 @@ try {
     ['zero length', Buffer.alloc(4)], ['oversized frame', header],
     ['truncated header', Buffer.from([1, 0])], ['truncated body', Buffer.from([4, 0, 0, 0, 123])],
     ['malformed UTF-8', frame(Buffer.from([0xff]))], ['malformed JSON', frame('{')],
-    ['duplicate property', frame(`{"version":2,"requestId":"${uuid}","action":"ping","action":"getStatus","payload":{}}`)],
+    ['duplicate property', frame(`{"version":3,"requestId":"${uuid}","action":"ping","action":"getStatus","payload":{}}`)],
     ['unknown property', frame({ ...request('ping'), unknown: true })],
-    ['wrong version', frame({ ...request('ping'), version: 1 })],
     ['unknown action', frame(request('unrecognized'))]
   ];
   for (const [name, bytes] of malformed) await check(name, () => withHost(async running => {
@@ -101,7 +100,25 @@ try {
     assert.equal(parseFrames(running.chunks).some(response => response.ok), false, 'Malformed input emitted a success');
     assert.equal(running.stderr, 0, 'NativeHost logged error payloads');
   }));
+  for (const version of [1, 2]) await check(`v${version} returns an explicit protocol mismatch`, () => withHost(async running => {
+    const legacy = { ...request('getStatus'), version };
+    running.child.stdin.write(frame(legacy));
+    assert.deepEqual(await response(running), { version: 3, requestId: legacy.requestId, ok: false, error: 'protocolMismatch' });
+    assert.equal(running.stderr, 0, 'Version mismatch logged protocol data');
+  }));
   ui('signIn');
+  ui('disable');
+  await check('OFF keeps status and window controls available without account metadata', () => withHost(async running => {
+    for (const [ordinal, action] of ['ping', 'getStatus', 'showApp', 'findCredentials'].entries()) {
+      running.child.stdin.write(frame(request(action, action === 'findCredentials' ? { origin } : {})));
+      const value = await response(running, ordinal);
+      if (action === 'getStatus') assert.deepEqual(value.result, { integrationEnabled: false, unlocked: true });
+      else if (action === 'findCredentials') assert.equal(value.error, 'integrationDisabled');
+      else assert.equal(value.ok, true);
+      assert.equal(value.result?.credentials, undefined, 'OFF control returned account metadata');
+    }
+    assert.equal(running.stderr, 0, 'OFF controls logged protocol data');
+  }));
   ui('lock');
   ui('unlock');
   ui('enable');
@@ -148,6 +165,34 @@ try {
     await bounded(running.ended, 6000, 'Terminated NativeHost did not exit');
     ui('waitApprovalGone');
     assert.equal(parseFrames(running.chunks).some(item => item.ok), false, 'Terminated client received a secret');
+  }));
+  await check('minimized app restores while Open YourSafe preserves queued approval', () => withHost(async pending => {
+    ui('beginDelete');
+    assert.equal(ui('minimizeDesktop').windowState.minimized, true);
+    pending.child.stdin.write(frame(request('getCredentialSecret', { origin, credentialId })));
+    ui('waitPending');
+    const approvalWindow = ui('assertRestored').windowState;
+    ui('assertDeleteDialog');
+    ui('assertNoApproval');
+    assert.equal(ui('minimizeDesktop').windowState.minimized, true);
+    let controlWindow;
+    await withHost(async control => {
+      control.child.stdin.write(frame(request('showApp')));
+      assert.equal((await response(control)).result?.shown, true, 'Pending approval blocked Open YourSafe');
+      controlWindow = ui('assertRestored').windowState;
+      control.child.stdin.write(frame(request('getStatus')));
+      assert.deepEqual((await response(control, 1)).result, { integrationEnabled: true, unlocked: true });
+    });
+    assert.equal(parseFrames(pending.chunks).length, 0, 'Open YourSafe completed or cancelled the queued approval');
+    ui('assertDeleteDialog');
+    ui('waitPending');
+    ui('cancelDeleteDialog');
+    ui('waitApproval');
+    ui('cancel');
+    assert.equal((await response(pending)).ok, false, 'Denied queued approval emitted a secret');
+    ui('waitPendingGone');
+    assert.equal(pending.stderr, 0, 'Queued approval logged protocol data');
+    results.push({ name: 'minimized/restore window observations', status: 'verified', approvalWindow, controlWindow });
   }));
   await check('a second request on the same host needs a fresh desktop approval', () => withHost(async running => {
     running.child.stdin.write(frame(request('getCredentialSecret', { origin, credentialId })));

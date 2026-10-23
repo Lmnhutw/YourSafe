@@ -12,7 +12,7 @@ The reusable domain and security layer for YourSafe. `PasswordTool.Core` remains
 - Master-Password-authorized vault durations and fixed five-hour login deadlines
 - Encrypted website TOTP configuration, strict Base32/otpauth parsing, and local current-code generation for desktop and native browser requests
 - Vault item validation, CRUD, recovery-code parsing, and sensitive-action session checks
-- Credential groups, tags, favorites, and migration of legacy folders to groups
+- Credential groups, favorites, and migration of legacy folders to groups; All includes entries without a group
 - Autofill metadata/secret projections with lock/session checks and null username normalization; origin policy and browser consent belong to Presentation and the worker
 - Encrypted, versioned backup creation, safe authenticated inspection, import planning, and atomic new-machine recovery
 - Cryptographically secure password/passphrase generation and strength estimates

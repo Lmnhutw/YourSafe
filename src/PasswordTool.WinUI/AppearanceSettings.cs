@@ -12,9 +12,7 @@ public sealed record AppearanceSettings
     public AppearanceTheme Theme { get; init; }
     public bool IsVerticalTabs { get; init; }
     public string? AllTabName { get; init; }
-    public string? UngroupedTabName { get; init; }
     public string? AllTabColor { get; init; }
-    public string? UngroupedTabColor { get; init; }
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -50,9 +48,7 @@ public sealed record AppearanceSettings
         return this with
         {
             AllTabName = NormalizeTabName(AllTabName),
-            UngroupedTabName = NormalizeTabName(UngroupedTabName),
-            AllTabColor = string.IsNullOrWhiteSpace(AllTabColor) ? null : NormalizeRgb(AllTabColor),
-            UngroupedTabColor = string.IsNullOrWhiteSpace(UngroupedTabColor) ? null : NormalizeRgb(UngroupedTabColor)
+            AllTabColor = string.IsNullOrWhiteSpace(AllTabColor) ? null : NormalizeRgb(AllTabColor)
         };
     }
 

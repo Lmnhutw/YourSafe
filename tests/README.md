@@ -24,13 +24,13 @@ The three opt-in Core fixture tests do nothing unless `PASSWORDTOOL_UI_TEST_DIRE
 | Script | Coverage |
 | --- | --- |
 | `Test-AppearanceUi.ps1` | Theme/tab persistence, ComboBox first-click selection and downward placement, two/three-button modal order, editor drafts and navigation |
-| `Test-WorkspaceUi.ps1` | Password generation/hash/verify/inspect, sensitive output reset, backup/settings geometry and locked/unlocked Add/Ctrl+N |
+| `Test-WorkspaceUi.ps1` | Inline generation defaults, option/type invalidation, copy and keyboard guards, hash/verify/inspect, sensitive output reset, backup/settings geometry and locked/unlocked Add/Ctrl+N |
 | `Test-VaultUi.ps1` | Search/filter defaults, read-only details, duplication, group moves, Trash/Restore/delete and password-only table re-unlock |
 | `Test-TotpFlyoutUi.ps1` | Code grouping, timer renewal, setup validation and accessible help |
 | `Test-EditorLockSecurityUi.ps1` | Real one-minute timeout with/without draft TOTP, draft dismissal, cancelled/incorrect re-unlock and a fresh empty editor |
 | `Test-SnapshotRestoreSecurityUi.ps1` | Current/historical password clearing after cancel/failure, paired restore, session end and restored sign-in credentials |
 | `Test-GroupDeletionConfirmationUi.ps1` | Exact displayed confirmation, cancel persistence and deletion of only the batch-created empty group |
-| `Test-AutofillNativeIntegration.ps1` | Installed extension and real NativeHost/WinUI approval using isolated browser profiles; `-NativeHostOnly` checks real process transport/cancellation/competing clients |
+| `Test-AutofillNativeIntegration.ps1` | Installed extension and real NativeHost/WinUI approval using isolated browser profiles; `-NativeHostOnly` checks protocol v3/OFF controls, process transport/cancellation/competing clients, queued-dialog Open YourSafe, minimize/restore and the global discovery quota |
 
 `Test-ComboBoxUi.ps1` and `Test-DialogButtonsUi.ps1` were merged into Appearance. `Test-PasswordToolUi.ps1` and `Test-RequestedLayoutUi.ps1` were merged into Workspace; generation and successful verification now run once per batch. The direct native UI batches accept `-WinAppPath` when WinApp CLI is not on PATH. The extension integration wrapper does not accept that argument; its guarded control script uses `winapp` from PATH.
 
@@ -52,6 +52,12 @@ Snapshot Restore requires its own fresh fixture. Seed with `PASSWORDTOOL_SNAPSHO
 
 `AutofillTestControl.ps1 -SelfCheck`, `Test-AutofillNativeIntegration.ps1 -SelfCheck` and `Test-SnapshotRestoreSecurityUi.ps1 -SelfCheck` verify runner parsing/timeout/error handling or manifest staging without driving a desktop or changing Native Messaging registration. Read-only stale-element queries may re-resolve once; actions that write or invoke controls are never automatically replayed.
 
+The guarded `AutofillTestControl.ps1` actions `minimizeDesktop` and `assertRestored` validate the marked window's PID and report minimized/visible/foreground observations. `probeApprovalNotification` searches ShellExperienceHost only for the generic `YourSafe approval required` title; it does not open notification history or read other notifications. Its `notObserved` and `unavailable` results leave notification verification pending. Restore checks alone do not verify taskbar flashing, toast activation or foreground permission.
+
+Real toast delivery, warm/stale/cold activation and exact Release runtime qualification require an isolated Windows profile or VM and remain pending. Unpackaged SDK cold activation starts the registered executable with its activation argument; it does not preserve `PASSWORDTOOL_UI_TEST_DIRECTORY` from an earlier Debug launch. Separate Debug fixture directories also share the user/session pipe namespace, so a second instance does not establish exclusive NativeHost routing. Preserve existing user-requested test processes and registrations. Source review and a manual relaunch with fixture variables do not qualify Shell notification activation.
+
 Review native screenshots for appearance assertions. Passing UI Automation properties alone does not verify colors, clipping, contrast or DPI behavior. Native scripts and the DOM smoke test also do not replace the installed-extension → NativeHost → desktop end-to-end check.
 
-These commands describe available checks, not a claim that the current checkout passed them. The [demo security verification record](../docs/demo-security-verification.md) records the 2026-10-12 browser campaigns and remaining gates; the [recovery/session record](../docs/recovery-session-verification.md) records older native UI observations. Keep results tied to their tested build, browser and selected scope rather than treating historical evidence as qualification of later changes.
+These commands describe available checks, not a claim that the current checkout passed them. The [demo security verification record](../docs/demo-security-verification.md) separates the 2026-10-22 flow/protocol checks from the historical 2026-10-12 browser campaigns and remaining gates; the [recovery/session record](../docs/recovery-session-verification.md) records older native UI observations. Keep results tied to their tested build, browser and selected scope rather than treating historical evidence as qualification of later changes.
+
+The default installed-extension campaign excludes natural expiry. Select E11 explicitly with a separately seeded one-minute fixture; the guarded expiry helper rejects other persisted durations.
