@@ -1,0 +1,120 @@
+<svg role="img" aria-labelledby="title desc" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1149.3729999999998 589.25" width="1149.3729999999998" height="589.25" style="--border:#94a3b8;--bg:#ffffff;--fg:#1f2328;--line:#64748b;--accent:#0969da;--muted:#334155;background:var(--bg)"><title id="title">Choose the correct recovery path</title><desc id="desc">Current-vault credential loss uses the current Recovery Key and preserves the existing DEK. Reverting changes uses an authenticated local snapshot and current authorization. Loss of the machine uses an external encrypted backup and its separate passphrase on empty storage. Import into an existing vault adds only new items. These paths require different credentials and are not interchangeable.</desc><metadata>{&quot;source&quot;:&quot;recovery-options.mmd&quot;,&quot;sourceSha256&quot;:&quot;293a54d170e620d0bf8d747366a07e0868d51bd87d24ac27d62c9400dab3b356&quot;,&quot;renderer&quot;:&quot;beautiful-mermaid@1.1.3&quot;,&quot;theme&quot;:&quot;github-light&quot;,&quot;line&quot;:&quot;#64748b&quot;,&quot;muted&quot;:&quot;#334155&quot;,&quot;border&quot;:&quot;#94a3b8&quot;}</metadata><rect width="100%" height="100%" fill="#ffffff"/><g font-family="Segoe UI,Arial,sans-serif" fill="#0f172a"><text x="24" y="34" font-size="24" font-weight="600">Choose the correct recovery path</text><text x="24" y="63" font-size="14">Read arrows in order. SECRET = plaintext; KEY = encryption key; cylinders = stored data.</text></g><g transform="translate(24,88)">
+<style>
+
+  text { font-family: 'Segoe UI', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="problem" data-to="key" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Credential loss" points="122.89666666666666,193.05166666666665 180.34500000000003,193.05166666666665 180.34500000000003,58.89999999999998 334.6400000000001,58.900000000000006" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="key" data-to="reset" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="509.97000000000014,58.900000000000006 553.9935,58.900000000000006" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="reset" data-to="signin" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="729.3235,58.900000000000006 767.341,58.900000000000006" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="problem" data-to="snapshot" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Undo changes" points="145.6208333333333,215.7758333333333 192.34500000000003,215.7758333333333 192.34500000000003,148.70000000000002 334.6400000000001,148.70000000000002" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="snapshot" data-to="restore" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="558.1350000000001,148.70000000000002 610.4730000000001,148.70000000000002" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="restore" data-to="oldLogin" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="838.414,148.70000000000002 877.741,148.70000000000002" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="problem" data-to="external" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Lost PC / profile" points="168.345,238.5 334.6400000000001,238.50000000000003" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="external" data-to="fresh" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="558.1350000000001,238.50000000000003 610.4730000000001,238.50000000000003" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="problem" data-to="import" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Add entries" points="145.62083333333337,261.22416666666663 204.345,261.22416666666663 204.345,328.3 334.6400000000001,328.3" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="import" data-to="merge" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="522.5670000000001,328.3 553.9935,328.3" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="problem" data-to="unavailable" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="No recovery material" points="122.89666666666668,283.9483333333333 180.3450000000001,283.9483333333333 180.3450000000001,418.1 334.6400000000001,418.1" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="problem" data-to="key" data-label="Credential loss">
+  <rect x="188.34500000000006" y="42.89999999999998" width="88.33600000000003" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="232.51300000000006" y="58.049999999999976" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Credential loss</text>
+</g>
+<g class="edge-label" data-from="problem" data-to="snapshot" data-label="Undo changes">
+  <rect x="200.34500000000003" y="132.70000000000002" width="85.96000000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="243.32500000000005" y="147.85000000000002" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Undo changes</text>
+</g>
+<g class="edge-label" data-from="problem" data-to="external" data-label="Lost PC / profile">
+  <rect x="212.34500000000003" y="222.50000000000003" width="91.30600000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="257.99800000000005" y="237.65000000000003" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Lost PC / profile</text>
+</g>
+<g class="edge-label" data-from="problem" data-to="import" data-label="Add entries">
+  <rect x="212.345" y="312.3" width="71.70400000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="248.197" y="327.45" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Add entries</text>
+</g>
+<g class="edge-label" data-from="problem" data-to="unavailable" data-label="No recovery material">
+  <rect x="188.3450000000001" y="402.1" width="116.25400000000002" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="246.47200000000012" y="417.25" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">No recovery material</text>
+</g>
+<g class="node" data-id="problem" data-label="What do you
+need to do?" data-shape="diamond">
+  <polygon points="100.1725,170.3275 168.345,238.5 100.1725,306.6725 32,238.5" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="100.1725" y="238.5" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="100.1725" dy="-3.9000000000000012">What do you</tspan><tspan x="100.1725" dy="16.900000000000002">need to do?</tspan></text>
+</g>
+<g class="node" data-id="key" data-label="Current vault pair
+Current Recovery Key" data-shape="rectangle">
+  <rect x="334.6400000000001" y="32" width="175.32999999999998" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="422.30500000000006" y="58.900000000000006" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="422.30500000000006" dy="-3.9000000000000012">Current vault pair</tspan><tspan x="422.30500000000006" dy="16.900000000000002">Current Recovery Key</tspan></text>
+</g>
+<g class="node" data-id="reset" data-label="Reset login credentials
+Keep DEK and entries" data-shape="rectangle">
+  <rect x="553.9935" y="32" width="175.32999999999998" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="641.6585" y="58.900000000000006" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="641.6585" dy="-3.9000000000000012">Reset login credentials</tspan><tspan x="641.6585" dy="16.900000000000002">Keep DEK and entries</tspan></text>
+</g>
+<g class="node" data-id="signin" data-label="Return to sign-in
+Use new password and OTP" data-shape="rectangle">
+  <rect x="767.341" y="32" width="206.45199999999994" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="870.567" y="58.900000000000006" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="870.567" dy="-3.9000000000000012">Return to sign-in</tspan><tspan x="870.567" dy="16.900000000000002">Use new password and OTP</tspan></text>
+</g>
+<g class="node" data-id="snapshot" data-label="Local snapshot
+Current + snapshot passwords" data-shape="rectangle">
+  <rect x="334.6400000000001" y="121.80000000000001" width="223.49499999999998" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="446.3875000000001" y="148.70000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="446.3875000000001" dy="-3.9000000000000012">Local snapshot</tspan><tspan x="446.3875000000001" dy="16.900000000000002">Current + snapshot passwords</tspan></text>
+</g>
+<g class="node" data-id="restore" data-label="Replace the entire pair
+Restore historical security state" data-shape="rectangle">
+  <rect x="610.4730000000001" y="121.80000000000001" width="227.94099999999995" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="724.4435000000001" y="148.70000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="724.4435000000001" dy="-3.9000000000000012">Replace the entire pair</tspan><tspan x="724.4435000000001" dy="16.900000000000002">Restore historical security state</tspan></text>
+</g>
+<g class="node" data-id="oldLogin" data-label="Sign in again
+Use snapshot credentials" data-shape="rectangle">
+  <rect x="877.741" y="121.80000000000001" width="191.63199999999995" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="973.557" y="148.70000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="973.557" dy="-3.9000000000000012">Sign in again</tspan><tspan x="973.557" dy="16.900000000000002">Use snapshot credentials</tspan></text>
+</g>
+<g class="node" data-id="external" data-label="External backup + passphrase
+No local vault files" data-shape="rectangle">
+  <rect x="334.6400000000001" y="211.60000000000002" width="223.495" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="446.3875000000001" y="238.50000000000003" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="446.3875000000001" dy="-3.9000000000000012">External backup + passphrase</tspan><tspan x="446.3875000000001" dy="16.900000000000002">No local vault files</tspan></text>
+</g>
+<g class="node" data-id="fresh" data-label="Recover entries under new DEK
+Create new login credentials" data-shape="rectangle">
+  <rect x="610.4730000000001" y="211.60000000000002" width="230.164" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="725.5550000000001" y="238.50000000000003" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="725.5550000000001" dy="-3.9000000000000012">Recover entries under new DEK</tspan><tspan x="725.5550000000001" dy="16.900000000000002">Create new login credentials</tspan></text>
+</g>
+<g class="node" data-id="import" data-label="Existing authorized vault
+Backup + its passphrase" data-shape="rectangle">
+  <rect x="334.6400000000001" y="301.40000000000003" width="187.92699999999996" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="428.60350000000005" y="328.3" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="428.60350000000005" dy="-3.9000000000000012">Existing authorized vault</tspan><tspan x="428.60350000000005" dy="16.900000000000002">Backup + its passphrase</tspan></text>
+</g>
+<g class="node" data-id="merge" data-label="Import new IDs only
+Keep current entries and login" data-shape="rectangle">
+  <rect x="553.9935" y="301.40000000000003" width="218.308" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="663.1475" y="328.3" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="663.1475" dy="-3.9000000000000012">Import new IDs only</tspan><tspan x="663.1475" dy="16.900000000000002">Keep current entries and login</tspan></text>
+</g>
+<g class="node" data-id="unavailable" data-label="No hosted vault copy
+No account recovery service" data-shape="rectangle">
+  <rect x="334.6400000000001" y="391.20000000000005" width="214.60299999999998" height="53.800000000000004" rx="0" ry="0" fill="#fef2f2" stroke="#dc2626" stroke-width="0.75" />
+  <text x="441.9415000000001" y="418.1" text-anchor="middle" font-size="13" font-weight="500" fill="#991b1b"><tspan x="441.9415000000001" dy="-3.9000000000000012">No hosted vault copy</tspan><tspan x="441.9415000000001" dy="16.900000000000002">No account recovery service</tspan></text>
+</g>
+</g></svg>

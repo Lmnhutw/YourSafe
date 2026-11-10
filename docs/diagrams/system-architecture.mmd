@@ -1,0 +1,20 @@
+flowchart TB
+    accTitle: YourSafe components and local data paths
+    accDescr: The desktop runs WinUI views and Windows adapters over platform-neutral Presentation orchestration and the Core vault. The optional TypeScript extension reaches the running desktop via Native Messaging and a standalone NativeHost pipe relay. The separate development HTTP API shares hashing implementations only. Vault files and backups are local; transport arrows indicate runtime calls rather than project references.
+    subgraph desktop["YourSafe.exe - desktop process"]
+        ui["WinUI 3\nViews, dialogs and Windows lifecycle"] --> flow["Presentation\nViewModels + AppFlowCoordinator"]
+        flow --> runner["VaultOperationRunner\nSerialize Core calls off the UI thread"]
+        runner --> core["Core VaultService\nValidation, session, crypto and imports"]
+        ui --> platform["Windows adapters\nClipboard, pickers and approval dialog"]
+        pipe["AutofillPipeServer\nValidate peer and protocol"] --> flow
+    end
+    core --> files[("Local vault directory\n.config + encrypted .storage\nPaired snapshots and journal")]:::encrypted
+    core --> backup[("Encrypted external backup\nUser-selected file + separate passphrase")]:::encrypted
+    subgraph browser["Optional browser integration"]
+        popup["Popup + worker\nAccount selection and target checks"] --> content["Content script\nExplicit fill in top-level page"]
+        popup -->|Native Messaging stdin/stdout| host["YourSafe.NativeHost.exe\nStandalone framing and pipe relay"]
+    end
+    host -->|Current-user named pipe| pipe
+    api["PasswordTool.Api\nSeparate local-development HTTP process"] --> hashing["Core hashing registry + inspector\nShared with desktop Hash Tool"]
+    flow --> hashing
+    classDef encrypted fill:#eff6ff,stroke:#2563eb,color:#0f172a

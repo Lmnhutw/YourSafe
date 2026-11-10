@@ -1,0 +1,37 @@
+sequenceDiagram
+    accTitle: Sign in or reopen during an active login
+    accDescr: WinUI prechecks the Master Password and vault integrity before asking for an OTP. Final unlock repeats cryptographic checks inside the serialized runner. New login requires a current OTP and gets a fixed five-hour deadline; reopening an active login uses only the Master Password and preserves the deadline. Legacy recovery-key enrollment blocks ordinary workspace access until confirmed.
+    participant U as User
+    participant V as WinUI
+    participant F as AppFlowCoordinator
+    participant C as Core vault
+    U->>V: Enter Master Password
+    V->>F: ValidateMasterPasswordAsync
+    F->>C: Serialized password and payload precheck
+    C-->>F: Precheck result, no login created
+    F-->>V: Valid or invalid
+    break Invalid password or unreadable vault
+        V-->>U: Keep sign-in screen, show error
+    end
+    alt No active five-hour login
+        V->>U: Ask for current Authenticator code
+        U-->>V: Enter current six-digit code
+    else Login remains active
+        V->>V: Skip OTP prompt
+        Note over V,C: Reopening never extends the existing login
+    end
+    break User cancels the prompt
+        V-->>U: Keep vault locked
+    end
+    V->>F: UnlockAsync(password, code)
+    F->>C: Recheck password, unwrap DEK and decrypt
+    F->>C: Verify OTP or existing login authorization
+    alt Invalid, expired or lifecycle changed
+        C->>C: Lock vault, clear decrypted state
+        F-->>V: Failed or cancelled
+    else Authorized
+        C->>C: New login only: now + five hours
+        C->>C: Vault deadline capped by login expiry
+        F-->>V: Unlock or require Recovery Key enrollment
+        V-->>U: Workspace after enrollment is complete
+    end

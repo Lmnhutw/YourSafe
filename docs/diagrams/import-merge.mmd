@@ -1,0 +1,19 @@
+flowchart TB
+    accTitle: Preview and import into an existing vault
+    accDescr: Existing-vault import requires authorized vault access and bounded input. Encrypted backups are authenticated and compared by item ID and full content, while CSV is parsed and compared by account identity including TOTP configuration. The UI shows counts, then Core rereads and recomputes at import. Only new entries are added and failures undo in-memory additions; existing entries are never overwritten.
+    choose["Backup Center: choose file\nAuthorized existing-vault action"] --> type{"Input format?"}
+    type -->|Encrypted backup + passphrase| backup["Authenticate PasswordToolBackup v1\nValidate full payload, unique IDs and limits"]
+    type -->|Plaintext CSV| csv["Bounded CSV parser\nSkip non-login rows or rows without password/TOTP"]
+    backup --> byId["Compare by item ID\nSame content = duplicate\nDifferent content = conflict"]
+    csv --> byAccount["Compare title, username, URL,\npassword and full TOTP configuration"]
+    byId --> preview["Preview counts\nNew / duplicate / backup conflict"]
+    byAccount --> preview
+    preview --> confirm{"User imports?"}
+    confirm -->|Cancel| unchanged["No entries changed"]
+    confirm -->|Yes| recheck["Reread and validate file\nRecompute plan against current vault"]
+    recheck --> add["Add only new entries\nBackup: keep IDs; clear unknown groups\nCSV: new IDs; map legacy folders"]
+    add --> save[["Encrypt vault and commit pair"]]
+    save -->|Success| done["Refresh workspace\nReport added count"]:::good
+    save -->|Failure| rollback["Undo additions and CSV group changes\nReport failure"]:::danger
+    classDef danger fill:#fef2f2,stroke:#dc2626,color:#991b1b
+    classDef good fill:#f0fdf4,stroke:#16a34a,color:#14532d

@@ -1,0 +1,137 @@
+<svg role="img" aria-labelledby="title desc" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 1499.71" width="820" height="1499.71" style="--border:#94a3b8;--bg:#ffffff;--fg:#1f2328;--line:#64748b;--accent:#0969da;--muted:#334155;background:var(--bg)"><title id="title">Preview and import into an existing vault</title><desc id="desc">Existing-vault import requires authorized vault access and bounded input. Encrypted backups are authenticated and compared by item ID and full content, while CSV is parsed and compared by account identity including TOTP configuration. The UI shows counts, then Core rereads and recomputes at import. Only new entries are added and failures undo in-memory additions; existing entries are never overwritten.</desc><metadata>{&quot;source&quot;:&quot;import-merge.mmd&quot;,&quot;sourceSha256&quot;:&quot;c6618fa51021c91eff6e3beab299473801db0406d0e7e4dbf8a82adce94dcd05&quot;,&quot;renderer&quot;:&quot;beautiful-mermaid@1.1.3&quot;,&quot;theme&quot;:&quot;github-light&quot;,&quot;line&quot;:&quot;#64748b&quot;,&quot;muted&quot;:&quot;#334155&quot;,&quot;border&quot;:&quot;#94a3b8&quot;}</metadata><rect width="100%" height="100%" fill="#ffffff"/><g font-family="Segoe UI,Arial,sans-serif" fill="#0f172a"><text x="24" y="34" font-size="24" font-weight="600">Preview and import into an existing vault</text><text x="24" y="63" font-size="14">Read arrows in order. SECRET = plaintext; KEY = encryption key; cylinders = stored data.</text></g><g transform="translate(28.838500000000067,88)">
+<style>
+
+  text { font-family: 'Segoe UI', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="choose" data-to="type" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="346.11299999999994,85.80000000000001 346.11299999999994,133.8" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="type" data-to="backup" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Encrypted backup + passphrase" points="322.8948333333333,249.89083333333338 322.8948333333333,285.10900000000004 171.53499999999997,285.10900000000004 171.53499999999997,373.85900000000004" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="type" data-to="csv" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Plaintext CSV" points="369.3311666666666,249.89083333333338 369.3311666666666,302.009 520.6909999999999,302.009 520.6909999999999,373.85900000000004" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="backup" data-to="byId" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="171.53499999999997,427.65900000000005 171.53499999999997,475.65900000000005" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="csv" data-to="byAccount" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="520.6909999999999,427.65900000000005 520.691,475.65900000000005" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="byId" data-to="preview" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="171.53499999999997,546.359 171.53499999999997,566.134 346.11299999999994,566.134 346.11299999999994,585.909" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="byAccount" data-to="preview" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="520.691,529.4590000000001 520.691,566.134 346.11299999999994,566.134 346.11299999999994,585.909" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="preview" data-to="confirm" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="346.11299999999994,639.709 346.11299999999994,687.709" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="confirm" data-to="unchanged" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Cancel" points="321.41283333333325,811.2098333333333 321.41283333333325,1018.0099999999999 224.88699999999994,1018.0099999999999 224.88699999999997,1217.01" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="confirm" data-to="recheck" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Yes" points="370.81316666666663,811.2098333333333 370.81316666666663,847.91 467.33899999999994,847.91 467.33899999999994,928.2099999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="recheck" data-to="add" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="467.33899999999994,982.0099999999999 467.33899999999994,1030.01" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="add" data-to="save" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="467.33899999999994,1100.71 467.33899999999994,1148.71" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="save" data-to="done" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Success" points="432.18933333333325,1185.6100000000001 432.18933333333325,1221.6100000000001 341.2964999999999,1221.6100000000001 341.2964999999999,1301.91" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="save" data-to="rollback" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Failure" points="502.48866666666663,1185.6100000000001 502.48866666666663,1221.6100000000001 593.3815,1221.6100000000001 593.3815,1301.91" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="type" data-to="backup" data-label="Encrypted backup + passphrase">
+  <rect x="85.03499999999997" y="292.10900000000004" width="172.68400000000003" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="171.37699999999998" y="307.259" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Encrypted backup + passphrase</text>
+</g>
+<g class="edge-label" data-from="type" data-to="csv" data-label="Plaintext CSV">
+  <rect x="479.691" y="309.009" width="81.208" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="520.295" y="324.159" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Plaintext CSV</text>
+</g>
+<g class="edge-label" data-from="confirm" data-to="unchanged" data-label="Cancel">
+  <rect x="199.38699999999994" y="1143.71" width="50.91400000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="224.84399999999994" y="1158.8600000000001" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Cancel</text>
+</g>
+<g class="edge-label" data-from="confirm" data-to="recheck" data-label="Yes">
+  <rect x="448.83899999999994" y="854.91" width="36.658" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="467.16799999999995" y="870.06" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Yes</text>
+</g>
+<g class="edge-label" data-from="save" data-to="done" data-label="Success">
+  <rect x="310.7964999999999" y="1228.6100000000001" width="60.418000000000006" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="341.0054999999999" y="1243.7600000000002" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Success</text>
+</g>
+<g class="edge-label" data-from="save" data-to="rollback" data-label="Failure">
+  <rect x="566.8815" y="1228.6100000000001" width="52.102" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="592.9325" y="1243.7600000000002" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Failure</text>
+</g>
+<g class="node" data-id="choose" data-label="Backup Center: choose file
+Authorized existing-vault action" data-shape="rectangle">
+  <rect x="233.62449999999995" y="32" width="224.97699999999995" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="346.11299999999994" y="58.900000000000006" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="346.11299999999994" dy="-3.9000000000000012">Backup Center: choose file</tspan><tspan x="346.11299999999994" dy="16.900000000000002">Authorized existing-vault action</tspan></text>
+</g>
+<g class="node" data-id="type" data-label="Input format?" data-shape="diamond">
+  <polygon points="346.11299999999994,133.8 415.7674999999999,203.45450000000002 346.11299999999994,273.10900000000004 276.45849999999996,203.45450000000002" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="346.11299999999994" y="203.45450000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Input format?</text>
+</g>
+<g class="node" data-id="backup" data-label="Authenticate PasswordToolBackup v1
+Validate full payload, unique IDs and limits" data-shape="rectangle">
+  <rect x="32" y="373.85900000000004" width="279.06999999999994" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="171.53499999999997" y="400.759" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="171.53499999999997" dy="-3.9000000000000012">Authenticate PasswordToolBackup v1</tspan><tspan x="171.53499999999997" dy="16.900000000000002">Validate full payload, unique IDs and limits</tspan></text>
+</g>
+<g class="node" data-id="csv" data-label="Bounded CSV parser
+Skip non-login rows or rows without password/TOTP" data-shape="rectangle">
+  <rect x="347.06999999999994" y="373.85900000000004" width="347.242" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="520.6909999999999" y="400.759" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="520.6909999999999" dy="-3.9000000000000012">Bounded CSV parser</tspan><tspan x="520.6909999999999" dy="16.900000000000002">Skip non-login rows or rows without password/TOTP</tspan></text>
+</g>
+<g class="node" data-id="byId" data-label="Compare by item ID
+Same content = duplicate
+Different content = conflict" data-shape="rectangle">
+  <rect x="76.83049999999997" y="475.65900000000005" width="189.40899999999996" height="70.7" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="171.53499999999997" y="511.00900000000007" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="171.53499999999997" dy="-12.350000000000001">Compare by item ID</tspan><tspan x="171.53499999999997" dy="16.900000000000002">Same content = duplicate</tspan><tspan x="171.53499999999997" dy="16.900000000000002">Different content = conflict</tspan></text>
+</g>
+<g class="node" data-id="byAccount" data-label="Compare title, username, URL,
+password and full TOTP configuration" data-shape="rectangle">
+  <rect x="390.048" y="475.65900000000005" width="261.28599999999994" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="520.691" y="502.559" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="520.691" dy="-3.9000000000000012">Compare title, username, URL,</tspan><tspan x="520.691" dy="16.900000000000002">password and full TOTP configuration</tspan></text>
+</g>
+<g class="node" data-id="preview" data-label="Preview counts
+New / duplicate / backup conflict" data-shape="rectangle">
+  <rect x="233.62449999999998" y="585.909" width="224.97699999999995" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="346.11299999999994" y="612.809" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="346.11299999999994" dy="-3.9000000000000012">Preview counts</tspan><tspan x="346.11299999999994" dy="16.900000000000002">New / duplicate / backup conflict</tspan></text>
+</g>
+<g class="node" data-id="confirm" data-label="User imports?" data-shape="diamond">
+  <polygon points="346.11299999999994,687.709 420.21349999999995,761.8095 346.11299999999994,835.91 272.01249999999993,761.8095" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="346.11299999999994" y="761.8095" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">User imports?</text>
+</g>
+<g class="node" data-id="unchanged" data-label="No entries changed" data-shape="rectangle">
+  <rect x="146.85499999999996" y="1217.01" width="156.06400000000002" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="224.88699999999997" y="1235.46" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">No entries changed</text>
+</g>
+<g class="node" data-id="recheck" data-label="Reread and validate file
+Recompute plan against current vault" data-shape="rectangle">
+  <rect x="338.919" y="928.2099999999999" width="256.84" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="467.33899999999994" y="955.1099999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="467.33899999999994" dy="-3.9000000000000012">Reread and validate file</tspan><tspan x="467.33899999999994" dy="16.900000000000002">Recompute plan against current vault</tspan></text>
+</g>
+<g class="node" data-id="add" data-label="Add only new entries
+Backup: keep IDs; clear unknown groups
+CSV: new IDs; map legacy folders" data-shape="rectangle">
+  <rect x="326.69249999999994" y="1030.01" width="281.293" height="70.7" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="467.33899999999994" y="1065.36" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="467.33899999999994" dy="-12.350000000000001">Add only new entries</tspan><tspan x="467.33899999999994" dy="16.900000000000002">Backup: keep IDs; clear unknown groups</tspan><tspan x="467.33899999999994" dy="16.900000000000002">CSV: new IDs; map legacy folders</tspan></text>
+</g>
+<g class="node" data-id="save" data-label="Encrypt vault and commit pair" data-shape="subroutine">
+  <rect x="361.89" y="1148.71" width="210.89799999999997" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="369.89" y1="1148.71" x2="369.89" y2="1185.6100000000001" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="564.788" y1="1148.71" x2="564.788" y2="1185.6100000000001" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="467.33899999999994" y="1167.16" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Encrypt vault and commit pair</text>
+</g>
+<g class="node" data-id="done" data-label="Refresh workspace
+Report added count" data-shape="rectangle">
+  <rect x="262.1529999999999" y="1301.91" width="158.287" height="53.800000000000004" rx="0" ry="0" fill="#f0fdf4" stroke="#16a34a" stroke-width="0.75" />
+  <text x="341.2964999999999" y="1328.8100000000002" text-anchor="middle" font-size="13" font-weight="500" fill="#14532d"><tspan x="341.2964999999999" dy="-3.9000000000000012">Refresh workspace</tspan><tspan x="341.2964999999999" dy="16.900000000000002">Report added count</tspan></text>
+</g>
+<g class="node" data-id="rollback" data-label="Undo additions and CSV group changes
+Report failure" data-shape="rectangle">
+  <rect x="456.43999999999994" y="1301.91" width="273.883" height="53.800000000000004" rx="0" ry="0" fill="#fef2f2" stroke="#dc2626" stroke-width="0.75" />
+  <text x="593.3815" y="1328.8100000000002" text-anchor="middle" font-size="13" font-weight="500" fill="#991b1b"><tspan x="593.3815" dy="-3.9000000000000012">Undo additions and CSV group changes</tspan><tspan x="593.3815" dy="16.900000000000002">Report failure</tspan></text>
+</g>
+</g></svg>

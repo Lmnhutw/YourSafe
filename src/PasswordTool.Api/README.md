@@ -21,6 +21,8 @@ The HTTPS launch profile listens at `https://localhost:7072` and `http://localho
 
 This process is separate from the desktop and NativeHost. Browser autofill uses local named pipes, not this HTTP API.
 
+The [API request diagram](../../docs/diagrams/README.md#optional-hash-api) traces peer/Host checks, HTTPS, global and KDF concurrency limits, route validation, and the four Core operations. It also distinguishes a `200` verification mismatch from `400`, `403`, and `429` rejection paths.
+
 ## Security status
 
 This process accepts only a loopback peer and a localhost/loopback Host header. The supplied launch profiles listen on localhost; overriding listener configuration does not bypass the peer/Host gate. It has no vault endpoint and is intended for local development. Its hash and verify routes receive raw passwords in memory; local callers are not authenticated.

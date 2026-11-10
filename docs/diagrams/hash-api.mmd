@@ -1,0 +1,22 @@
+flowchart TB
+    accTitle: Optional local password-hashing API
+    accDescr: The separate ASP.NET Core Minimal API accepts loopback peer and Host only, caps request bodies, redirects HTTP to HTTPS, and applies process-wide rate limiting. Hash and verify have a two-operation concurrency limit. The four routes call Core hashing and inspection without vault operations. Invalid verification is a successful false result, and educational hash creation is rejected. No local-caller authentication is implemented.
+    request["Local development client\n/api/password request"] --> size["Kestrel body limit: 32 KiB\nOversized body rejected"]
+    size --> peer{"Loopback peer and\nlocalhost / loopback Host?"}
+    peer -->|No| forbidden["403 Forbidden"]:::danger
+    peer -->|Yes| headers["Set Cache-Control: no-store\nRedirect HTTP to HTTPS"]
+    headers --> rate{"Global fixed window\n60 requests per minute?"}
+    rate -->|Exceeded| limit["429 Too Many Requests\nNo queue"]:::danger
+    rate -->|Allowed| route{"Password route?"}
+    route -->|POST hash or verify| concurrent{"Fewer than 2 concurrent\nhash / verify operations?"}
+    concurrent -->|No| limit
+    concurrent -->|Yes| validate["Validate request fields and lengths\nCore bounds formats and KDF work"]
+    validate -->|POST hash| hash["Resolve AlgorithmName, recommended only\nEducational generation rejected with 400"]
+    validate -->|POST verify| verify["Try registered verifiers\nReturn 200 with true or false"]
+    route -->|POST inspect| inspect["Validate hash length\nCore returns format and strength metadata"]
+    route -->|GET algorithms| list["Return registry descriptors\nIncludes educational-only categories"]
+    hash --> response["HTTP result\nNo vault or browser operation"]
+    verify --> response
+    inspect --> response
+    list --> response
+    classDef danger fill:#fef2f2,stroke:#dc2626,color:#991b1b

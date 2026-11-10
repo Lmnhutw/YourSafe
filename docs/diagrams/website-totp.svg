@@ -1,0 +1,130 @@
+<svg role="img" aria-labelledby="title desc" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1015.2864999999999 1264.7849999999996" width="1015.2864999999999" height="1264.7849999999996" style="--border:#94a3b8;--bg:#ffffff;--fg:#1f2328;--line:#64748b;--accent:#0969da;--muted:#334155;background:var(--bg)"><title id="title">Website TOTP on desktop and in the browser</title><desc id="desc">Website TOTP seeds belong to individual encrypted entries and differ from the sign-in Authenticator. Editor changes remain a draft until save. A live desktop panel uses explicit normal unlock and refreshes codes at rotation; Copy generates a code afresh and rechecks its time window at clipboard write. Browser View and Copy are separately approved one-shot actions and do not automatically fetch another code.</desc><metadata>{&quot;source&quot;:&quot;website-totp.mmd&quot;,&quot;sourceSha256&quot;:&quot;ef309754391cc1b91d98d8b995e9461720172a1967c12fd41efef5908694d831&quot;,&quot;renderer&quot;:&quot;beautiful-mermaid@1.1.3&quot;,&quot;theme&quot;:&quot;github-light&quot;,&quot;line&quot;:&quot;#64748b&quot;,&quot;muted&quot;:&quot;#334155&quot;,&quot;border&quot;:&quot;#94a3b8&quot;}</metadata><rect width="100%" height="100%" fill="#ffffff"/><g font-family="Segoe UI,Arial,sans-serif" fill="#0f172a"><text x="24" y="34" font-size="24" font-weight="600">Website TOTP on desktop and in the browser</text><text x="24" y="63" font-size="14">Read arrows in order. SECRET = plaintext; KEY = encryption key; cylinders = stored data.</text></g><g transform="translate(24,88)">
+<style>
+
+  text { font-family: 'Segoe UI', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="setup" data-to="draft" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="484.50775,85.80000000000001 484.50775,133.8" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="draft" data-to="entry" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="484.50775,187.60000000000002 484.50775,235.60000000000002" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="entry" data-to="mode" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="484.50775,303.40000000000003 484.50775,351.40000000000003" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="mode" data-to="unlock" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Desktop 2FA / Details" points="444.4935833333333,551.4708333333333 444.4935833333333,603.485 213.58899999999997,603.485 213.58899999999997,688.535" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="unlock" data-to="panel" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="213.58899999999997,742.3349999999999 213.58899999999997,785.5849999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="panel" data-to="close" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="170.16483333333332,839.3849999999999 170.16483333333332,875.3849999999999 135.22599999999997,875.3849999999999 135.22599999999997,875.3849999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="panel" data-to="fresh" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Copy" points="257.0131666666666,839.3849999999999 257.0131666666666,908.8849999999999 291.952,908.8849999999999 291.95199999999994,977.1849999999998" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="fresh" data-to="clipboard" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="291.95199999999994,1030.985 291.95199999999994,1048.9849999999997 560.7094999999999,1048.9849999999997 560.7094999999999,1066.9849999999997" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="mode" data-to="approval" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Browser popup" points="524.5219166666666,551.4708333333334 524.5219166666666,612.985 698.608,612.985 698.6079999999998,688.535" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="approval" data-to="once" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="View code" points="659.5063333333333,742.3349999999999 659.5063333333333,783.0849999999999 567.7489999999999,783.0849999999999 567.7489999999999,875.3849999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="once" data-to="expired" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="567.7489999999999,929.1849999999998 567.7489999999999,977.1849999999998" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="approval" data-to="nativeCopy" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Copy code" points="737.7096666666665,742.3349999999999 737.7096666666665,908.8849999999999 829.4669999999999,908.8849999999999 829.4669999999999,977.1849999999998" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="nativeCopy" data-to="clipboard" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="829.4669999999999,1030.985 829.4669999999999,1048.9849999999997 560.7094999999999,1048.9849999999997 560.7094999999999,1066.9849999999997" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="mode" data-to="unlock" data-label="Desktop 2FA / Details">
+  <rect x="154.58899999999997" y="610.485" width="117.44200000000002" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="213.30999999999997" y="625.635" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Desktop 2FA / Details</text>
+</g>
+<g class="edge-label" data-from="panel" data-to="fresh" data-label="Copy">
+  <rect x="270.452" y="915.8849999999999" width="42.598" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="291.751" y="931.0349999999999" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Copy</text>
+</g>
+<g class="edge-label" data-from="mode" data-to="approval" data-label="Browser popup">
+  <rect x="653.108" y="619.985" width="90.71200000000002" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="698.4639999999999" y="635.135" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Browser popup</text>
+</g>
+<g class="edge-label" data-from="approval" data-to="once" data-label="View code">
+  <rect x="534.7489999999999" y="790.0849999999999" width="65.764" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="567.6309999999999" y="805.2349999999999" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">View code</text>
+</g>
+<g class="edge-label" data-from="approval" data-to="nativeCopy" data-label="Copy code">
+  <rect x="794.9669999999999" y="915.8849999999999" width="68.14" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="829.0369999999999" y="931.0349999999999" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Copy code</text>
+</g>
+<g class="node" data-id="setup" data-label="Editor: add Base32 or otpauth URI
+Validate algorithm, digits and period" data-shape="rectangle">
+  <rect x="361.27475" y="32" width="246.46599999999995" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="484.50775" y="58.900000000000006" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="484.50775" dy="-3.9000000000000012">Editor: add Base32 or otpauth URI</tspan><tspan x="484.50775" dy="16.900000000000002">Validate algorithm, digits and period</tspan></text>
+</g>
+<g class="node" data-id="draft" data-label="SECRET: TOTP draft
+Save item commits; Cancel discards" data-shape="rectangle">
+  <rect x="360.53375" y="133.8" width="247.94799999999995" height="53.800000000000004" rx="0" ry="0" fill="#fffbeb" stroke="#d97706" stroke-width="0.75" />
+  <text x="484.50775" y="160.70000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="#0f172a"><tspan x="484.50775" dy="-3.9000000000000012">SECRET: TOTP draft</tspan><tspan x="484.50775" dy="16.900000000000002">Save item commits; Cancel discards</tspan></text>
+</g>
+<g class="node" data-id="entry" data-label="Encrypted VaultItem
+Seed + issuer/account + TOTP parameters" data-shape="cylinder">
+  <rect x="338.30375" y="242.60000000000002" width="292.40799999999996" height="53.80000000000001" fill="#eff6ff" stroke="none" />
+  <line x1="338.30375" y1="242.60000000000002" x2="338.30375" y2="296.40000000000003" stroke="#2563eb" stroke-width="0.75" />
+  <line x1="630.7117499999999" y1="242.60000000000002" x2="630.7117499999999" y2="296.40000000000003" stroke="#2563eb" stroke-width="0.75" />
+  <ellipse cx="484.50775" cy="296.40000000000003" rx="146.20399999999998" ry="7" fill="#eff6ff" stroke="#2563eb" stroke-width="0.75" />
+  <ellipse cx="484.50775" cy="242.60000000000002" rx="146.20399999999998" ry="7" fill="#eff6ff" stroke="#2563eb" stroke-width="0.75" />
+  <text x="484.50775" y="269.5" text-anchor="middle" font-size="13" font-weight="500" fill="#0f172a"><tspan x="484.50775" dy="-3.9000000000000012">Encrypted VaultItem</tspan><tspan x="484.50775" dy="16.900000000000002">Seed + issuer/account + TOTP parameters</tspan></text>
+</g>
+<g class="node" data-id="mode" data-label="Where is the code requested?" data-shape="diamond">
+  <polygon points="484.50775,351.4 604.55025,471.4425 484.50775,591.485 364.46524999999997,471.4425" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="484.50775" y="471.4425" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Where is the code requested?</text>
+</g>
+<g class="node" data-id="unlock" data-label="Require explicitly unlocked vault
+Table lock asks to unlock first" data-shape="rectangle">
+  <rect x="98.1365" y="688.535" width="230.90499999999994" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="213.58899999999997" y="715.435" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="213.58899999999997" dy="-3.9000000000000012">Require explicitly unlocked vault</tspan><tspan x="213.58899999999997" dy="16.900000000000002">Table lock asks to unlock first</tspan></text>
+</g>
+<g class="node" data-id="panel" data-label="Core generates code and time window
+Panel refreshes when window rotates" data-shape="rectangle">
+  <rect x="83.31649999999999" y="785.5849999999999" width="260.54499999999996" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="213.58899999999997" y="812.4849999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="213.58899999999997" dy="-3.9000000000000012">Core generates code and time window</tspan><tspan x="213.58899999999997" dy="16.900000000000002">Panel refreshes when window rotates</tspan></text>
+</g>
+<g class="node" data-id="close" data-label="Close, lock or stale lifecycle:
+stop timer and clear code" data-shape="rectangle">
+  <rect x="32" y="875.3849999999999" width="206.45199999999994" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="135.22599999999997" y="902.2849999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="135.22599999999997" dy="-3.9000000000000012">Close, lock or stale lifecycle:</tspan><tspan x="135.22599999999997" dy="16.900000000000002">stop timer and clear code</tspan></text>
+</g>
+<g class="node" data-id="fresh" data-label="Generate current code again
+Recheck lifecycle and time at copy" data-shape="rectangle">
+  <rect x="172.05349999999999" y="977.1849999999998" width="239.79699999999994" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="291.95199999999994" y="1004.0849999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="291.95199999999994" dy="-3.9000000000000012">Generate current code again</tspan><tspan x="291.95199999999994" dy="16.900000000000002">Recheck lifecycle and time at copy</tspan></text>
+</g>
+<g class="node" data-id="clipboard" data-label="SECRET: desktop clipboard
+Owned-value cleanup after 30s / lock" data-shape="rectangle">
+  <rect x="433.40099999999995" y="1066.9849999999997" width="254.61699999999996" height="53.800000000000004" rx="0" ry="0" fill="#fffbeb" stroke="#d97706" stroke-width="0.75" />
+  <text x="560.7094999999999" y="1093.8849999999998" text-anchor="middle" font-size="13" font-weight="500" fill="#0f172a"><tspan x="560.7094999999999" dy="-3.9000000000000012">SECRET: desktop clipboard</tspan><tspan x="560.7094999999999" dy="16.900000000000002">Owned-value cleanup after 30s / lock</tspan></text>
+</g>
+<g class="node" data-id="approval" data-label="Origin-matched account selected
+Desktop approval for each action" data-shape="rectangle">
+  <rect x="581.3029999999999" y="688.535" width="234.60999999999999" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="698.6079999999998" y="715.435" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="698.6079999999998" dy="-3.9000000000000012">Origin-matched account selected</tspan><tspan x="698.6079999999998" dy="16.900000000000002">Desktop approval for each action</tspan></text>
+</g>
+<g class="node" data-id="once" data-label="Return current code + expiry
+Seed stays in Core" data-shape="rectangle">
+  <rect x="462.29999999999995" y="875.3849999999999" width="210.898" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="567.7489999999999" y="902.2849999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="567.7489999999999" dy="-3.9000000000000012">Return current code + expiry</tspan><tspan x="567.7489999999999" dy="16.900000000000002">Seed stays in Core</tspan></text>
+</g>
+<g class="node" data-id="expired" data-label="Countdown expires: clear result
+Explicit View needed for next code" data-shape="rectangle">
+  <rect x="447.8504999999999" y="977.1849999999998" width="239.797" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="567.7489999999999" y="1004.0849999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="567.7489999999999" dy="-3.9000000000000012">Countdown expires: clear result</tspan><tspan x="567.7489999999999" dy="16.900000000000002">Explicit View needed for next code</tspan></text>
+</g>
+<g class="node" data-id="nativeCopy" data-label="Desktop copies current code
+Return copied=true only" data-shape="rectangle">
+  <rect x="723.6474999999999" y="977.1849999999998" width="211.639" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="829.4669999999999" y="1004.0849999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="829.4669999999999" dy="-3.9000000000000012">Desktop copies current code</tspan><tspan x="829.4669999999999" dy="16.900000000000002">Return copied=true only</tspan></text>
+</g>
+</g></svg>

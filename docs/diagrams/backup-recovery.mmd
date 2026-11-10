@@ -1,30 +1,20 @@
-flowchart LR
-    accTitle: Recover entries on a fresh installation
-    accDescr: Recovery requires both local vault files to be absent. The backup passphrase authenticates the backup, new credentials and Recovery Key are confirmed, then a new DEK and vault pair are committed. Failures stop; no existing vault is overwritten.
-    subgraph desktop["Desktop App / Core"]
-        direction LR
-        empty{"`Storage empty?`"}:::decision
-        inspect["`Decrypt backup + inspect`"]:::secret
-        setup["`Confirm new credentials`"]
-        create["`New DEK + encrypt`"]
-        commit{"Success?"}:::decision
-        stop["`Stop / report failure`"]:::danger
-    end
-    subgraph localVault["Local Vault"]
-        pair[("`New vault pair`")]:::encrypted
-    end
-    empty -->|No| stop
-    empty -->|Yes| inspect
-    inspect -->|Valid| setup
-    inspect -->|Invalid| stop
-    setup -->|Confirmed| create
-    setup -->|Cancel / invalid| stop
-    create --> commit
-    commit -->|Failure| stop
-    commit -->|Success| pair
-    classDef secret fill:#fffbeb,stroke:#d97706,color:#0f172a
-    classDef decision fill:#fffbeb,stroke:#d97706,color:#0f172a
-    classDef encrypted fill:#eff6ff,stroke:#2563eb,color:#0f172a
+flowchart TB
+    accTitle: Recover a backup on a fresh installation
+    accDescr: Both local vault files must be absent. Inspection authenticates the external backup and exposes counts only. A new Master Password, newly saved Recovery Key and replacement sign-in Authenticator are confirmed. Core rereads the backup at commit, creates a fresh DEK and config, validates staged wrappers and ciphertext, then begins a new unlocked login after successful persistence.
+    start["First launch:\nRecover from encrypted backup"] --> empty{"Both .config and\n.storage absent?"}
+    empty -->|No; including partial pair| blocked["Stop; preserve local files\nResolve existing storage first"]:::danger
+    empty -->|Yes| inspect["Select backup + separate passphrase\nAuthenticate and validate full payload"]
+    inspect -->|Wrong passphrase / invalid file| retry["Report failure\nNo vault created"]:::danger
+    inspect -->|Valid| preview["Show format, date and item counts\nNo secrets in inspection result"]
+    preview --> setup["Choose new Master Password\nSet up new sign-in Authenticator"]
+    setup --> confirm["Verify current setup code\nSave and confirm new Recovery Key"]
+    confirm -->|Cancel / invalid| retry
+    confirm -->|Confirmed| revalidate["Core: recheck empty storage and inputs\nReread and authenticate backup"]
+    revalidate --> create["KEY: generate fresh 256-bit DEK\nCreate two new config key slots"]:::key
+    create --> encrypt["Re-encrypt entries under new DEK\nClear unknown group references"]
+    encrypt --> commit[["Verify staged wrappers and ciphertext\nCommit new .config + .storage"]]
+    commit -->|Failure| failed["Report persistence failure\nSee journal and rollback flow"]:::danger
+    commit -->|Success| open["Start new unlocked login\nRecord backup verification time"]:::good
+    classDef key fill:#ffffff,stroke:#2563eb,color:#0f172a,stroke-dasharray:4 3
     classDef danger fill:#fef2f2,stroke:#dc2626,color:#991b1b
-    style desktop stroke-dasharray:5 4
-    style localVault stroke-dasharray:5 4
+    classDef good fill:#f0fdf4,stroke:#16a34a,color:#14532d

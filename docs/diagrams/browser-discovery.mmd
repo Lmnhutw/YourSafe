@@ -1,25 +1,28 @@
 sequenceDiagram
-    accTitle: Discover matching accounts
-    accDescr: Discovery crosses Browser Extension, Native Host and Desktop App boundaries. Integration opt-in permits matching account metadata without per-request approval; no plaintext password or TOTP seed is returned.
-    box rgb(248,250,252) Browser Extension
-        participant worker as Extension worker
+    accTitle: Discover accounts without releasing secrets
+    accDescr: The worker derives the active top-level document and checks desktop status before discovery. NativeHost validates protocol v3 and relays over a verified Windows pipe. Integration opt-in, an explicitly unlocked vault, origin policy and quotas gate metadata. The worker validates the response and rechecks its target before showing accounts.
+    participant W as Browser worker
+    participant H as NativeHost
+    participant A as Desktop flow
+    participant C as Core vault
+    W->>W: Read active tab, document ID and URL
+    W->>H: Native Messaging: getStatus
+    H->>A: Verified named pipe: getStatus
+    A-->>H: integrationEnabled, unlocked
+    H-->>W: Validated protocol v3 response
+    alt Disabled or locked
+        W->>W: Show enable or unlock guidance
+        Note over W,A: Open YourSafe can foreground a running app
+    else Enabled and explicitly unlocked
+        W->>H: findCredentials(canonical origin)
+        H->>A: Validate frame and forward one request
+        A->>A: Check opt-in, normal unlock and quota
+        A->>C: Serialized GetAutofillCredentials
+        C-->>A: Active password or TOTP account metadata
+        A->>A: Match saved URL origin exactly
+        A-->>H: Bounded IDs, titles, usernames, flags
+        H-->>W: credentials and truncated flag
+        W->>W: Validate schema and recheck same target
+        W->>W: Show accounts for explicit selection
     end
-    box rgb(248,250,252) Native Host
-        participant host as NativeHost
-    end
-    box rgb(248,250,252) Desktop App
-        participant app as Desktop + Core
-    end
-    worker->>worker: Read current tab and origin
-    worker->>host: Native Messaging: findCredentials(origin)
-    host->>app: Named pipe: forward request
-    app->>app: Check opt-in, unlocked state and origin
-    alt Locked, disabled or invalid
-        app-->>host: Deny
-        host-->>worker: Deny
-    else Allowed
-        app->>app: Match saved origins in session metadata
-        app-->>host: Metadata: IDs, names, usernames, flags
-        host-->>worker: Metadata: matching accounts
-        worker->>worker: Recheck tab and show accounts
-    end
+    Note over W,C: Discovery returns no password, TOTP seed or recovery codes

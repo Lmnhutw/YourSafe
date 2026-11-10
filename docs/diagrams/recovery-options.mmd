@@ -1,0 +1,16 @@
+flowchart LR
+    accTitle: Choose the correct recovery path
+    accDescr: Current-vault credential loss uses the current Recovery Key and preserves the existing DEK. Reverting changes uses an authenticated local snapshot and current authorization. Loss of the machine uses an external encrypted backup and its separate passphrase on empty storage. Import into an existing vault adds only new items. These paths require different credentials and are not interchangeable.
+    problem{"What do you\nneed to do?"}
+    problem -->|Credential loss| key["Current vault pair\nCurrent Recovery Key"]
+    key --> reset["Reset login credentials\nKeep DEK and entries"]
+    reset --> signin["Return to sign-in\nUse new password and OTP"]
+    problem -->|Undo changes| snapshot["Local snapshot\nCurrent + snapshot passwords"]
+    snapshot --> restore["Replace the entire pair\nRestore historical security state"]
+    restore --> oldLogin["Sign in again\nUse snapshot credentials"]
+    problem -->|Lost PC / profile| external["External backup + passphrase\nNo local vault files"]
+    external --> fresh["Recover entries under new DEK\nCreate new login credentials"]
+    problem -->|Add entries| import["Existing authorized vault\nBackup + its passphrase"]
+    import --> merge["Import new IDs only\nKeep current entries and login"]
+    problem -->|No recovery material| unavailable["No hosted vault copy\nNo account recovery service"]:::danger
+    classDef danger fill:#fef2f2,stroke:#dc2626,color:#991b1b

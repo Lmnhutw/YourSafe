@@ -1,32 +1,23 @@
 stateDiagram-v2
-    accTitle: Vault lock and login lifecycle
-    accDescr: For an enrolled vault, a successful Master Password and TOTP sign-in begins a fixed five-hour login. Table locking preserves metadata, Windows lifecycle locking clears it, and reopening during that login needs only the Master Password. Temporary desktop actions always relock; logout, login expiry or app exit ends login.
+    accTitle: Login authorization and vault locking
+    accDescr: For an enrolled vault, signed-out access requires the Master Password and current OTP. A fixed five-hour login contains shorter vault-open windows, table lock, temporary desktop actions and a Windows lifecycle lock. Reopening needs the Master Password without extending login. Table lock preserves cached metadata; lifecycle lock clears it. Temporary actions relock on success or failure. Logout, expiry and process exit end authorization.
     direction TB
-    state "Signed out" as signedOut
+    state "Signed out: no login or DEK" as signedOut
     [*] --> signedOut
-    signedOut --> signedOut: Invalid / cancel
-    signedOut --> login: Verify Master Password + TOTP
-    state "Active login - five-hour maximum" as login {
-        state "Unlocked" as unlocked
-        state "Table locked" as tableLocked
-        state "One desktop action" as oneAction
-        state "Screen locked" as screenLocked
+    state "Active login: fixed five-hour maximum" as login {
+        state "Unlocked: DEK and data in memory" as unlocked
+        state "Table locked: cached metadata retained" as tableLocked
+        state "Temporary desktop action" as oneAction
+        state "Lifecycle locked: workspace cache cleared" as screenLocked
         [*] --> unlocked
-        unlocked --> tableLocked: Manual lock / vault deadline
-        tableLocked --> unlocked: Unlock + Master Password
-        tableLocked --> oneAction: Action + Master Password
-        tableLocked --> tableLocked: Wrong password / cancel
-        oneAction --> tableLocked: Success / failure - relock
-        unlocked --> screenLocked: Windows event
-        tableLocked --> screenLocked: Windows event
-        oneAction --> screenLocked: Windows event
-        screenLocked --> unlocked: Master Password
-        screenLocked --> screenLocked: Wrong password / cancel
+        unlocked --> tableLocked: Manual lock or fixed vault deadline
+        tableLocked --> unlocked: Unlock vault + correct Master Password
+        tableLocked --> oneAction: Protected action + correct Master Password
+        oneAction --> tableLocked: finally relock on success or failure
+        unlocked --> screenLocked: Windows lock, disconnect, suspend or resume
+        tableLocked --> screenLocked: Windows lifecycle event
+        oneAction --> screenLocked: Windows event cancels action
+        screenLocked --> unlocked: Correct Master Password during same login
     }
-    login --> signedOut: Logout / login expiry / app exit
-    classDef good fill:#f0fdf4,stroke:#16a34a,color:#14532d
-    classDef warning fill:#fffbeb,stroke:#d97706,color:#0f172a
-    classDef neutral fill:#f8fafc,stroke:#64748b,color:#0f172a
-    class unlocked good
-    class tableLocked,screenLocked,oneAction warning
-    class signedOut neutral
+    signedOut --> login: Master Password + current Authenticator code
+    login --> signedOut: Logout, login expiry or app exit

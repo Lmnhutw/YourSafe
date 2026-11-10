@@ -4,6 +4,8 @@ The core owns Argon2id/PBKDF2 key derivation, AES-GCM vault persistence, paired 
 
 The reusable domain and security layer for YourSafe. `PasswordTool.Core` remains the project and namespace name. The WinUI desktop UI and HTTP projects depend on this project; Core must never depend on UI-framework or ASP.NET request/response types.
 
+Source-backed diagrams: [vault contents](../../docs/diagrams/README.md#vault-data-model), [key paths](../../docs/diagrams/README.md#keys-and-encrypted-storage), [paired persistence](../../docs/diagrams/README.md#paired-persistence), [import](../../docs/diagrams/README.md#import-into-an-existing-vault), and [recovery choices](../../docs/diagrams/README.md#choose-a-recovery-path).
+
 ## Responsibilities
 
 - Master Password validation, Argon2id KEK derivation, AES-GCM DEK wrapping, and legacy PBKDF2 compatibility
@@ -14,7 +16,7 @@ The reusable domain and security layer for YourSafe. `PasswordTool.Core` remains
 - Vault item validation, CRUD, recovery-code parsing, and sensitive-action session checks
 - Credential groups, favorites, and migration of legacy folders to groups; All includes entries without a group
 - Autofill metadata/secret projections with lock/session checks and null username normalization; origin policy and browser consent belong to Presentation and the worker
-- Encrypted, versioned backup creation, safe authenticated inspection, import planning, and atomic new-machine recovery
+- Encrypted, versioned backup creation, safe authenticated inspection, import planning, and verified paired new-machine recovery
 - Cryptographically secure password/passphrase generation and strength estimates
 - Bounded common-format CSV parsing and duplicate-aware import planning
 - Password hash implementations, inspection, registry metadata, and constant-time comparisons

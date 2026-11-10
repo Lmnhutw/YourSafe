@@ -1,0 +1,20 @@
+flowchart TB
+    accTitle: Paired persistence, rollback and restart recovery
+    accDescr: A logical vault update is not a single filesystem-atomic swap. Storage stages and rereads config and vault, invokes caller verification, snapshots the previous complete pair, journals the target pair, then replaces the two files. Exceptions attempt rollback; the journal is removed only after both restorations succeed. A restart with a valid pending journal writes its target pair before deleting the journal. Invalid journals fail without replacement.
+    input["Input: serialized config\nand encrypted vault payload"] --> stage["Read previous files\nWrite two temporary files"]
+    stage --> verify["Reread bounded staging files\nParse config and payload envelope"]
+    verify --> callback["Run caller verification\nCrypto checks for setup/reset/restore\nSession checks for ordinary save"]
+    callback --> snapshot["Recheck authorization if supplied\nSnapshot previous complete pair"]
+    snapshot --> journal["Recheck authorization again\nWrite .state-transaction with target pair"]
+    journal --> replace["Replace .config\nThen replace .storage"]
+    replace --> done["Delete journal and prune to 5 snapshots\nClean temporary files"]:::good
+    stage -.->|Exception anywhere in transaction| rollback["Attempt restoring both previous files\nOr remove newly created files"]
+    rollback --> restored{"Both restorations succeeded?"}
+    restored -->|Yes| failed["Best-effort delete journal\nReport original failure"]:::danger
+    restored -->|No| retained["Keep journal if present\nReport failure; no success guarantee"]:::danger
+    interrupted["Next launch:\npending journal exists"] --> valid{"Journal and target\ndocuments structurally valid?"}
+    valid -->|No| blocked["Fail startup recovery\nKeep files and journal for diagnosis"]:::danger
+    valid -->|Yes| replay["Write journal target config + vault\nThen delete journal"]
+    replay --> normal["Continue startup\nNormal unlock authenticates ciphertext"]
+    classDef danger fill:#fef2f2,stroke:#dc2626,color:#991b1b
+    classDef good fill:#f0fdf4,stroke:#16a34a,color:#14532d

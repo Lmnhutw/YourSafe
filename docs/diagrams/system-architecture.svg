@@ -1,0 +1,133 @@
+<svg role="img" aria-labelledby="title desc" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1245.1889999999999 1179.6000000000001" width="1245.1889999999999" height="1179.6000000000001" style="--border:#94a3b8;--bg:#ffffff;--fg:#1f2328;--line:#64748b;--accent:#0969da;--muted:#334155;background:var(--bg)"><title id="title">YourSafe components and local data paths</title><desc id="desc">The desktop runs WinUI views and Windows adapters over platform-neutral Presentation orchestration and the Core vault. The optional TypeScript extension reaches the running desktop via Native Messaging and a standalone NativeHost pipe relay. The separate development HTTP API shares hashing implementations only. Vault files and backups are local; transport arrows indicate runtime calls rather than project references.</desc><metadata>{&quot;source&quot;:&quot;system-architecture.mmd&quot;,&quot;sourceSha256&quot;:&quot;4099e623b91cb07c607986ba75eae85e226d430a7a3c38d860024af80cb800af&quot;,&quot;renderer&quot;:&quot;beautiful-mermaid@1.1.3&quot;,&quot;theme&quot;:&quot;github-light&quot;,&quot;line&quot;:&quot;#64748b&quot;,&quot;muted&quot;:&quot;#334155&quot;,&quot;border&quot;:&quot;#94a3b8&quot;}</metadata><rect width="100%" height="100%" fill="#ffffff"/><g font-family="Segoe UI,Arial,sans-serif" fill="#0f172a"><text x="24" y="34" font-size="24" font-weight="600">YourSafe components and local data paths</text><text x="24" y="63" font-size="14">Read arrows in order. SECRET = plaintext; KEY = encryption key; cylinders = stored data.</text></g><g transform="translate(24,88)">
+<style>
+
+  text { font-family: 'Segoe UI', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<g class="subgraph" data-id="desktop" data-label="YourSafe.exe - desktop process">
+  <rect x="363.37199999999996" y="477.70000000000005" width="665.8394999999998" height="419.20000000000005" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="363.37199999999996" y="477.70000000000005" width="665.8394999999998" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="375.37199999999996" y="491.70000000000005" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">YourSafe.exe - desktop process</text>
+</g>
+<g class="subgraph" data-id="browser" data-label="Optional browser integration">
+  <rect x="527.5236666666665" y="32" width="457.865" height="317.40000000000003" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="527.5236666666665" y="32" width="457.865" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="539.5236666666665" y="46" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">Optional browser integration</text>
+</g>
+<polyline class="edge" data-from="api" data-to="hashing" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="179.68599999999998,879.9000000000001 179.68599999999998,938.9000000000001" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="core" data-to="files" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="880.3454999999999,879.9000000000001 880.3454999999999,909.4000000000001 737.6305,909.4000000000001 737.6305,938.9000000000001" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="core" data-to="backup" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="880.3454999999999,879.9000000000001 880.3454999999999,909.4000000000001 1023.0604999999998,909.4000000000001 1023.0604999999998,938.9000000000001" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="host" data-to="pipe" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Current-user named pipe" points="849.8606666666665,333.40000000000003 849.8606666666665,521.7" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="flow" data-to="hashing" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="808.4124999999999,677.3 808.4124999999999,701.3 219.52866666666662,701.3 219.52866666666662,938.9000000000001" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="ui" data-to="flow" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="556.4031666666665,575.5 556.4031666666665,599.5 808.4124999999999,599.5 808.4124999999999,623.5" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="flow" data-to="runner" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="808.4124999999999,677.3 808.4124999999999,701.3 880.3454999999999,701.3 880.3454999999999,725.3000000000001" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="runner" data-to="core" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="880.3454999999998,779.1000000000001 880.3454999999998,826.1000000000001" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="ui" data-to="platform" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="556.4031666666665,575.5 556.4031666666665,599.5 513.7199999999999,599.5 513.7199999999999,623.5" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="pipe" data-to="flow" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="849.8606666666665,575.5 849.8606666666665,623.5" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="popup" data-to="content" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="703.2137499999999,129.8 703.2137499999999,141.8 641.1921666666665,141.8 641.1921666666665,177.8" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="popup" data-to="host" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Native Messaging stdin/stdout" points="787.8390833333331,129.8 787.8390833333331,141.8 849.8606666666665,141.8 849.8606666666665,279.6" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="host" data-to="pipe" data-label="Current-user named pipe">
+  <rect x="782.3606666666665" y="398.40000000000003" width="134.668" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="849.6946666666665" y="413.55" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Current-user named pipe</text>
+</g>
+<g class="edge-label" data-from="popup" data-to="host" data-label="Native Messaging stdin/stdout">
+  <rect x="770.8606666666665" y="189.55" width="157.834" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="849.7776666666665" y="204.70000000000002" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Native Messaging stdin/stdout</text>
+</g>
+<g class="node" data-id="files" data-label="Local vault directory
+.config + encrypted .storage
+Paired snapshots and journal" data-shape="cylinder">
+  <rect x="630.329" y="945.9000000000001" width="214.60299999999995" height="70.7" fill="#eff6ff" stroke="none" />
+  <line x1="630.329" y1="945.9000000000001" x2="630.329" y2="1016.6000000000001" stroke="#2563eb" stroke-width="0.75" />
+  <line x1="844.9319999999999" y1="945.9000000000001" x2="844.9319999999999" y2="1016.6000000000001" stroke="#2563eb" stroke-width="0.75" />
+  <ellipse cx="737.6305" cy="1016.6000000000001" rx="107.30149999999998" ry="7" fill="#eff6ff" stroke="#2563eb" stroke-width="0.75" />
+  <ellipse cx="737.6305" cy="945.9000000000001" rx="107.30149999999998" ry="7" fill="#eff6ff" stroke="#2563eb" stroke-width="0.75" />
+  <text x="737.6305" y="981.2500000000001" text-anchor="middle" font-size="13" font-weight="500" fill="#0f172a"><tspan x="737.6305" dy="-12.350000000000001">Local vault directory</tspan><tspan x="737.6305" dy="16.900000000000002">.config + encrypted .storage</tspan><tspan x="737.6305" dy="16.900000000000002">Paired snapshots and journal</tspan></text>
+</g>
+<g class="node" data-id="backup" data-label="Encrypted external backup
+User-selected file + separate passphrase" data-shape="cylinder">
+  <rect x="880.9319999999999" y="945.9000000000001" width="284.25699999999995" height="53.80000000000001" fill="#eff6ff" stroke="none" />
+  <line x1="880.9319999999999" y1="945.9000000000001" x2="880.9319999999999" y2="999.7" stroke="#2563eb" stroke-width="0.75" />
+  <line x1="1165.1889999999999" y1="945.9000000000001" x2="1165.1889999999999" y2="999.7" stroke="#2563eb" stroke-width="0.75" />
+  <ellipse cx="1023.0604999999998" cy="999.7" rx="142.12849999999997" ry="7" fill="#eff6ff" stroke="#2563eb" stroke-width="0.75" />
+  <ellipse cx="1023.0604999999998" cy="945.9000000000001" rx="142.12849999999997" ry="7" fill="#eff6ff" stroke="#2563eb" stroke-width="0.75" />
+  <text x="1023.0604999999998" y="972.8000000000001" text-anchor="middle" font-size="13" font-weight="500" fill="#0f172a"><tspan x="1023.0604999999998" dy="-3.9000000000000012">Encrypted external backup</tspan><tspan x="1023.0604999999998" dy="16.900000000000002">User-selected file + separate passphrase</tspan></text>
+</g>
+<g class="node" data-id="api" data-label="PasswordTool.Api
+Separate local-development HTTP process" data-shape="rectangle">
+  <rect x="32" y="826.1000000000001" width="295.37199999999996" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="179.68599999999998" y="853.0000000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="179.68599999999998" dy="-3.9000000000000012">PasswordTool.Api</tspan><tspan x="179.68599999999998" dy="16.900000000000002">Separate local-development HTTP process</tspan></text>
+</g>
+<g class="node" data-id="hashing" data-label="Core hashing registry + inspector
+Shared with desktop Hash Tool" data-shape="rectangle">
+  <rect x="100.00066666666663" y="938.9000000000001" width="239.05599999999998" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="219.52866666666662" y="965.8000000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="219.52866666666662" dy="-3.9000000000000012">Core hashing registry + inspector</tspan><tspan x="219.52866666666662" dy="16.900000000000002">Shared with desktop Hash Tool</tspan></text>
+</g>
+<g class="node" data-id="ui" data-label="WinUI 3
+Views, dialogs and Windows lifecycle" data-shape="rectangle">
+  <rect x="428.3536666666666" y="521.7" width="256.09899999999993" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="556.4031666666665" y="548.6" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="556.4031666666665" dy="-3.9000000000000012">WinUI 3</tspan><tspan x="556.4031666666665" dy="16.900000000000002">Views, dialogs and Windows lifecycle</tspan></text>
+</g>
+<g class="node" data-id="flow" data-label="Presentation
+ViewModels + AppFlowCoordinator" data-shape="rectangle">
+  <rect x="684.0679999999999" y="623.5" width="248.68899999999996" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="808.4124999999999" y="650.4" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="808.4124999999999" dy="-3.9000000000000012">Presentation</tspan><tspan x="808.4124999999999" dy="16.900000000000002">ViewModels + AppFlowCoordinator</tspan></text>
+</g>
+<g class="node" data-id="runner" data-label="VaultOperationRunner
+Serialize Core calls off the UI thread" data-shape="rectangle">
+  <rect x="756.3714999999999" y="725.3000000000001" width="247.94799999999998" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="880.3454999999999" y="752.2" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="880.3454999999999" dy="-3.9000000000000012">VaultOperationRunner</tspan><tspan x="880.3454999999999" dy="16.900000000000002">Serialize Core calls off the UI thread</tspan></text>
+</g>
+<g class="node" data-id="core" data-label="Core VaultService
+Validation, session, crypto and imports" data-shape="rectangle">
+  <rect x="747.4794999999999" y="826.1000000000001" width="265.73199999999997" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="880.3454999999999" y="853.0000000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="880.3454999999999" dy="-3.9000000000000012">Core VaultService</tspan><tspan x="880.3454999999999" dy="16.900000000000002">Validation, session, crypto and imports</tspan></text>
+</g>
+<g class="node" data-id="platform" data-label="Windows adapters
+Clipboard, pickers and approval dialog" data-shape="rectangle">
+  <rect x="379.37199999999996" y="623.5" width="268.6959999999999" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="513.7199999999999" y="650.4" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="513.7199999999999" dy="-3.9000000000000012">Windows adapters</tspan><tspan x="513.7199999999999" dy="16.900000000000002">Clipboard, pickers and approval dialog</tspan></text>
+</g>
+<g class="node" data-id="pipe" data-label="AutofillPipeServer
+Validate peer and protocol" data-shape="rectangle">
+  <rect x="752.1921666666665" y="521.7" width="195.33699999999996" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="849.8606666666665" y="548.6" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="849.8606666666665" dy="-3.9000000000000012">AutofillPipeServer</tspan><tspan x="849.8606666666665" dy="16.900000000000002">Validate peer and protocol</tspan></text>
+</g>
+<g class="node" data-id="popup" data-label="Popup + worker
+Account selection and target checks" data-shape="rectangle">
+  <rect x="618.5884166666665" y="76" width="253.87599999999998" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="745.5264166666665" y="102.9" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="745.5264166666665" dy="-3.9000000000000012">Popup + worker</tspan><tspan x="745.5264166666665" dy="16.900000000000002">Account selection and target checks</tspan></text>
+</g>
+<g class="node" data-id="content" data-label="Content script
+Explicit fill in top-level page" data-shape="rectangle">
+  <rect x="543.5236666666665" y="177.8" width="195.337" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="641.1921666666665" y="204.70000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="641.1921666666665" dy="-3.9000000000000012">Content script</tspan><tspan x="641.1921666666665" dy="16.900000000000002">Explicit fill in top-level page</tspan></text>
+</g>
+<g class="node" data-id="host" data-label="YourSafe.NativeHost.exe
+Standalone framing and pipe relay" data-shape="rectangle">
+  <rect x="730.3326666666665" y="279.6" width="239.05599999999998" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="849.8606666666665" y="306.5" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="849.8606666666665" dy="-3.9000000000000012">YourSafe.NativeHost.exe</tspan><tspan x="849.8606666666665" dy="16.900000000000002">Standalone framing and pipe relay</tspan></text>
+</g>
+</g></svg>

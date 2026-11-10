@@ -1,23 +1,20 @@
-flowchart LR
-    accTitle: Export an encrypted entry backup
-    accDescr: An authorized desktop export encrypts entries with a separate backup passphrase, writes a temporary backup, authenticates it before replacement and verifies the final file. Failed final verification must not be treated as a usable backup. Group definitions and vault sign-in credentials are excluded.
-    subgraph desktop["Desktop App / Core"]
-        direction LR
-        entries["`SECRET: entries`"]:::secret --> encrypt["`Derive key + encrypt`"]
-        passphrase["`SECRET: backup passphrase`"]:::secret --> encrypt
-        encrypt --> stage["`Write and verify temp`"]
-        stage -->|Success| replace["`Replace and verify final`"]
-        stage -->|Failure| stop["Report failure"]:::danger
-        replace --> result{"Verified?"}:::decision
-        result -->|No| stop
-    end
-    subgraph external["External backup"]
-        backup[("`Encrypted entries`")]:::encrypted
-    end
-    result -->|Yes| backup
-    classDef secret fill:#fffbeb,stroke:#d97706,color:#0f172a
-    classDef decision fill:#fffbeb,stroke:#d97706,color:#0f172a
-    classDef encrypted fill:#eff6ff,stroke:#2563eb,color:#0f172a
+flowchart TB
+    accTitle: Export and authenticate an encrypted backup
+    accDescr: Export requires authorized vault access and a separate confirmed backup passphrase. Core validates all items, derives a key using PBKDF2-SHA256 and encrypts the entry payload with AES-GCM. The temporary file is authenticated before replacement and the final file afterward. Status recording is a separate paired config update; its failure does not invalidate an already verified backup.
+    start["Backup Center: export\nAuthorized desktop vault action"] --> pass{"Backup passphrase confirmed?\n12 to 4096 characters"}
+    pass -->|No| reject["Correct input or cancel\nNo backup written"]:::danger
+    pass -->|Yes| payload["Validate and serialize entries\nInclude history and Trash"]
+    payload --> key["KEY: PBKDF2-SHA256\n600,000 iterations; 16-byte random salt"]:::key
+    key --> encrypt["AES-256-GCM encrypt\nPasswordToolBackup v1 envelope"]
+    encrypt --> temp["Write temporary file\nin destination directory"]
+    temp --> verifyTemp{"Authenticate and validate\nentire temporary backup?"}
+    verifyTemp -->|Failure| preserve["Report failure\nPrevious destination preserved"]:::danger
+    verifyTemp -->|Success| replace["Replace destination file"]
+    replace --> verifyFinal{"Authenticate and validate\nentire final backup?"}
+    verifyFinal -->|Failure| distrust["File may exist; do not rely on it\nCreate and verify another backup"]:::danger
+    verifyFinal -->|Success| health["Record exported and verified times\nPaired config update"]
+    health -->|Success| done["Backup created and verified"]:::good
+    health -->|Failure| partial["Backup is verified\nApp status update failed"]:::danger
+    classDef key fill:#ffffff,stroke:#2563eb,color:#0f172a,stroke-dasharray:4 3
     classDef danger fill:#fef2f2,stroke:#dc2626,color:#991b1b
-    style desktop stroke-dasharray:5 4
-    style external stroke-dasharray:5 4
+    classDef good fill:#f0fdf4,stroke:#16a34a,color:#14532d

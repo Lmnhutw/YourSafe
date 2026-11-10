@@ -1,30 +1,35 @@
 sequenceDiagram
-    accTitle: Approve one password fill
-    accDescr: The official worker checks the browser target, requests one password through NativeHost, and the desktop checks policy and obtains approval. Denial or stale state returns no secret. A successful response contains the selected username and password; the worker rechecks the target before filling without submission.
-    box rgb(248,250,252) Browser Extension
-        participant worker as Extension worker
+    accTitle: Approve and fill one selected password
+    accDescr: After discovery, the worker prepares eligible fields in the exact top-level document before requesting a password. The desktop snapshots the candidate and mutation version, obtains a single approval with a 60-second deadline, then rechecks origin, lifecycle and revision. Final pipe and browser checks guard disclosure and filling. No form is submitted.
+    participant W as Browser worker
+    participant P as Content script
+    participant H as NativeHost
+    participant A as Desktop + Core
+    W->>W: Explicit Fill, bind account and target
+    W->>P: prepare(token, exact document URL)
+    P->>P: Find visible, editable, unambiguous fields
+    P-->>W: Ready or ambiguousFields
+    Note over W,A: Continue only after fields are ready
+    W->>H: getCredentialSecret(origin, ID)
+    H->>A: Validated v3 request over verified pipe
+    A->>A: Check opt-in, unlocked state and quota
+    A->>A: Snapshot account, origin and mutation version
+    A->>A: Ask user: Allow once or Deny
+    Note right of A: One pending approval, 60-second deadline
+    alt Denied, cancelled, locked or changed
+        A-->>H: Failure, no secret result
+        H-->>W: Failure, no fill
+    else Approved and still valid
+        A->>A: Recheck lifecycle, revision and account
+        A->>A: Core reads selected username and password
+        A->>A: Recheck delivery guard at pipe write
+        A-->>H: SECRET: username and password
+        H-->>W: Validate and relay secret response
+        W->>W: Recheck tab, document, URL and lifetime
+        W->>P: fill(token, URL, secret)
+        P->>P: Recheck same fields, visibility and form
+        P->>P: Set username, recheck before password
+        P-->>W: Filled, or reject changed target
+        W->>W: Retain success flag, no password cache
     end
-    box rgb(248,250,252) Native Host
-        participant host as NativeHost
-    end
-    box rgb(248,250,252) Desktop App
-        participant app as Desktop + Core
-    end
-    worker->>worker: Prepare target and eligible fields
-    worker->>host: getCredentialSecret(origin, ID)
-    host->>app: Named pipe: forward request
-    app->>app: Check policy before asking approval
-    app->>app: If eligible, request Allow once
-    app->>app: If approved, recheck state and origin
-    alt Denied, expired or changed
-        app-->>host: Deny: no secret
-        host-->>worker: Deny: no secret
-    else Allow and still valid
-        app-->>host: Secret: username + password
-        host-->>worker: Secret: username + password
-        alt Same document and eligible fields
-            worker->>worker: Recheck target and fill once (no submit)
-        else Target or fields changed
-            worker->>worker: Discard result without filling
-        end
-    end
+    Note over W,P: Fill dispatches input/change events, never submits

@@ -41,6 +41,8 @@ Unregister removes only development HKCU registrations whose value still points 
 
 ## Responsibilities and protocol
 
+Follow the source-backed [component map](../docs/diagrams/README.md#system-architecture), [metadata discovery sequence](../docs/diagrams/README.md#browser-discovery), [one approved Fill](../docs/diagrams/README.md#browser-password-fill), and [website TOTP flow](../docs/diagrams/README.md#website-totp). These distinguish worker document checks, NativeHost transport, desktop approval, and the final destination/clipboard checks.
+
 | Component | Responsibility |
 |---|---|
 | Content script | Explicitly injected top-level form detection, native input setters and input/change events. No discovery or secret request authority. |

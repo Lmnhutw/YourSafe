@@ -1,26 +1,22 @@
-flowchart LR
-    accTitle: Two independent paths to the vault key
-    accDescr: A Master Password-derived KEK or the random Recovery Key unwraps the same DEK from its own config slot. The DEK authenticates and decrypts the stored vault. TOTP is an application sign-in gate, not an input to either key path.
-    password["`SECRET: Master Password`"]:::secret
-    recovery["`KEY: Recovery Key`"]:::key
-    subgraph desktop["Desktop App / Core"]
-        direction LR
-        derive["`Derive KEK (Argon2id)`"]
-        master["`Unwrap Master slot`"]
-        rescue["`Unwrap Recovery slot`"]
-        dek["`KEY: same DEK`"]:::key
-        decrypt["`Authenticate + decrypt`"]
-        memory["`SECRET: session data`"]:::secret
-    end
-    subgraph localVault["Local Vault"]
-        payload[("`Encrypted .storage`")]:::encrypted
-    end
-    password --> derive --> master --> dek
-    recovery --> rescue --> dek
-    dek --> decrypt --> memory
-    payload --> decrypt
+flowchart TB
+    accTitle: Keys, encrypted files and the sign-in gate
+    accDescr: In config v4 the Master Password derives an Argon2id KEK, while a random Recovery Key supplies an independent KEK. Separate authenticated config slots wrap the same 256-bit DEK. The DEK decrypts vault data and the separate sign-in Authenticator secret using different contexts. TOTP gates ordinary app login but does not participate in key derivation. Recovery access validates data for reset without granting a login.
+    password["SECRET: Master Password"]:::secret --> derive["Argon2id: 3 passes, 64 MiB, p=2\nRandom 32-byte salt from Master slot"]
+    derive --> master["KEY: 256-bit Master KEK"]:::key
+    recovery["KEY: random 256-bit Recovery Key\nRK1 text decodes to a separate KEK"]:::key
+    master --> unwrapMaster["AES-GCM unwrap\nmaster-dek context"]
+    masterSlot[(".config MasterKeySlot\nEncrypted DEK + KDF parameters")]:::encrypted --> unwrapMaster
+    recovery --> unwrapRecovery["AES-GCM unwrap\nrecovery-dek context"]
+    recoverySlot[(".config RecoveryKeySlot\nIndependently encrypted DEK")]:::encrypted --> unwrapRecovery
+    unwrapMaster --> dek["KEY: same random 256-bit DEK"]:::key
+    unwrapRecovery --> dek
+    dek --> vault["Authenticate and decrypt\nvault context"]
+    storage[(".storage\nEncrypted VaultData")]:::encrypted --> vault
+    vault --> entries["SECRET: entries and groups\nDecrypted only in process memory"]:::secret
+    dek --> auth["Authenticate and decrypt\ntotp-secret context"]
+    totp[(".config EncryptedTotpSecret")]:::encrypted --> auth
+    auth --> gate["Normal sign-in: verify current OTP\nStart login only after both checks"]
+    unwrapRecovery -.-> reset["Recovery path: validate, reset credentials\nClear session; return to sign-in"]
     classDef secret fill:#fffbeb,stroke:#d97706,color:#0f172a
     classDef key fill:#ffffff,stroke:#2563eb,color:#0f172a,stroke-dasharray:4 3
     classDef encrypted fill:#eff6ff,stroke:#2563eb,color:#0f172a
-    style desktop stroke-dasharray:5 4
-    style localVault stroke-dasharray:5 4

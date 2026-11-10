@@ -4,11 +4,11 @@
 
 YourSafe is a local Windows vault for passwords, website TOTP secrets, and account recovery codes, plus a password-hash utility. It deliberately has no online account system, database, cloud sync, telemetry, or vault API. `PasswordTool` remains in technical project names, persisted formats, cryptographic contexts, and the vault directory.
 
-```text
-PasswordTool.WinUI ──> PasswordTool.Presentation ──> PasswordTool.Core <── PasswordTool.Core.Tests
-                              └── PasswordTool.Presentation.Tests
-PasswordTool.Api ─────────────────────────> PasswordTool.Core
-```
+![Runtime components and local data paths, including the optional browser bridge](diagrams/system-architecture.svg)
+
+The figure shows runtime calls. Project references are `WinUI -> Presentation -> Core` and `Api -> Core`. NativeHost has no project reference to those layers; it compiles a linked copy of `WireProtocol.cs` and relays to WinUI over a named pipe. The TypeScript extension is built separately. The API shares hashing implementations, not vault access.
+
+The [diagram guide](diagrams/README.md) maps each workflow to its implementation. Start with [setup](diagrams/README.md#first-launch), [sign-in](diagrams/README.md#sign-in), [vault data](diagrams/README.md#vault-data-model), and [browser discovery/fill](diagrams/README.md#browser-discovery).
 
 `PasswordTool.Core` owns cryptography, validation, and domain workflows. `PasswordTool.Presentation` owns platform-neutral MVVM state, commands, secret-free list projections, and serialized orchestration of synchronous Core operations. WinUI owns XAML, native controls, window lifecycle, and Windows-specific adapters. The API owns HTTP-specific DTOs and responses. Neither UI, Presentation, nor API may implement encryption, key derivation, TOTP verification, backup parsing, or password-hash algorithms.
 
@@ -30,6 +30,8 @@ Master Password unlock
 
 Config v4 adds a purpose-bound Recovery Key wrapper around the same DEK and a credential revision. Reset verifies the Recovery Key and ciphertext, requires a new Master Password, saved fresh Recovery Key, and verified replacement Authenticator, then commits all metadata together and clears login state. It never grants workspace authority. Rotation and v3 enrollment preserve ciphertext; legacy v1/v2 enrollment re-encrypts once after password and OTP sign-in and key confirmation. All use staged cryptographic verification and the paired transaction. Old snapshots keep old credentials and are labeled by revision; they are never an automatic fallback.
 
+The [key diagram](diagrams/README.md#keys-and-encrypted-storage) separates decryption capability from application login authorization. The [lifecycle diagram](diagrams/README.md#login-and-lock-lifecycle) distinguishes cached table metadata, cleared Windows-lifecycle workspace state, and the fixed login deadline.
+
 ## Persisted data
 
 | File | Purpose | Protection |
@@ -38,9 +40,10 @@ Config v4 adds a purpose-bound Recovery Key wrapper around the same DEK and a cr
 | `%LocalAppData%\PasswordTool\.storage` | Vault items and groups | Entire JSON payload is AES-256-GCM encrypted. |
 | `%LocalAppData%\PasswordTool\.trusted-unlock` | Legacy trusted-unlock token file | Kept for compatibility with existing installations; the desktop UI no longer offers Authenticator-only sign-in. |
 | `%LocalAppData%\PasswordTool\.snapshots` | Up to five prior config/vault pairs | Config and vault remain in their normal encrypted-at-rest formats. |
+| `%LocalAppData%\PasswordTool\.state-transaction` | Pending target config/vault pair for startup completion | Contains config metadata and the encrypted payload, not a raw DEK; bounded and structurally validated before replay. |
 
 Hidden/System file attributes are only obfuscation. Treat an incomplete `.config`/`.storage` pair as an error; never silently recreate or overwrite it.
-Config and vault writes are one logical state transition: stage and read back both, run cryptographic verification for migration, snapshot the previous complete pair, replace both, and roll back both after a write failure. Snapshot restore also restores a complete pair and removes the trusted-unlock token.
+Config and vault writes are one logical state transition: stage and read back both, invoke caller verification, snapshot the previous complete pair, journal the target pair, and replace config then storage. Cryptographic workflows authenticate staged keys/payloads; ordinary saves provide session/deadline checks. A write failure attempts restoration of both previous files; journal removal after rollback requires both restorations to succeed. This is sequential file replacement with recovery, not a single filesystem-atomic swap. On restart a structurally valid journal completes its target pair, then normal unlock authenticates the ciphertext. Snapshot restore also restores a complete pair and removes the trusted-unlock token before replacement. See [paired persistence](diagrams/README.md#paired-persistence) for ordering and failure paths.
 
 ## Vault and backup invariants
 
@@ -54,11 +57,11 @@ Config and vault writes are one logical state transition: stage and read back bo
 - Group deletion removes the group and all its entries (including Trash entries) from the current vault. Other groups and unassigned entries remain intact. Existing backups and snapshots are not erased. Vault data version 3 migrates old built-in Ungrouped membership to null once after authentication using verified persistence; it preserves item timestamps and rolls back on persistence failure. New vaults have no groups and All is an aggregate filter.
 - Backups use the `PasswordToolBackup` version-1 envelope: PBKDF2-SHA256 (600,000 iterations, random 16-byte salt) derives a separate 256-bit key; AES-256-GCM encrypts only vault entries.
 - Inspection authenticates and validates the complete backup but returns only format/version, creation time, and item/type/active/Trash counts. It never returns the decrypted payload or secret fields.
-- New-machine recovery is allowed only when neither `.config` nor `.storage` exists. Core validates the backup, new Master Password, saved Recovery Key, and new Authenticator confirmation before atomically committing a fresh random DEK, Argon2id Master key slot, Recovery Key slot, and recovered encrypted vault. It never imports the old config, vault key, trusted token, or application Authenticator secret.
+- New-machine recovery is allowed only when neither `.config` nor `.storage` exists. Core validates the backup, new Master Password, saved Recovery Key, and new Authenticator confirmation before committing a verified pair with a fresh random DEK, Argon2id Master key slot, Recovery Key slot, and recovered encrypted vault. It never imports the old config, vault key, trusted token, or application Authenticator secret.
 - Backup-health timestamps change only after an external file write or full authenticated verification succeeds. Config metadata updates use the same paired config/vault state transaction.
 - Internal snapshots live beside the vault on the same disk and are not an external or disaster-recovery backup.
 - Import is validate-then-commit: enforce 10 MB, JSON depth 32, exact format/KDF/version, authenticated decryption, item limits, and unique IDs; show new/duplicate/conflict items; add new IDs only; rollback in-memory additions when save fails.
-- Plaintext CSV import is bounded to 10 MB, 10,000 rows, 64 columns, and bounded fields. It recognizes common browser/manager headers, skips non-login or passwordless rows, previews content, and adds only accounts that do not already match title, username, URL, and password.
+- Plaintext CSV import is bounded to 10 MiB, 10,000 rows, 64 columns, and bounded fields. It recognizes common browser/manager headers, skips non-login rows or rows with neither password nor TOTP, previews content, and adds only accounts that do not already match title, username, URL, password, and complete TOTP configuration. Title/URL comparison ignores case; username/password/TOTP comparison does not. See [import flow](diagrams/README.md#import-into-an-existing-vault).
 - Password and passphrase generation uses `RandomNumberGenerator`; no generated secret is logged or persisted until the user saves the item.
 - Password changes keep at most 10 encrypted history entries. Soft-deleted items are excluded from normal queries and are purged after 30 days.
 - UpdatedAt is general item metadata. PasswordChangedAt is nullable/version-tolerant lifecycle metadata for active password items only: new/imported passwords and password changes set it from the logical mutation timestamp; non-password edits, Trash, config changes, and key/KDF rewrites do not. Recovery-code conversion clears it and password history. Older payloads resolve an effective date from newest valid history, UpdatedAt, then CreatedAt; dates after the current UTC operation time are invalid and cannot postpone an old-password finding. Unlock normalizes this in memory without saving solely because the vault opened.

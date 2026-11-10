@@ -1,0 +1,67 @@
+classDiagram
+    accTitle: Encrypted vault contents and UI projections
+    accDescr: This is a conceptual model of the encrypted JSON payload, not a database schema. VaultData contains groups and items. An item has at most one group, optional password history, website TOTP configuration and recovery codes. List and browser metadata are projections rather than persisted copies. Null group membership means unassigned; All is a filter.
+    class VaultData {
+        int Version = 3
+        VaultItem[] Items
+        VaultGroup[] Groups
+    }
+    class VaultGroup {
+        Guid Id
+        string Name
+        string? AccentColor
+        int SortOrder
+    }
+    class VaultItem {
+        Guid Id
+        string Title
+        VaultItemType Type
+        string Username
+        string Password
+        string Url
+        string Notes
+        Guid? GroupId
+        bool IsFavorite
+        bool IsDeleted
+        DateTimeOffset? DeletedAt
+        DateTimeOffset? PasswordChangedAt
+    }
+    class PasswordHistoryEntry {
+        string Password
+        DateTimeOffset ChangedAt
+    }
+    class TotpConfiguration {
+        string Secret
+        string Issuer
+        string AccountName
+        TotpAlgorithm Algorithm
+        int Digits
+        int Period
+    }
+    class RecoveryCodes {
+        string[] Codes
+        int Minimum = 2
+    }
+    class VaultItemListItem {
+        Guid Id
+        string Title
+        string Username
+        bool HasPassword
+        bool HasTotp
+        int RecoveryCodeCount
+    }
+    class CredentialMetadata {
+        Guid Id
+        string Title
+        string Username
+        bool HasPassword
+        bool HasTotp
+    }
+    VaultData "1" *-- "0..*" VaultItem : contains
+    VaultData "1" *-- "0..*" VaultGroup : contains
+    VaultGroup "0..1" <-- "0..*" VaultItem : GroupId
+    VaultItem "1" *-- "0..10" PasswordHistoryEntry : history
+    VaultItem "1" *-- "0..1" TotpConfiguration : TOTP fields
+    VaultItem "1" *-- "0..1" RecoveryCodes : optional list
+    VaultItem ..> VaultItemListItem : strips secrets
+    VaultItem ..> CredentialMetadata : browser metadata

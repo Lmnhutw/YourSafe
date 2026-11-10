@@ -1,0 +1,18 @@
+flowchart TB
+    accTitle: Website TOTP on desktop and in the browser
+    accDescr: Website TOTP seeds belong to individual encrypted entries and differ from the sign-in Authenticator. Editor changes remain a draft until save. A live desktop panel uses explicit normal unlock and refreshes codes at rotation; Copy generates a code afresh and rechecks its time window at clipboard write. Browser View and Copy are separately approved one-shot actions and do not automatically fetch another code.
+    setup["Editor: add Base32 or otpauth URI\nValidate algorithm, digits and period"] --> draft["SECRET: TOTP draft\nSave item commits; Cancel discards"]:::secret
+    draft --> entry[("Encrypted VaultItem\nSeed + issuer/account + TOTP parameters")]:::encrypted
+    entry --> mode{"Where is the code requested?"}
+    mode -->|Desktop 2FA / Details| unlock["Require explicitly unlocked vault\nTable lock asks to unlock first"]
+    unlock --> panel["Core generates code and time window\nPanel refreshes when window rotates"]
+    panel --> close["Close, lock or stale lifecycle:\nstop timer and clear code"]
+    panel -->|Copy| fresh["Generate current code again\nRecheck lifecycle and time at copy"]
+    fresh --> clipboard["SECRET: desktop clipboard\nOwned-value cleanup after 30s / lock"]:::secret
+    mode -->|Browser popup| approval["Origin-matched account selected\nDesktop approval for each action"]
+    approval -->|View code| once["Return current code + expiry\nSeed stays in Core"]
+    once --> expired["Countdown expires: clear result\nExplicit View needed for next code"]
+    approval -->|Copy code| nativeCopy["Desktop copies current code\nReturn copied=true only"]
+    nativeCopy --> clipboard
+    classDef secret fill:#fffbeb,stroke:#d97706,color:#0f172a
+    classDef encrypted fill:#eff6ff,stroke:#2563eb,color:#0f172a

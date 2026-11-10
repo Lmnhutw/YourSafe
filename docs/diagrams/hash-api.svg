@@ -1,0 +1,164 @@
+<svg role="img" aria-labelledby="title desc" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1012.4179166666665 2027.5479999999993" width="1012.4179166666665" height="2027.5479999999993" style="--border:#94a3b8;--bg:#ffffff;--fg:#1f2328;--line:#64748b;--accent:#0969da;--muted:#334155;background:var(--bg)"><title id="title">Optional local password-hashing API</title><desc id="desc">The separate ASP.NET Core Minimal API accepts loopback peer and Host only, caps request bodies, redirects HTTP to HTTPS, and applies process-wide rate limiting. Hash and verify have a two-operation concurrency limit. The four routes call Core hashing and inspection without vault operations. Invalid verification is a successful false result, and educational hash creation is rejected. No local-caller authentication is implemented.</desc><metadata>{&quot;source&quot;:&quot;hash-api.mmd&quot;,&quot;sourceSha256&quot;:&quot;21c32c7eed46c66dbea8b53746b6c0bf8a56108618cebb270fcb059fb339f555&quot;,&quot;renderer&quot;:&quot;beautiful-mermaid@1.1.3&quot;,&quot;theme&quot;:&quot;github-light&quot;,&quot;line&quot;:&quot;#64748b&quot;,&quot;muted&quot;:&quot;#334155&quot;,&quot;border&quot;:&quot;#94a3b8&quot;}</metadata><rect width="100%" height="100%" fill="#ffffff"/><g font-family="Segoe UI,Arial,sans-serif" fill="#0f172a"><text x="24" y="34" font-size="24" font-weight="600">Optional local password-hashing API</text><text x="24" y="63" font-size="14">Read arrows in order. SECRET = plaintext; KEY = encryption key; cylinders = stored data.</text></g><g transform="translate(24,88)">
+<style>
+
+  text { font-family: 'Segoe UI', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="request" data-to="size" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="230.46691666666663,85.80000000000001 230.4669166666666,133.8" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="size" data-to="peer" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="230.4669166666666,187.60000000000002 230.4669166666666,235.60000000000002" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="peer" data-to="forbidden" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="No" points="194.03424999999996,417.7633333333333 194.03424999999996,1008.8619999999997 129.43316666666664,1008.8619999999997 129.43316666666658,1089.1619999999996" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="peer" data-to="headers" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Yes" points="266.8995833333333,417.7633333333333 266.8995833333333,490.19599999999997 331.50066666666663,490.19599999999997 331.50066666666663,570.496" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="headers" data-to="rate" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="331.50066666666663,624.2959999999999 331.50066666666663,672.2959999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="rate" data-to="limit" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Exceeded" points="297.16749999999996,843.9618333333332 297.16749999999996,1138.0619999999997 112.86099999999999,1138.0619999999997 112.86099999999999,1569.8479999999995 93.40733333333333,1569.8479999999995 93.40733333333333,1569.8479999999995" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="rate" data-to="route" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Allowed" points="365.83383333333325,843.9618333333333 365.83383333333325,890.2949999999998 559.2351249999999,890.2949999999998 559.2351249999999,970.5949999999998" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="route" data-to="concurrent" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="POST hash or verify" points="517.3683749999999,1096.1952499999998 517.3683749999999,1150.0619999999997 275.6845833333333,1150.0619999999997 275.6845833333333,1230.3619999999996" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="concurrent" data-to="limit" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="No" points="240.48691666666662,1406.3503333333329 240.48691666666662,1501.5479999999995 164.80866666666668,1501.5479999999995 164.80866666666668,1569.8479999999995 154.81466666666665,1569.8479999999995 154.81466666666665,1569.8479999999995" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="concurrent" data-to="validate" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Yes" points="310.88224999999994,1406.3503333333329 310.88224999999994,1477.5479999999995 376.5664999999999,1477.5479999999995 376.56649999999996,1569.8479999999995" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="validate" data-to="hash" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="POST hash" points="335.1183333333333,1623.6479999999995 335.1183333333333,1671.6479999999995 233.85149999999996,1671.6479999999995 233.8515,1739.9479999999994" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="validate" data-to="verify" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="POST verify" points="418.0146666666666,1623.6479999999995 418.0146666666666,1647.6479999999995 519.2814999999999,1647.6479999999995 519.2814999999999,1739.9479999999994" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="route" data-to="inspect" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="POST inspect" points="559.2351249999999,1138.062 559.2351249999999,1273.9479999999996 650.7579166666666,1273.9479999999996 650.7579166666665,1456.0479999999995" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="route" data-to="list" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="GET algorithms" points="601.101875,1096.1952499999998 601.101875,1261.9479999999996 803.6274166666665,1261.9479999999996 803.6274166666665,1354.2479999999996" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="hash" data-to="response" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="233.8515,1793.7479999999994 233.8515,1811.7479999999994 537.0997,1811.7479999999994 537.0997,1829.7479999999994" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="verify" data-to="response" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="519.2814999999999,1793.7479999999994 519.2814999999999,1811.7479999999994 537.0997,1811.7479999999994 537.0997,1829.7479999999994" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="inspect" data-to="response" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="650.7579166666665,1509.8479999999995 650.7579166666665,1811.7479999999994 537.0997,1811.7479999999994 537.0997,1829.7479999999994" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="list" data-to="response" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="803.6274166666666,1408.0479999999995 803.6274166666666,1811.7479999999994 537.0997,1811.7479999999994 537.0997,1829.7479999999994" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="peer" data-to="forbidden" data-label="No">
+  <rect x="113.93316666666664" y="1015.8619999999997" width="30.718000000000004" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="129.29216666666665" y="1031.0119999999997" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">No</text>
+</g>
+<g class="edge-label" data-from="peer" data-to="headers" data-label="Yes">
+  <rect x="313.00066666666663" y="497.196" width="36.658" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="331.32966666666664" y="512.346" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Yes</text>
+</g>
+<g class="edge-label" data-from="rate" data-to="limit" data-label="Exceeded">
+  <rect x="79.36099999999999" y="1508.5479999999995" width="66.358" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="112.53999999999999" y="1523.6979999999996" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Exceeded</text>
+</g>
+<g class="edge-label" data-from="rate" data-to="route" data-label="Allowed">
+  <rect x="531.7351249999999" y="897.2949999999998" width="54.478" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="558.974125" y="912.4449999999998" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Allowed</text>
+</g>
+<g class="edge-label" data-from="route" data-to="concurrent" data-label="POST hash or verify">
+  <rect x="218.6845833333333" y="1157.0619999999997" width="113.28400000000002" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="275.3265833333333" y="1172.2119999999998" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">POST hash or verify</text>
+</g>
+<g class="edge-label" data-from="concurrent" data-to="limit" data-label="No">
+  <rect x="149.30866666666668" y="1508.5479999999995" width="30.718000000000004" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="164.6676666666667" y="1523.6979999999996" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">No</text>
+</g>
+<g class="edge-label" data-from="concurrent" data-to="validate" data-label="Yes">
+  <rect x="358.0664999999999" y="1484.5479999999995" width="36.658" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="376.3954999999999" y="1499.6979999999996" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Yes</text>
+</g>
+<g class="edge-label" data-from="validate" data-to="hash" data-label="POST hash">
+  <rect x="197.85149999999996" y="1678.6479999999995" width="71.70400000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="233.70349999999996" y="1693.7979999999995" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">POST hash</text>
+</g>
+<g class="edge-label" data-from="validate" data-to="verify" data-label="POST verify">
+  <rect x="481.28149999999994" y="1654.6479999999995" width="75.268" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="518.9155" y="1669.7979999999995" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">POST verify</text>
+</g>
+<g class="edge-label" data-from="route" data-to="inspect" data-label="POST inspect">
+  <rect x="609.2579166666666" y="1280.9479999999996" width="82.39600000000002" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="650.4559166666666" y="1296.0979999999997" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">POST inspect</text>
+</g>
+<g class="edge-label" data-from="route" data-to="list" data-label="GET algorithms">
+  <rect x="758.6274166666665" y="1280.9479999999996" width="89.524" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="803.3894166666664" y="1296.0979999999997" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">GET algorithms</text>
+</g>
+<g class="node" data-id="request" data-label="Local development client
+/api/password request" data-shape="rectangle">
+  <rect x="137.61491666666666" y="32" width="185.70399999999998" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="230.46691666666663" y="58.900000000000006" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="230.46691666666663" dy="-3.9000000000000012">Local development client</tspan><tspan x="230.46691666666663" dy="16.900000000000002">/api/password request</tspan></text>
+</g>
+<g class="node" data-id="size" data-label="Kestrel body limit: 32 KiB
+Oversized body rejected" data-shape="rectangle">
+  <rect x="136.87391666666662" y="133.8" width="187.18599999999998" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="230.4669166666666" y="160.70000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="230.4669166666666" dy="-3.9000000000000012">Kestrel body limit: 32 KiB</tspan><tspan x="230.4669166666666" dy="16.900000000000002">Oversized body rejected</tspan></text>
+</g>
+<g class="node" data-id="peer" data-label="Loopback peer and
+localhost / loopback Host?" data-shape="diamond">
+  <polygon points="230.4669166666666,235.60000000000005 339.7649166666666,344.898 230.4669166666666,454.196 121.16891666666663,344.898" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="230.4669166666666" y="344.898" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="230.4669166666666" dy="-3.9000000000000012">Loopback peer and</tspan><tspan x="230.4669166666666" dy="16.900000000000002">localhost / loopback Host?</tspan></text>
+</g>
+<g class="node" data-id="forbidden" data-label="403 Forbidden" data-shape="rectangle">
+  <rect x="65.10966666666661" y="1089.1619999999996" width="128.647" height="36.900000000000006" rx="0" ry="0" fill="#fef2f2" stroke="#dc2626" stroke-width="0.75" />
+  <text x="129.4331666666666" y="1107.6119999999996" text-anchor="middle" font-size="13" font-weight="500" fill="#991b1b" dy="4.55">403 Forbidden</text>
+</g>
+<g class="node" data-id="headers" data-label="Set Cache-Control: no-store
+Redirect HTTP to HTTPS" data-shape="rectangle">
+  <rect x="229.75666666666663" y="570.496" width="203.488" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="331.50066666666663" y="597.396" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="331.50066666666663" dy="-3.9000000000000012">Set Cache-Control: no-store</tspan><tspan x="331.50066666666663" dy="16.900000000000002">Redirect HTTP to HTTPS</tspan></text>
+</g>
+<g class="node" data-id="rate" data-label="Global fixed window
+60 requests per minute?" data-shape="diamond">
+  <polygon points="331.50066666666663,672.2959999999999 434.5001666666666,775.2955 331.50066666666663,878.295 228.50116666666665,775.2955" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="331.50066666666663" y="775.2955" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="331.50066666666663" dy="-3.9000000000000012">Global fixed window</tspan><tspan x="331.50066666666663" dy="16.900000000000002">60 requests per minute?</tspan></text>
+</g>
+<g class="node" data-id="limit" data-label="429 Too Many Requests
+No queue" data-shape="rectangle">
+  <rect x="32" y="1569.8479999999995" width="184.22199999999998" height="53.800000000000004" rx="0" ry="0" fill="#fef2f2" stroke="#dc2626" stroke-width="0.75" />
+  <text x="124.11099999999999" y="1596.7479999999996" text-anchor="middle" font-size="13" font-weight="500" fill="#991b1b"><tspan x="124.11099999999999" dy="-3.9000000000000012">429 Too Many Requests</tspan><tspan x="124.11099999999999" dy="16.900000000000002">No queue</tspan></text>
+</g>
+<g class="node" data-id="route" data-label="Password route?" data-shape="diamond">
+  <polygon points="559.2351249999999,970.5949999999998 642.968625,1054.3284999999998 559.2351249999999,1138.062 475.50162499999993,1054.3284999999998" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="559.2351249999999" y="1054.3284999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Password route?</text>
+</g>
+<g class="node" data-id="concurrent" data-label="Fewer than 2 concurrent
+hash / verify operations?" data-shape="diamond">
+  <polygon points="275.6845833333333,1230.3619999999996 381.27758333333327,1335.9549999999997 275.6845833333333,1441.5479999999998 170.09158333333332,1335.9549999999997" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="275.6845833333333" y="1335.9549999999997" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="275.6845833333333" dy="-3.9000000000000012">Fewer than 2 concurrent</tspan><tspan x="275.6845833333333" dy="16.900000000000002">hash / verify operations?</tspan></text>
+</g>
+<g class="node" data-id="validate" data-label="Validate request fields and lengths
+Core bounds formats and KDF work" data-shape="rectangle">
+  <rect x="252.22199999999995" y="1569.8479999999995" width="248.689" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="376.56649999999996" y="1596.7479999999996" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="376.56649999999996" dy="-3.9000000000000012">Validate request fields and lengths</tspan><tspan x="376.56649999999996" dy="16.900000000000002">Core bounds formats and KDF work</tspan></text>
+</g>
+<g class="node" data-id="hash" data-label="Resolve AlgorithmName, recommended only
+Educational generation rejected with 400" data-shape="rectangle">
+  <rect x="85.79500000000002" y="1739.9479999999994" width="296.11299999999994" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="233.8515" y="1766.8479999999995" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="233.8515" dy="-3.9000000000000012">Resolve AlgorithmName, recommended only</tspan><tspan x="233.8515" dy="16.900000000000002">Educational generation rejected with 400</tspan></text>
+</g>
+<g class="node" data-id="verify" data-label="Try registered verifiers
+Return 200 with true or false" data-shape="rectangle">
+  <rect x="417.9079999999999" y="1739.9479999999994" width="202.74699999999999" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="519.2814999999999" y="1766.8479999999995" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="519.2814999999999" dy="-3.9000000000000012">Try registered verifiers</tspan><tspan x="519.2814999999999" dy="16.900000000000002">Return 200 with true or false</tspan></text>
+</g>
+<g class="node" data-id="inspect" data-label="Validate hash length
+Core returns format and strength metadata" data-shape="rectangle">
+  <rect x="507.88841666666656" y="1456.0479999999995" width="285.7389999999999" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="650.7579166666665" y="1482.9479999999996" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="650.7579166666665" dy="-3.9000000000000012">Validate hash length</tspan><tspan x="650.7579166666665" dy="16.900000000000002">Core returns format and strength metadata</tspan></text>
+</g>
+<g class="node" data-id="list" data-label="Return registry descriptors
+Includes educational-only categories" data-shape="rectangle">
+  <rect x="674.8369166666666" y="1354.2479999999996" width="257.5809999999999" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="803.6274166666666" y="1381.1479999999997" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="803.6274166666666" dy="-3.9000000000000012">Return registry descriptors</tspan><tspan x="803.6274166666666" dy="16.900000000000002">Includes educational-only categories</tspan></text>
+</g>
+<g class="node" data-id="response" data-label="HTTP result
+No vault or browser operation" data-shape="rectangle">
+  <rect x="429.42769999999996" y="1829.7479999999994" width="215.344" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="537.0997" y="1856.6479999999995" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="537.0997" dy="-3.9000000000000012">HTTP result</tspan><tspan x="537.0997" dy="16.900000000000002">No vault or browser operation</tspan></text>
+</g>
+</g></svg>

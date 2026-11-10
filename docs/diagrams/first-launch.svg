@@ -1,0 +1,157 @@
+<svg role="img" aria-labelledby="title desc" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1243.6862500000002 1631.2709999999995" width="1243.6862500000002" height="1631.2709999999995" style="--border:#94a3b8;--bg:#ffffff;--fg:#1f2328;--line:#64748b;--accent:#0969da;--muted:#334155;background:var(--bg)"><title id="title">First launch and new-vault setup</title><desc id="desc">Startup resolves a missing, complete or partial storage pair. New-vault setup is available only with no existing files, and requires a confirmed Master Password, a verified Authenticator code and explicit acknowledgement that a generated Recovery Key was saved. Core generates a DEK and verifies a staged v4 pair before persistence and a new unlocked login.</desc><metadata>{&quot;source&quot;:&quot;first-launch.mmd&quot;,&quot;sourceSha256&quot;:&quot;1c4c2a70efc5851ca908af848483d0bc7d5503a82cb49e64be538fd70ea2849e&quot;,&quot;renderer&quot;:&quot;beautiful-mermaid@1.1.3&quot;,&quot;theme&quot;:&quot;github-light&quot;,&quot;line&quot;:&quot;#64748b&quot;,&quot;muted&quot;:&quot;#334155&quot;,&quot;border&quot;:&quot;#94a3b8&quot;}</metadata><rect width="100%" height="100%" fill="#ffffff"/><g font-family="Segoe UI,Arial,sans-serif" fill="#0f172a"><text x="24" y="34" font-size="24" font-weight="600">First launch and new-vault setup</text><text x="24" y="63" font-size="14">Read arrows in order. SECRET = plaintext; KEY = encryption key; cylinders = stored data.</text></g><g transform="translate(24,88)">
+<style>
+
+  text { font-family: 'Segoe UI', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="launch" data-to="state" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="347.29699999999997,85.80000000000001 347.29699999999997,133.80000000000007" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="state" data-to="signin" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Both present" points="306.3565,256.6215000000001 306.3565,309.56200000000007 111.8845,309.56200000000007 111.8845,389.8620000000001" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="state" data-to="partial" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Only one present" points="347.29699999999997,297.56199999999995 347.297,566.371" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="state" data-to="welcome" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Neither present" points="388.23749999999995,256.62149999999997 388.23749999999995,309.562 609.5295,309.562 609.5295,389.862" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="welcome" data-to="recovery" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Recover backup" points="573.9613333333333,567.7028333333333 573.9613333333333,656.1709999999999 471.26050000000004,656.1709999999999 471.2605,728.021" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="welcome" data-to="password" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Create new vault" points="645.0976666666667,567.7028333333333 645.0976666666667,639.271 747.7985000000001,639.271 747.7985,728.021" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="password" data-to="setup" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="747.7985,781.8209999999999 747.7985000000001,821.3709999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="setup" data-to="setup" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Invalid code" points="633.087,839.3043333333331 623.087,839.3043333333331 623.087,857.2376666666665 633.087,857.2376666666665" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="setup" data-to="key" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Valid" points="747.7985000000001,875.1709999999998 747.7985,991.4709999999998" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="key" data-to="stop" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Cancel" points="706.4738333333333,1045.2709999999997 706.4738333333333,1268.2709999999995 604.8982500000001,1268.2709999999995 604.8982500000001,1348.5709999999995" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="key" data-to="create" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Confirmed" points="789.1231666666667,1045.2709999999997 789.1231666666667,1081.2709999999997 890.69875,1081.2709999999997 890.69875,1161.5709999999997" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="create" data-to="commit" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="890.69875,1215.3709999999996 890.69875,1263.3709999999996" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="commit" data-to="failed" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Failure" points="845.0515833333334,1317.1709999999996 845.0515833333334,1353.1709999999996 752.80025,1353.1709999999996 752.80025,1433.4709999999995" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="commit" data-to="unlocked" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Success" points="936.3459166666668,1317.1709999999996 936.3459166666668,1353.1709999999996 1028.59725,1353.1709999999996 1028.59725,1433.4709999999995" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="state" data-to="signin" data-label="Both present">
+  <rect x="72.8845" y="316.56200000000007" width="77.644" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="111.7065" y="331.71200000000005" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Both present</text>
+</g>
+<g class="edge-label" data-from="state" data-to="partial" data-label="Only one present">
+  <rect x="298.297" y="493.071" width="97.24600000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="346.92" y="508.221" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Only one present</text>
+</g>
+<g class="edge-label" data-from="state" data-to="welcome" data-label="Neither present">
+  <rect x="564.0295" y="316.562" width="90.712" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="609.3855" y="331.712" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Neither present</text>
+</g>
+<g class="edge-label" data-from="welcome" data-to="recovery" data-label="Recover backup">
+  <rect x="422.76050000000004" y="663.1709999999999" width="96.65200000000002" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="471.08650000000006" y="678.3209999999999" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Recover backup</text>
+</g>
+<g class="edge-label" data-from="welcome" data-to="password" data-label="Create new vault">
+  <rect x="700.2985000000001" y="646.271" width="94.87000000000003" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="747.7335000000002" y="661.4209999999999" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Create new vault</text>
+</g>
+<g class="edge-label" data-from="setup" data-to="setup" data-label="Invalid code">
+  <rect x="551.0070000000001" y="833.1209999999999" width="74.08000000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="588.047" y="848.2709999999998" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Invalid code</text>
+</g>
+<g class="edge-label" data-from="setup" data-to="key" data-label="Valid">
+  <rect x="726.7985000000001" y="918.1709999999998" width="41.41" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="747.5035000000001" y="933.3209999999998" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Valid</text>
+</g>
+<g class="edge-label" data-from="key" data-to="stop" data-label="Cancel">
+  <rect x="579.3982500000001" y="1275.2709999999995" width="50.91400000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="604.8552500000001" y="1290.4209999999996" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Cancel</text>
+</g>
+<g class="edge-label" data-from="key" data-to="create" data-label="Confirmed">
+  <rect x="857.69875" y="1088.2709999999997" width="65.17" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="890.28375" y="1103.4209999999998" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Confirmed</text>
+</g>
+<g class="edge-label" data-from="commit" data-to="failed" data-label="Failure">
+  <rect x="726.30025" y="1360.1709999999996" width="52.102" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="752.35125" y="1375.3209999999997" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Failure</text>
+</g>
+<g class="edge-label" data-from="commit" data-to="unlocked" data-label="Success">
+  <rect x="998.09725" y="1360.1709999999996" width="60.418000000000006" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="1028.30625" y="1375.3209999999997" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Success</text>
+</g>
+<g class="node" data-id="launch" data-label="Open YourSafe
+Storage constructor handles pending journal" data-shape="rectangle">
+  <rect x="195.165" y="32" width="304.26399999999995" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="347.29699999999997" y="58.900000000000006" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="347.29699999999997" dy="-3.9000000000000012">Open YourSafe</tspan><tspan x="347.29699999999997" dy="16.900000000000002">Storage constructor handles pending journal</tspan></text>
+</g>
+<g class="node" data-id="state" data-label="Local vault files?" data-shape="diamond">
+  <polygon points="347.2969999999999,133.8 429.1779999999999,215.681 347.2969999999999,297.562 265.41599999999994,215.681" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="347.2969999999999" y="215.681" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Local vault files?</text>
+</g>
+<g class="node" data-id="signin" data-label="Open sign-in screen
+See sign-in diagram" data-shape="rectangle">
+  <rect x="32" y="389.8620000000001" width="159.769" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="111.8845" y="416.76200000000006" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="111.8845" dy="-3.9000000000000012">Open sign-in screen</tspan><tspan x="111.8845" dy="16.900000000000002">See sign-in diagram</tspan></text>
+</g>
+<g class="node" data-id="partial" data-label="Partial-storage error
+Preserve files; no setup overwrite" data-shape="rectangle">
+  <rect x="227.769" y="566.371" width="239.05599999999998" height="53.800000000000004" rx="0" ry="0" fill="#fef2f2" stroke="#dc2626" stroke-width="0.75" />
+  <text x="347.297" y="593.271" text-anchor="middle" font-size="13" font-weight="500" fill="#991b1b"><tspan x="347.297" dy="-3.9000000000000012">Partial-storage error</tspan><tspan x="347.297" dy="16.900000000000002">Preserve files; no setup overwrite</tspan></text>
+</g>
+<g class="node" data-id="welcome" data-label="First launch: choose path" data-shape="diamond">
+  <polygon points="609.5295,389.862 716.2339999999999,496.5665 609.5295,603.271 502.825,496.5665" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="609.5295" y="496.5665" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">First launch: choose path</text>
+</g>
+<g class="node" data-id="recovery" data-label="See backup-recovery diagram" data-shape="subroutine">
+  <rect x="360.254" y="728.021" width="222.013" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="368.254" y1="728.021" x2="368.254" y2="764.9209999999999" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="574.267" y1="728.021" x2="574.267" y2="764.9209999999999" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="471.26050000000004" y="746.471" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">See backup-recovery diagram</text>
+</g>
+<g class="node" data-id="password" data-label="Create and confirm Master Password
+12 to 4096 characters" data-shape="rectangle">
+  <rect x="618.267" y="728.021" width="259.063" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="747.7985000000001" y="754.9209999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="747.7985000000001" dy="-3.9000000000000012">Create and confirm Master Password</tspan><tspan x="747.7985000000001" dy="16.900000000000002">12 to 4096 characters</tspan></text>
+</g>
+<g class="node" data-id="setup" data-label="Generate sign-in TOTP secret
+Scan QR and enter current code" data-shape="rectangle">
+  <rect x="633.087" y="821.3709999999999" width="229.423" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="747.7985" y="848.2709999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="747.7985" dy="-3.9000000000000012">Generate sign-in TOTP secret</tspan><tspan x="747.7985" dy="16.900000000000002">Scan QR and enter current code</tspan></text>
+</g>
+<g class="node" data-id="key" data-label="Generate random Recovery Key
+Save separately and confirm saved" data-shape="rectangle">
+  <rect x="623.8245000000001" y="991.4709999999998" width="247.94799999999998" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="747.7985000000001" y="1018.3709999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="747.7985000000001" dy="-3.9000000000000012">Generate random Recovery Key</tspan><tspan x="747.7985000000001" dy="16.900000000000002">Save separately and confirm saved</tspan></text>
+</g>
+<g class="node" data-id="stop" data-label="Stop setup; no commit attempted" data-shape="rectangle">
+  <rect x="494.2622500000001" y="1348.5709999999995" width="221.27199999999996" height="36.900000000000006" rx="0" ry="0" fill="#fef2f2" stroke="#dc2626" stroke-width="0.75" />
+  <text x="604.8982500000001" y="1367.0209999999995" text-anchor="middle" font-size="13" font-weight="500" fill="#991b1b" dy="4.55">Stop setup; no commit attempted</text>
+</g>
+<g class="node" data-id="create" data-label="Core rechecks empty storage and inputs
+Generate random DEK and two key slots" data-shape="rectangle">
+  <rect x="751.53425" y="1161.5709999999997" width="278.32899999999995" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="890.69875" y="1188.4709999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="890.69875" dy="-3.9000000000000012">Core rechecks empty storage and inputs</tspan><tspan x="890.69875" dy="16.900000000000002">Generate random DEK and two key slots</tspan></text>
+</g>
+<g class="node" data-id="commit" data-label="Encrypt empty VaultData
+Verify wrappers and staged pair; commit" data-shape="subroutine">
+  <rect x="753.7572500000001" y="1263.3709999999996" width="273.8829999999999" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="761.7572500000001" y1="1263.3709999999996" x2="761.7572500000001" y2="1317.1709999999996" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="1019.6402499999999" y1="1263.3709999999996" x2="1019.6402499999999" y2="1317.1709999999996" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="890.69875" y="1290.2709999999997" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="890.69875" dy="-3.9000000000000012">Encrypt empty VaultData</tspan><tspan x="890.69875" dy="16.900000000000002">Verify wrappers and staged pair; commit</tspan></text>
+</g>
+<g class="node" data-id="failed" data-label="Report persistence failure
+See journal and rollback flow" data-shape="rectangle">
+  <rect x="648.0922500000001" y="1433.4709999999995" width="209.41599999999997" height="53.800000000000004" rx="0" ry="0" fill="#fef2f2" stroke="#dc2626" stroke-width="0.75" />
+  <text x="752.8002500000001" y="1460.3709999999996" text-anchor="middle" font-size="13" font-weight="500" fill="#991b1b"><tspan x="752.8002500000001" dy="-3.9000000000000012">Report persistence failure</tspan><tspan x="752.8002500000001" dy="16.900000000000002">See journal and rollback flow</tspan></text>
+</g>
+<g class="node" data-id="unlocked" data-label="New vault unlocked
+Five-hour login + shorter vault deadline" data-shape="rectangle">
+  <rect x="893.5082500000001" y="1433.4709999999995" width="270.178" height="53.800000000000004" rx="0" ry="0" fill="#f0fdf4" stroke="#16a34a" stroke-width="0.75" />
+  <text x="1028.59725" y="1460.3709999999996" text-anchor="middle" font-size="13" font-weight="500" fill="#14532d"><tspan x="1028.59725" dy="-3.9000000000000012">New vault unlocked</tspan><tspan x="1028.59725" dy="16.900000000000002">Five-hour login + shorter vault deadline</tspan></text>
+</g>
+</g></svg>

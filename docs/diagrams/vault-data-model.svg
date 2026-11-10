@@ -1,0 +1,161 @@
+<svg role="img" aria-labelledby="title desc" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1061.533 1304.9" width="1061.533" height="1304.9" style="--border:#94a3b8;--bg:#ffffff;--fg:#1f2328;--line:#64748b;--accent:#0969da;--muted:#334155;background:var(--bg)"><title id="title">Encrypted vault contents and UI projections</title><desc id="desc">This is a conceptual model of the encrypted JSON payload, not a database schema. VaultData contains groups and items. An item has at most one group, optional password history, website TOTP configuration and recovery codes. List and browser metadata are projections rather than persisted copies. Null group membership means unassigned; All is a filter.</desc><metadata>{&quot;source&quot;:&quot;vault-data-model.mmd&quot;,&quot;sourceSha256&quot;:&quot;7299c1fd29065287ad290e15f9ac242346f36e89cd7a7129b15c104b39c959ce&quot;,&quot;renderer&quot;:&quot;beautiful-mermaid@1.1.3&quot;,&quot;theme&quot;:&quot;github-light&quot;,&quot;line&quot;:&quot;#64748b&quot;,&quot;muted&quot;:&quot;#334155&quot;,&quot;border&quot;:&quot;#94a3b8&quot;}</metadata><rect width="100%" height="100%" fill="#ffffff"/><g font-family="Segoe UI,Arial,sans-serif" fill="#0f172a"><text x="24" y="34" font-size="24" font-weight="600">Encrypted vault contents and UI projections</text><text x="24" y="63" font-size="14">Read arrows in order. SECRET = plaintext; KEY = encryption key; cylinders = stored data.</text></g><g transform="translate(23.999999999999943,88)">
+<style>
+
+
+  text { font-family: 'Segoe UI', system-ui, sans-serif; }
+  .mono { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', ui-monospace, monospace; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="cls-inherit" markerWidth="12" markerHeight="10" refX="12" refY="5" orient="auto-start-reverse">
+    <polygon points="0 0, 12 5, 0 10" fill="var(--bg)" stroke="var(--_arrow)" stroke-width="1.5" />
+  </marker>
+  <marker id="cls-composition" markerWidth="12" markerHeight="10" refX="0" refY="5" orient="auto-start-reverse">
+    <polygon points="6 0, 12 5, 6 10, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="1" />
+  </marker>
+  <marker id="cls-aggregation" markerWidth="12" markerHeight="10" refX="0" refY="5" orient="auto-start-reverse">
+    <polygon points="6 0, 12 5, 6 10, 0 5" fill="var(--bg)" stroke="var(--_arrow)" stroke-width="1.5" />
+  </marker>
+  <marker id="cls-arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto-start-reverse">
+    <polyline points="0 0, 8 3, 0 6" fill="none" stroke="var(--_arrow)" stroke-width="1.5" />
+  </marker>
+</defs>
+<polyline class="class-relationship" data-from="VaultData" data-to="VaultItem" data-type="composition" data-marker-at="from" data-label="contains" data-from-cardinality="1" data-to-cardinality="0..*" points="192.728,148 192.728,158 257.3946666666667,158 257.3946666666667,506.6 223.52800000000002,506.6 223.52800000000002,556.6" fill="none" stroke="var(--_line)" stroke-width="1" marker-start="url(#cls-composition)" />
+<polyline class="class-relationship" data-from="VaultData" data-to="VaultGroup" data-type="composition" data-marker-at="from" data-label="contains" data-from-cardinality="1" data-to-cardinality="0..*" points="143.3946666666667,148 143.3946666666667,288.3" fill="none" stroke="var(--_line)" stroke-width="1" marker-start="url(#cls-composition)" />
+<polyline class="class-relationship" data-from="VaultGroup" data-to="VaultItem" data-type="association" data-marker-at="from" data-label="GroupId" data-from-cardinality="0..1" data-to-cardinality="0..*" points="143.3946666666667,416.3 143.3946666666667,556.6" fill="none" stroke="var(--_line)" stroke-width="1" marker-start="url(#cls-arrow)" />
+<polyline class="class-relationship" data-from="VaultItem" data-to="PasswordHistoryEntry" data-type="composition" data-marker-at="from" data-label="history" data-from-cardinality="1" data-to-cardinality="0..10" points="223.528,844.6 223.528,864.6 668.633,864.6 668.633,984.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-start="url(#cls-composition)" />
+<polyline class="class-relationship" data-from="VaultItem" data-to="TotpConfiguration" data-type="composition" data-marker-at="from" data-label="TOTP fields" data-from-cardinality="1" data-to-cardinality="0..1" points="263.5946666666666,844.6 263.5946666666666,854.6 886.3330000000001,854.6 886.3330000000001,984.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-start="url(#cls-composition)" />
+<polyline class="class-relationship" data-from="VaultItem" data-to="RecoveryCodes" data-type="composition" data-marker-at="from" data-label="optional list" data-from-cardinality="1" data-to-cardinality="0..1" points="103.328,844.6 103.328,984.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-start="url(#cls-composition)" />
+<polyline class="class-relationship" data-from="VaultItem" data-to="VaultItemListItem" data-type="dependency" data-marker-at="to" data-label="strips secrets" points="143.39466666666667,844.6 143.39466666666667,884.6 284.72799999999995,884.6 284.72799999999995,984.9" fill="none" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#cls-arrow)" />
+<polyline class="class-relationship" data-from="VaultItem" data-to="CredentialMetadata" data-type="dependency" data-marker-at="to" data-label="browser metadata" points="183.46133333333333,844.6 183.46133333333333,874.6 471.73049999999995,874.6 471.7305,984.9" fill="none" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#cls-arrow)" />
+<g class="class-node" data-id="VaultData" data-label="VaultData">
+  <rect x="94.06133333333335" y="40" width="148" height="108" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="94.06133333333335" y="40" width="148" height="32" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="168.06133333333335" y="56" text-anchor="middle" font-size="13" font-weight="700" fill="var(--_text)" dy="4.55">VaultData</text>
+  <line x1="94.06133333333335" y1="72" x2="242.06133333333335" y2="72" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="102.06133333333335" y="86" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Version = 3</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">int</tspan></text>
+  <text x="102.06133333333335" y="106" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Items</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">VaultItem[]</tspan></text>
+  <text x="102.06133333333335" y="126" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Groups</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">VaultGroup[]</tspan></text>
+  <line x1="94.06133333333335" y1="140" x2="242.06133333333335" y2="140" stroke="var(--_node-stroke)" stroke-width="0.75" />
+</g>
+<g class="class-node" data-id="VaultGroup" data-label="VaultGroup">
+  <rect x="69.39466666666668" y="288.3" width="148" height="128" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="69.39466666666668" y="288.3" width="148" height="32" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="143.3946666666667" y="304.3" text-anchor="middle" font-size="13" font-weight="700" fill="var(--_text)" dy="4.55">VaultGroup</text>
+  <line x1="69.39466666666668" y1="320.3" x2="217.3946666666667" y2="320.3" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="77.39466666666668" y="334.3" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Id</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">Guid</tspan></text>
+  <text x="77.39466666666668" y="354.3" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Name</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="77.39466666666668" y="374.3" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">AccentColor</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">string?</tspan></text>
+  <text x="77.39466666666668" y="394.3" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">SortOrder</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">int</tspan></text>
+  <line x1="69.39466666666668" y1="408.3" x2="217.3946666666667" y2="408.3" stroke="var(--_node-stroke)" stroke-width="0.75" />
+</g>
+<g class="class-node" data-id="VaultItem" data-label="VaultItem">
+  <rect x="63.26133333333334" y="556.6" width="240.4" height="288" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="63.26133333333334" y="556.6" width="240.4" height="32" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="183.46133333333336" y="572.6" text-anchor="middle" font-size="13" font-weight="700" fill="var(--_text)" dy="4.55">VaultItem</text>
+  <line x1="63.26133333333334" y1="588.6" x2="303.66133333333335" y2="588.6" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="71.26133333333334" y="602.6" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Id</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">Guid</tspan></text>
+  <text x="71.26133333333334" y="622.6" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Title</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="71.26133333333334" y="642.6" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Type</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">VaultItemType</tspan></text>
+  <text x="71.26133333333334" y="662.6" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Username</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="71.26133333333334" y="682.6" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Password</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="71.26133333333334" y="702.6" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Url</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="71.26133333333334" y="722.6" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Notes</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="71.26133333333334" y="742.6" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">GroupId</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">Guid?</tspan></text>
+  <text x="71.26133333333334" y="762.6" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">IsFavorite</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">bool</tspan></text>
+  <text x="71.26133333333334" y="782.6" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">IsDeleted</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">bool</tspan></text>
+  <text x="71.26133333333334" y="802.6" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">DeletedAt</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">DateTimeOffset?</tspan></text>
+  <text x="71.26133333333334" y="822.6" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">PasswordChangedAt</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">DateTimeOffset?</tspan></text>
+  <line x1="63.26133333333334" y1="836.6" x2="303.66133333333335" y2="836.6" stroke="var(--_node-stroke)" stroke-width="0.75" />
+</g>
+<g class="class-node" data-id="PasswordHistoryEntry" data-label="PasswordHistoryEntry">
+  <rect x="578.133" y="984.9" width="181" height="88" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="578.133" y="984.9" width="181" height="32" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="668.633" y="1000.9" text-anchor="middle" font-size="13" font-weight="700" fill="var(--_text)" dy="4.55">PasswordHistoryEntry</text>
+  <line x1="578.133" y1="1016.9" x2="759.133" y2="1016.9" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="586.133" y="1030.9" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Password</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="586.133" y="1050.9" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">ChangedAt</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">DateTimeOffset</tspan></text>
+  <line x1="578.133" y1="1064.9" x2="759.133" y2="1064.9" stroke="var(--_node-stroke)" stroke-width="0.75" />
+</g>
+<g class="class-node" data-id="TotpConfiguration" data-label="TotpConfiguration">
+  <rect x="799.133" y="984.9" width="174.4" height="168" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="799.133" y="984.9" width="174.4" height="32" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="886.3330000000001" y="1000.9" text-anchor="middle" font-size="13" font-weight="700" fill="var(--_text)" dy="4.55">TotpConfiguration</text>
+  <line x1="799.133" y1="1016.9" x2="973.533" y2="1016.9" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="807.133" y="1030.9" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Secret</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="807.133" y="1050.9" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Issuer</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="807.133" y="1070.9" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">AccountName</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="807.133" y="1090.9" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Algorithm</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">TotpAlgorithm</tspan></text>
+  <text x="807.133" y="1110.9" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Digits</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">int</tspan></text>
+  <text x="807.133" y="1130.9" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Period</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">int</tspan></text>
+  <line x1="799.133" y1="1144.9" x2="973.533" y2="1144.9" stroke="var(--_node-stroke)" stroke-width="0.75" />
+</g>
+<g class="class-node" data-id="RecoveryCodes" data-label="RecoveryCodes">
+  <rect x="42.528000000000006" y="984.9" width="121.6" height="88" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="42.528000000000006" y="984.9" width="121.6" height="32" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="103.328" y="1000.9" text-anchor="middle" font-size="13" font-weight="700" fill="var(--_text)" dy="4.55">RecoveryCodes</text>
+  <line x1="42.528000000000006" y1="1016.9" x2="164.128" y2="1016.9" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="50.528000000000006" y="1030.9" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Codes</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">string[]</tspan></text>
+  <text x="50.528000000000006" y="1050.9" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Minimum = 2</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">int</tspan></text>
+  <line x1="42.528000000000006" y1="1064.9" x2="164.128" y2="1064.9" stroke="var(--_node-stroke)" stroke-width="0.75" />
+</g>
+<g class="class-node" data-id="VaultItemListItem" data-label="VaultItemListItem">
+  <rect x="204.128" y="984.9" width="161.2" height="168" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="204.128" y="984.9" width="161.2" height="32" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="284.72799999999995" y="1000.9" text-anchor="middle" font-size="13" font-weight="700" fill="var(--_text)" dy="4.55">VaultItemListItem</text>
+  <line x1="204.128" y1="1016.9" x2="365.328" y2="1016.9" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="212.128" y="1030.9" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Id</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">Guid</tspan></text>
+  <text x="212.128" y="1050.9" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Title</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="212.128" y="1070.9" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Username</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="212.128" y="1090.9" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">HasPassword</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">bool</tspan></text>
+  <text x="212.128" y="1110.9" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">HasTotp</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">bool</tspan></text>
+  <text x="212.128" y="1130.9" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">RecoveryCodeCount</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">int</tspan></text>
+  <line x1="204.128" y1="1144.9" x2="365.328" y2="1144.9" stroke="var(--_node-stroke)" stroke-width="0.75" />
+</g>
+<g class="class-node" data-id="CredentialMetadata" data-label="CredentialMetadata">
+  <rect x="405.328" y="984.9" width="132.805" height="148" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="405.328" y="984.9" width="132.805" height="32" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="471.7305" y="1000.9" text-anchor="middle" font-size="13" font-weight="700" fill="var(--_text)" dy="4.55">CredentialMetadata</text>
+  <line x1="405.328" y1="1016.9" x2="538.133" y2="1016.9" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="413.328" y="1030.9" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Id</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">Guid</tspan></text>
+  <text x="413.328" y="1050.9" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Title</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="413.328" y="1070.9" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">Username</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">string</tspan></text>
+  <text x="413.328" y="1090.9" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">HasPassword</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">bool</tspan></text>
+  <text x="413.328" y="1110.9" class="mono" dy="0.35em" font-size="11" font-weight="400"><tspan fill="var(--_text-sec)">HasTotp</tspan><tspan fill="var(--_text-faint)">: </tspan><tspan fill="var(--_text-muted)">bool</tspan></text>
+  <line x1="405.328" y1="1124.9" x2="538.133" y2="1124.9" stroke="var(--_node-stroke)" stroke-width="0.75" />
+</g>
+<text x="285.4156666666667" y="344.3" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">contains</text>
+<text x="178.728" y="162" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">1</text>
+<text x="209.52800000000002" y="542.6" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">0..*</text>
+<text x="116.37366666666667" y="210.15" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">contains</text>
+<text x="129.3946666666667" y="162" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">1</text>
+<text x="129.3946666666667" y="274.3" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">0..*</text>
+<text x="117.56166666666667" y="478.45" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">GroupId</text>
+<text x="129.3946666666667" y="430.3" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">0..1</text>
+<text x="129.3946666666667" y="542.6" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">0..*</text>
+<text x="645.176" y="906.75" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">history</text>
+<text x="209.528" y="858.6" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">1</text>
+<text x="654.633" y="970.9" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">0..10</text>
+<text x="851.8870000000001" y="906.75" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">TOTP fields</text>
+<text x="249.59466666666663" y="858.6" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">1</text>
+<text x="872.3330000000001" y="970.9" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">0..1</text>
+<text x="70.664" y="906.75" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">optional list</text>
+<text x="89.328" y="858.6" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">1</text>
+<text x="89.328" y="970.9" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">0..1</text>
+<text x="244.93599999999998" y="906.75" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">strips secrets</text>
+<text x="423.02849999999995" y="906.75" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">browser metadata</text>
+</g></svg>

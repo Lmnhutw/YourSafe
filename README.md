@@ -23,6 +23,18 @@ Existing WinUI Debug capture with synthetic demo accounts. [Open full size](docs
 
 A separate **Hash Tool** generates, verifies, and inspects password hashes. Its optional HTTP API is for local development and is independent of the vault and browser integration.
 
+### Understand the main flows
+
+The [diagram guide](docs/diagrams/README.md) follows the implementation from the user action to validation, authorization, storage, and failure handling. Start with the question you want answered:
+
+| Question | Read this diagram |
+| --- | --- |
+| What runs on my PC, and how does the browser reach it? | [Components and data paths](docs/diagrams/README.md#system-architecture) |
+| What is created during setup, and when is an OTP required? | [First launch](docs/diagrams/README.md#first-launch) and [sign-in](docs/diagrams/README.md#sign-in) |
+| What does locking actually clear? | [Login and lock lifecycle](docs/diagrams/README.md#login-and-lock-lifecycle) |
+| What is stored, and how is a failed save handled? | [Vault data model](docs/diagrams/README.md#vault-data-model) and [paired persistence](docs/diagrams/README.md#paired-persistence) |
+| Should I use a Recovery Key, snapshot, recovery, or import? | [Choose a recovery path](docs/diagrams/README.md#choose-a-recovery-path) |
+
 ## Download and install
 
 Download a Windows x64 package from [GitHub Releases](https://github.com/Lmnhutw/PasswordTool.Core/releases) and read its release notes and `release-status.txt` before running it.
@@ -59,17 +71,33 @@ Release builds are self-contained: you do not need to install .NET or the Window
 
 The **vault sign-in Authenticator** protects access to YourSafe. **Website TOTP** belongs to individual saved accounts. They are separate secrets and are configured separately.
 
+<details>
+<summary>See the setup and sign-in steps, including rejected and cancelled actions</summary>
+
+![First launch branches for an existing, missing or partial vault pair, followed by verified new-vault setup](docs/diagrams/first-launch.svg)
+
+![Master Password precheck, OTP for a new login and final serialized unlock checks](docs/diagrams/sign-in.svg)
+
+[Setup source](docs/diagrams/first-launch.mmd) · [Sign-in source](docs/diagrams/sign-in.mmd) · [Detailed explanation](docs/diagrams/README.md#sign-in).
+
+</details>
+
 ## Everyday use
 
 ### Save a credential
 
 Choose **Add item**, enter a title, username, and password, then enter a website URL or select **No URL**. Website TOTP and recovery codes are optional. Recovery codes require at least two different codes supplied by the website, separated by newlines or commas. Select **Save item**. Assign an existing group and a favorite marker as needed; All leaves the entry without a group.
 
-Password and TOTP edits stay in the editor draft until you save; Cancel discards them. Core validates the entry, encrypts the vault payload, and saves the config/storage pair through a staged transaction. A failed write rolls back the change instead of leaving a partially saved vault.
+Password and TOTP edits stay in the editor draft until you save; Cancel discards them. The desktop editor requires Title, Username and Password, plus a URL or **No URL**; imported TOTP-only items remain readable and usable. Core validates the entry, encrypts the vault payload, and saves the config/storage pair through a staged transaction. Failed writes attempt to restore both files and undo the in-memory change. A pending journal lets startup complete an interrupted pair; see [paired persistence](docs/diagrams/README.md#paired-persistence) for the failure limits.
+
+<details>
+<summary>See validation, password history, encrypted saving and failure paths</summary>
 
 ![Saving a credential through validation, encryption and paired commit, with failure paths](docs/diagrams/save-credential.svg)
 
 Only a validated draft reaches encryption and storage. The vault pair includes encrypted `.storage` and `.config` metadata with wrapped keys. [Full size](docs/diagrams/save-credential.svg) · [Mermaid source](docs/diagrams/save-credential.mmd) · [Annotated editor](docs/diagrams/editor-overview.svg).
+
+</details>
 
 ### Find, reveal, or copy
 
@@ -79,9 +107,14 @@ While the vault is unlocked, ordinary actions do not request another Authenticat
 
 Sensitive copies use best-effort clipboard cleanup after 30 seconds and on lock, while YourSafe still owns the copied value. A value you replace is preserved. Cleanup cannot retract an earlier paste or a copy already read by another application.
 
+<details>
+<summary>See authorization, temporary unlock and clipboard cleanup</summary>
+
 ![Authorization before a selected password is revealed or copied](docs/diagrams/reveal-copy.svg)
 
 Temporary access always relocks, including on failure. [Full size](docs/diagrams/reveal-copy.svg) · [Mermaid source](docs/diagrams/reveal-copy.mmd).
+
+</details>
 
 ### Use website verification codes
 
@@ -89,12 +122,16 @@ Add or edit TOTP in a credential's editor and save the item. View current codes 
 
 Live desktop code panels require an unlocked vault and stop on closure or lock. Copy generates the current code again. Browser **View code** and **Copy code** each require their own desktop approval; a countdown does not automatically fetch another code.
 
+See [website TOTP flows](docs/diagrams/README.md#website-totp) for the difference between a live desktop panel, a one-time browser code, and desktop clipboard delivery.
+
 ### Review and organize
 
 - Use favorites, groups, and local search. Right-click a group tab to rename it or change its color; Settings offers horizontal/vertical tabs and System/Light/Dark themes.
 - Run **Local Security Check** for weak passwords, exact reuse, and passwords at least 365 days old. Open the affected item through the protected editor and rescan after changes.
 - Changing a password retains its latest 10 previous values inside the encrypted vault. Deleted items stay in Trash for 30 days unless restored or permanently deleted.
 - CSV import previews new and duplicate accounts and adds only new accounts. CSV exports contain plaintext secrets; protect them and remove them when no longer needed.
+
+The [password lifecycle diagram](docs/diagrams/README.md#password-lifecycle-and-trash) connects password changes, history, Local Security Check and Trash. The [import diagram](docs/diagrams/README.md#import-into-an-existing-vault) shows how backup IDs and CSV account comparisons differ; CSV comparison also includes the complete TOTP configuration.
 
 ### Sign-in and locking
 
@@ -132,13 +169,20 @@ The official extension checks the current browser document and destination field
 
 The extension does not automatically capture or save new passwords. It never receives the Master Password, vault key, website TOTP seed, or account recovery codes. **Copy code** writes through the desktop clipboard service; **View code** returns only the current code and its time window.
 
+<details>
+<summary>See each browser and desktop check before one approved Fill</summary>
+
 ![One approved password request crossing extension, NativeHost and desktop boundaries](docs/diagrams/browser-fill.svg)
 
 This follows explicit account selection; denied or stale requests release no password. The reported website remains unverified to the desktop. [Full size](docs/diagrams/browser-fill.svg) · [Mermaid source](docs/diagrams/browser-fill.mmd) · [Metadata discovery sequence](docs/diagrams/README.md#browser-discovery).
 
+</details>
+
 See the [extension guide](browser-extension/README.md) for supported browser versions, development installation, Native Messaging registration, production integration, and verification. Browser support does not establish store approval or availability.
 
 ## Backup and recovery
+
+Recovery Key reset, local snapshot restore, fresh-installation recovery, and importing into an existing vault have different inputs and effects. Use the [recovery decision diagram](docs/diagrams/README.md#choose-a-recovery-path) before selecting an operation.
 
 ### Encrypted external backups
 
@@ -152,9 +196,14 @@ On a fresh installation, choose **Recover from encrypted backup**, enter its pas
 
 Importing an encrypted backup into an existing vault validates the full backup first and previews new, duplicate, and conflicting IDs. Only new entries are added; existing entries are not overwritten.
 
+<details>
+<summary>See backup inspection, new credentials and fresh-vault recovery</summary>
+
 ![Creating a fresh vault from an encrypted external backup using new credentials and a new DEK](docs/diagrams/backup-recovery.svg)
 
 The backup passphrase decrypts entry data; newly confirmed credentials protect a fresh vault. A Recovery Key does not decrypt backups. [Full size](docs/diagrams/backup-recovery.svg) · [Mermaid source](docs/diagrams/backup-recovery.mmd) · [Separate export, snapshot and reset flows](docs/diagrams/README.md#export-an-encrypted-backup).
+
+</details>
 
 ### Recovery Key reset
 
@@ -211,6 +260,7 @@ The vault uses the existing data directory:
 | `.config` | Master and Recovery key slots wrapping the DEK, credential revision, encrypted sign-in Authenticator secret, session settings, and backup-health timestamps. |
 | `.storage` | AES-256-GCM encrypted vault payload. |
 | `.snapshots` | Up to five previous paired config/vault states. |
+| `.state-transaction` | Temporary journal containing the target config/storage pair for an interrupted commit; handled during startup. |
 | `appearance.json` | Theme, tab placement, and built-in tab names/colors, separate from the encrypted vault. |
 | `.trusted-unlock` | Compatibility token file; current desktop sign-in does not use it. |
 
@@ -221,6 +271,8 @@ Do not manually edit, mix, or partially restore these files. If only `.config` o
 The desktop **Hash Tool** and optional API share the implementations in `PasswordTool.Core`. Argon2id is the default recommendation; bcrypt, PBKDF2, scrypt, and ASP.NET Core Identity formats are also supported. MD5 and fast SHA options are labeled educational-only and must not be used for production password storage. Vault passwords use reversible encryption so they can be retrieved; the Hash Tool is a separate utility.
 
 The API exposes hash, verify, inspect, and algorithm-list endpoints for local development. It enforces loopback peer/Host checks, a 32 KiB request limit, 60 requests per minute, and at most two concurrent expensive hash/verify operations. Responses disable caching and hash generation rejects educational-only algorithms. Local callers are not authenticated; public deployment requires a separate security design. See the [API guide](src/PasswordTool.Api/README.md).
+
+The [API request diagram](docs/diagrams/README.md#optional-hash-api) shows the gates, route-specific behavior, and 400/403/429 rejection paths.
 
 ## Build from source
 
@@ -279,3 +331,7 @@ website/                      # static Vietnamese landing page
 ```
 
 For implementation boundaries and compatibility rules, read the [architecture guide](docs/architecture.md) and [Core contract](src/PasswordTool.Core/README.md).
+
+![Desktop layers, optional extension and NativeHost, local storage, backups and independent hashing API](docs/diagrams/system-architecture.svg)
+
+Arrows show runtime calls and data paths; NativeHost relays to the running desktop and has no Core project reference. [Full size](docs/diagrams/system-architecture.svg) · [Mermaid source](docs/diagrams/system-architecture.mmd) · [Responsibilities and source map](docs/diagrams/README.md#system-architecture).

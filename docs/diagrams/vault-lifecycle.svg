@@ -1,45 +1,112 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="1100" viewBox="0 0 1120 1100" role="img" aria-labelledby="title desc">
-<title id="title">Vault lock and login lifecycle</title><desc id="desc">For an enrolled vault, a successful Master Password and TOTP sign-in begins a fixed five-hour login. Table locking preserves metadata, Windows lifecycle locking clears it, and reopening during that login needs only the Master Password. Temporary desktop actions always relock; logout, login expiry or app exit ends login.</desc><metadata>{"source":"vault-lifecycle.mmd","sourceSha256":"1388609b5c8dda096453ffc3e65f6c8e3456a6b81e60cb506bea854d5163ced6","renderer":"Native editable SVG layout; same state transitions as Mermaid source","theme":"theme.json"}</metadata>
-<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#64748b"/></marker></defs>
-<style>text{font-family:Segoe UI,Arial,sans-serif;fill:#0f172a}.arrow{fill:none;stroke:#64748b;stroke-width:1.8;stroke-linejoin:round}.transition{font-size:18px;paint-order:stroke;stroke:#fff;stroke-width:6px;stroke-linejoin:round}.state{stroke-width:1.5;fill:#fffbeb;stroke:#d97706}.good{fill:#f0fdf4;stroke:#16a34a}.neutral{fill:#f8fafc;stroke:#64748b}.state-label{font-size:22px;font-weight:600}</style>
-<rect width="1120" height="1100" fill="#fff"/>
-<text x="24" y="36" font-size="26" font-weight="600">Vault lock and login lifecycle</text>
-<text x="24" y="74" font-size="18" fill="#475569">Default vault duration: 1 minute. Activity and unlock never extend the five-hour login.</text>
-<rect x="24" y="280" width="1000" height="780" rx="10" fill="#fff" stroke="#94a3b8" stroke-dasharray="5 4"/>
-<text x="48" y="314" font-size="20" font-weight="600">Active login - five-hour maximum</text>
-<path d="M535 112 L535 140" class="arrow" marker-end="url(#arrow)"/><circle cx="535" cy="108" r="5" fill="#475569"/>
-<path d="M535 205 L535 335" class="arrow" marker-end="url(#arrow)"/>
-<text x="555" y="235" text-anchor="start" class="transition"><tspan x="555" dy="0">Master Password + TOTP</tspan><tspan x="555" dy="23">verified</tspan></text>
-<path d="M420 163 L330 163 L330 235 L450 235 L450 205" class="arrow" marker-end="url(#arrow)"/>
-<text x="338" y="262" text-anchor="middle" class="transition"><tspan x="338" dy="0">Invalid / cancel</tspan></text>
-<path d="M1024 470 L1060 470 L1060 172 L650 172" class="arrow" marker-end="url(#arrow)"/>
-<text x="852" y="128" text-anchor="middle" class="transition"><tspan x="852" dy="0">Logout / login expiry /</tspan><tspan x="852" dy="23">app exit</tspan></text>
-<g><rect x="420" y="140" width="230" height="65" rx="7" class="state neutral"/><text x="535" y="180" text-anchor="middle" class="state-label">Signed out</text></g>
-<path d="M385 400 L180 560" class="arrow" marker-end="url(#arrow)"/>
-<text x="205" y="450" text-anchor="middle" class="transition"><tspan x="205" dy="0">Manual lock /</tspan><tspan x="205" dy="23">vault deadline</tspan></text>
-<path d="M280 560 L485 400" class="arrow" marker-end="url(#arrow)"/>
-<text x="446" y="475" text-anchor="middle" class="transition"><tspan x="446" dy="0">Unlock +</tspan><tspan x="446" dy="23">Master Password</tspan></text>
-<path d="M580 370 L870 560" class="arrow" marker-end="url(#arrow)"/>
-<text x="827" y="447" text-anchor="middle" class="transition"><tspan x="827" dy="0">Windows event</tspan></text>
-<path d="M750 560 L550 400" class="arrow" marker-end="url(#arrow)"/>
-<text x="653" y="501" text-anchor="middle" class="transition"><tspan x="653" dy="0">Master Password</tspan></text>
-<path d="M310 592 L700 592" class="arrow" marker-end="url(#arrow)"/>
-<text x="505" y="575" text-anchor="middle" class="transition"><tspan x="505" dy="0">Windows event</tspan></text>
-<path d="M250 625 L500 820" class="arrow" marker-end="url(#arrow)"/>
-<text x="425" y="707" text-anchor="middle" class="transition"><tspan x="425" dy="0">Action +</tspan><tspan x="425" dy="23">Master Password</tspan></text>
-<path d="M370 852 L160 625" class="arrow" marker-end="url(#arrow)"/>
-<text x="160" y="765" text-anchor="middle" class="transition"><tspan x="160" dy="0">Success / failure</tspan><tspan x="160" dy="23">- relock</tspan></text>
-<path d="M610 850 L850 625" class="arrow" marker-end="url(#arrow)"/>
-<text x="835" y="768" text-anchor="middle" class="transition"><tspan x="835" dy="0">Windows event</tspan></text>
-<path d="M90 585 L40 585 L40 685 L140 685 L140 625" class="arrow" marker-end="url(#arrow)"/>
-<text x="99" y="718" text-anchor="middle" class="transition"><tspan x="99" dy="0">Wrong password /</tspan><tspan x="99" dy="23">cancel</tspan></text>
-<path d="M940 585 L990 585 L990 685 L900 685 L900 625" class="arrow" marker-end="url(#arrow)"/>
-<text x="932" y="718" text-anchor="middle" class="transition"><tspan x="932" dy="0">Wrong password /</tspan><tspan x="932" dy="23">cancel</tspan></text>
-<g><rect x="360" y="335" width="220" height="65" rx="7" class="state good"/><text x="470" y="375" text-anchor="middle" class="state-label">Unlocked</text></g>
-<g><rect x="90" y="560" width="220" height="65" rx="7" class="state locked"/><text x="200" y="600" text-anchor="middle" class="state-label">Table locked</text></g>
-<g><rect x="700" y="560" width="240" height="65" rx="7" class="state locked"/><text x="820" y="600" text-anchor="middle" class="state-label">Screen locked</text></g>
-<g><rect x="370" y="820" width="240" height="65" rx="7" class="state locked"/><text x="490" y="860" text-anchor="middle" class="state-label">One desktop action</text></g>
-<text x="110" y="938" font-size="18">Table lock: metadata stays visible; decrypted secrets and DEK are cleared.</text>
-<text x="110" y="970" font-size="18">Screen lock: cached workspace metadata is also cleared.</text>
-<text x="110" y="1002" font-size="18">Windows event: lock, disconnect, suspend or resume.</text>
-</svg>
+<svg role="img" aria-labelledby="title desc" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 893.4" width="820" height="893.4" style="--border:#94a3b8;--bg:#ffffff;--fg:#1f2328;--line:#64748b;--accent:#0969da;--muted:#334155;background:var(--bg)"><title id="title">Login authorization and vault locking</title><desc id="desc">For an enrolled vault, signed-out access requires the Master Password and current OTP. A fixed five-hour login contains shorter vault-open windows, table lock, temporary desktop actions and a Windows lifecycle lock. Reopening needs the Master Password without extending login. Table lock preserves cached metadata; lifecycle lock clears it. Temporary actions relock on success or failure. Logout, expiry and process exit end authorization.</desc><metadata>{&quot;source&quot;:&quot;vault-lifecycle.mmd&quot;,&quot;sourceSha256&quot;:&quot;c5741bd51f1a289d449177c1b12ca4088b3cf965e40483c3133c6a22d4c20400&quot;,&quot;renderer&quot;:&quot;beautiful-mermaid@1.1.3&quot;,&quot;theme&quot;:&quot;github-light&quot;,&quot;line&quot;:&quot;#64748b&quot;,&quot;muted&quot;:&quot;#334155&quot;,&quot;border&quot;:&quot;#94a3b8&quot;}</metadata><rect width="100%" height="100%" fill="#ffffff"/><g font-family="Segoe UI,Arial,sans-serif" fill="#0f172a"><text x="24" y="34" font-size="24" font-weight="600">Login authorization and vault locking</text><text x="24" y="63" font-size="14">Read arrows in order. SECRET = plaintext; KEY = encryption key; cylinders = stored data.</text></g><g transform="translate(28.357249999999965,88)">
+<style>
+
+  text { font-family: 'Segoe UI', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<g class="subgraph" data-id="login" data-label="Active login: fixed five-hour maximum">
+  <rect x="32" y="32" width="699.2855000000001" height="564.2" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="32" y="32" width="699.2855000000001" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="44" y="46" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">Active login: fixed five-hour maximum</text>
+</g>
+<polyline class="edge" data-from="_start" data-to="signedOut" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="624.4943333333334,688.5 624.4943333333334,700.5 547.7655833333333,700.5 547.7655833333333,712.5" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="signedOut" data-to="login" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Master Password + current Authenticator code" points="448.61508333333336,712.5 448.61508333333336,700.5 265.0951666666667,700.5 265.0951666666667,596.2" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="login" data-to="signedOut" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Logout, login expiry or app exit" points="498.1903333333334,596.2 498.19033333333334,712.5" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="_start2" data-to="unlocked" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="478.57200000000006,342.1 478.57200000000006,354.1 392.3671666666668,354.1 392.3671666666668,390.1" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="unlocked" data-to="tableLocked" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Manual lock or fixed vault deadline" points="331.6769166666668,390.1 331.6769166666668,354.1 344.04200000000003,354.1 344.04200000000003,278.1 312.01620833333334,278.1 312.01620833333334,266.1" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="tableLocked" data-to="unlocked" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Unlock vault + correct Master Password" points="243.73070833333335,266.1 243.73070833333335,278.1 147.5,278.1 147.5,354.1 270.9866666666668,354.1 270.9866666666668,390.1" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="tableLocked" data-to="oneAction" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Protected action + correct Master Password" points="357.539875,229.2 357.539875,193.2 457.77324999999996,193.2 457.77324999999996,136.9 415.07820833333335,136.9 415.07820833333335,112.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="oneAction" data-to="tableLocked" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="finally relock on success or failure" points="366.05870833333336,112.9 366.05870833333336,124.9 251.64924999999994,124.9 251.64924999999994,193.2 266.4925416666667,193.2 266.4925416666667,229.2" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="unlocked" data-to="screenLocked" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Windows lock, disconnect, suspend or resume" points="372.1370833333334,427 372.1370833333334,439 397.4412083333334,439 397.4412083333334,507.3 503.05661666666674,507.3 503.05661666666674,543.3" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="tableLocked" data-to="screenLocked" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Windows lifecycle event" points="380.3017083333333,266.1 380.3017083333333,278.1 549.5574166666668,278.1 549.5574166666668,507.3 562.7238166666667,507.3 562.7238166666667,543.3" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="oneAction" data-to="screenLocked" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Windows event cancels action" points="464.09770833333334,112.9 464.09770833333334,124.9 640.4515,124.9 640.4515,507.3 622.3910166666667,507.3 622.3910166666667,543.3" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="screenLocked" data-to="unlocked" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Correct Master Password during same login" points="443.3894166666667,543.3 443.3894166666667,519.3 164.57920833333333,519.3 164.57920833333333,439 291.2167500000001,439 291.2167500000001,427" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="signedOut" data-to="login" data-label="Master Password + current Authenticator code">
+  <rect x="146.09516666666673" y="663.2" width="237.42999999999998" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="264.8101666666667" y="678.35" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Master Password + current Authenticator code</text>
+</g>
+<g class="edge-label" data-from="login" data-to="signedOut" data-label="Logout, login expiry or app exit">
+  <rect x="417.69033333333334" y="639.2" width="160.80400000000006" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="498.0923333333334" y="654.35" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Logout, login expiry or app exit</text>
+</g>
+<g class="edge-label" data-from="unlocked" data-to="tableLocked" data-label="Manual lock or fixed vault deadline">
+  <rect x="254.542" y="312.95" width="178.03000000000003" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="343.557" y="328.09999999999997" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Manual lock or fixed vault deadline</text>
+</g>
+<g class="edge-label" data-from="tableLocked" data-to="unlocked" data-label="Unlock vault + correct Master Password">
+  <rect x="44" y="312.95" width="206.54200000000003" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="147.27100000000002" y="328.09999999999997" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Unlock vault + correct Master Password</text>
+</g>
+<g class="edge-label" data-from="tableLocked" data-to="oneAction" data-label="Protected action + correct Master Password">
+  <rect x="344.77324999999996" y="155.9" width="225.55" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="457.54824999999994" y="171.05" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Protected action + correct Master Password</text>
+</g>
+<g class="edge-label" data-from="oneAction" data-to="tableLocked" data-label="finally relock on success or failure">
+  <rect x="162.14924999999994" y="155.9" width="178.62400000000002" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="251.46124999999995" y="171.05" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">finally relock on success or failure</text>
+</g>
+<g class="edge-label" data-from="unlocked" data-to="screenLocked" data-label="Windows lock, disconnect, suspend or resume">
+  <rect x="280.44120833333335" y="470" width="233.86600000000007" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="397.3742083333334" y="485.15" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Windows lock, disconnect, suspend or resume</text>
+</g>
+<g class="edge-label" data-from="tableLocked" data-to="screenLocked" data-label="Windows lifecycle event">
+  <rect x="485.05741666666677" y="393.40000000000003" width="128.72800000000004" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="549.4214166666668" y="408.55" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Windows lifecycle event</text>
+</g>
+<g class="edge-label" data-from="oneAction" data-to="screenLocked" data-label="Windows event cancels action">
+  <rect x="561.4515000000001" y="312.95" width="157.834" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="640.3685000000002" y="328.09999999999997" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Windows event cancels action</text>
+</g>
+<g class="edge-label" data-from="screenLocked" data-to="unlocked" data-label="Correct Master Password during same login">
+  <rect x="52.07920833333331" y="470" width="224.36200000000005" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="164.26020833333334" y="485.15" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Correct Master Password during same login</text>
+</g>
+<g class="node" data-id="signedOut" data-label="Signed out: no login or DEK" data-shape="rounded">
+  <rect x="399.0398333333334" y="712.5" width="198.301" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="498.19033333333334" y="730.95" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Signed out: no login or DEK</text>
+</g>
+<g class="node" data-id="_start" data-label="" data-shape="state-start">
+  <circle cx="624.4943333333334" cy="674.5" r="12" fill="var(--_text)" stroke="none" />
+</g>
+<g class="node" data-id="unlocked" data-label="Unlocked: DEK and data in memory" data-shape="rounded">
+  <rect x="210.2964166666668" y="390.1" width="242.76099999999994" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="331.6769166666668" y="408.55" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Unlocked: DEK and data in memory</text>
+</g>
+<g class="node" data-id="tableLocked" data-label="Table locked: cached metadata retained" data-shape="rounded">
+  <rect x="175.44520833333337" y="229.2" width="273.14199999999994" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="312.01620833333334" y="247.64999999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Table locked: cached metadata retained</text>
+</g>
+<g class="node" data-id="oneAction" data-label="Temporary desktop action" data-shape="rounded">
+  <rect x="317.03920833333336" y="76" width="196.07799999999997" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="415.07820833333335" y="94.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Temporary desktop action</text>
+</g>
+<g class="node" data-id="screenLocked" data-label="Lifecycle locked: workspace cache cleared" data-shape="rounded">
+  <rect x="383.7222166666667" y="543.3" width="298.33599999999996" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="532.8902166666667" y="561.75" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Lifecycle locked: workspace cache cleared</text>
+</g>
+<g class="node" data-id="_start2" data-label="" data-shape="state-start">
+  <circle cx="478.57200000000006" cy="328.1" r="12" fill="var(--_text)" stroke="none" />
+</g>
+</g></svg>

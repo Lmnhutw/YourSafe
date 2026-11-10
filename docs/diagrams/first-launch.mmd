@@ -1,0 +1,19 @@
+flowchart TB
+    accTitle: First launch and new-vault setup
+    accDescr: Startup resolves a missing, complete or partial storage pair. New-vault setup is available only with no existing files, and requires a confirmed Master Password, a verified Authenticator code and explicit acknowledgement that a generated Recovery Key was saved. Core generates a DEK and verifies a staged v4 pair before persistence and a new unlocked login.
+    launch["Open YourSafe\nStorage constructor handles pending journal"] --> state{"Local vault files?"}
+    state -->|Both present| signin["Open sign-in screen\nSee sign-in diagram"]
+    state -->|Only one present| partial["Partial-storage error\nPreserve files; no setup overwrite"]:::danger
+    state -->|Neither present| welcome{"First launch: choose path"}
+    welcome -->|Recover backup| recovery[["See backup-recovery diagram"]]
+    welcome -->|Create new vault| password["Create and confirm Master Password\n12 to 4096 characters"]
+    password --> setup["Generate sign-in TOTP secret\nScan QR and enter current code"]
+    setup -->|Invalid code| setup
+    setup -->|Valid| key["Generate random Recovery Key\nSave separately and confirm saved"]
+    key -->|Cancel| stop["Stop setup; no commit attempted"]:::danger
+    key -->|Confirmed| create["Core rechecks empty storage and inputs\nGenerate random DEK and two key slots"]
+    create --> commit[["Encrypt empty VaultData\nVerify wrappers and staged pair; commit"]]
+    commit -->|Failure| failed["Report persistence failure\nSee journal and rollback flow"]:::danger
+    commit -->|Success| unlocked["New vault unlocked\nFive-hour login + shorter vault deadline"]:::good
+    classDef danger fill:#fef2f2,stroke:#dc2626,color:#991b1b
+    classDef good fill:#f0fdf4,stroke:#16a34a,color:#14532d
