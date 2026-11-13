@@ -1,3 +1,5 @@
+![YourSafe — Your passwords. On your device.](docs/yoursafe-banner.png)
+
 # YourSafe
 
 YourSafe is a local Windows password manager for passwords, website verification codes (TOTP), and account recovery codes. It includes an encrypted vault, password and passphrase generation, a local security check, and optional Chrome, Edge, and Brave integration.
