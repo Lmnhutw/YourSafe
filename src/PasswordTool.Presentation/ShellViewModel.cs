@@ -14,6 +14,13 @@ public sealed partial class ShellViewModel : ObservableObject
     private readonly IUserDialogService dialogs;
     private bool backupReminderOffered;
     private bool beginningAddItem;
+    private SubmittedUnlock? submittedUnlock;
+
+    private sealed record SubmittedUnlock(long Version, AppFlowState PreviousState, bool PreserveSignIn)
+    {
+        public VaultUnlockResult? Result { get; set; }
+        public Task? Cancellation { get; set; }
+    }
 
     public ShellViewModel(
         AppFlowCoordinator flow,
@@ -64,6 +71,8 @@ public sealed partial class ShellViewModel : ObservableObject
     [ObservableProperty] public partial bool IsBackupReminderOpen { get; set; }
     [ObservableProperty] public partial string RecoveryPath { get; set; } = string.Empty;
     [ObservableProperty] public partial string RecoverySummary { get; set; } = string.Empty;
+    [ObservableProperty] public partial string MasterPasswordError { get; set; } = string.Empty;
+    [ObservableProperty] public partial string RecoveryPasswordError { get; set; } = string.Empty;
     [ObservableProperty] public partial AuthenticatorSetup? PendingAuthenticatorSetup { get; set; }
 
     public bool IsUnlocked => FlowState is AppFlowState.Unlocked or AppFlowState.TableLocked;
@@ -89,13 +98,14 @@ public sealed partial class ShellViewModel : ObservableObject
     public async Task ValidateRecoveryKeyAsync(string key)
     {
         await flow.ValidateRecoveryKeyAsync(key);
-        FlowState = flow.FlowState;
     }
     public void PrepareRecoveryKeyReset(string masterPassword, string confirmation)
     {
         flow.PrepareRecoveryKeyReset(masterPassword, confirmation);
-        FlowState = flow.FlowState;
     }
+    public Task PrepareRecoveryKeyResetAsync(string masterPassword, string confirmation, CancellationToken cancellationToken = default) =>
+        flow.PrepareRecoveryKeyResetAsync(masterPassword, confirmation, cancellationToken);
+    public void RefreshFlowState() => FlowState = flow.FlowState;
     public void ConfirmRecoveryKeySaved(bool saved)
     {
         flow.ConfirmRecoveryKeySaved(saved);
@@ -108,10 +118,9 @@ public sealed partial class ShellViewModel : ObservableObject
         FlowState = flow.FlowState;
         ClearAuthenticationStatus();
     }
-    public async Task ResetWithRecoveryKeyAsync(RecoveryKeyResetRequest request)
+    public async Task ResetWithRecoveryKeyAsync(RecoveryKeyResetRequest request, CancellationToken cancellationToken = default)
     {
-        await flow.ResetWithRecoveryKeyAsync(request);
-        await LockAsync();
+        await flow.ResetWithRecoveryKeyAsync(request, cancellationToken);
     }
     public long LifecycleVersion => flow.LifecycleVersion;
     public bool IsCurrentUnlock(long version) => flow.IsCurrentUnlock(version) && IsUnlocked;
@@ -124,13 +133,13 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         var version = LifecycleVersion;
         IsStatusOpen = false;
+        MasterPasswordError = string.Empty;
         try
         {
             var valid = await flow.ValidateMasterPasswordAsync(masterPassword);
             if (version != LifecycleVersion) return false;
             if (valid) return true;
-            StatusMessage = "The Master Password is incorrect. Please try again.";
-            IsStatusOpen = true;
+            MasterPasswordError = "The Master Password is incorrect. Please try again.";
         }
         catch (Exception exception) { if (version == LifecycleVersion) ShowMappedError(exception); }
         return false;
@@ -139,20 +148,80 @@ public sealed partial class ShellViewModel : ObservableObject
     public async Task UnlockAsync(string masterPassword, string totpCode)
     {
         IsStatusOpen = false;
-        var operation = flow.UnlockAsync(masterPassword, totpCode);
-        var version = LifecycleVersion;
-        var result = await operation;
-        if (version != LifecycleVersion) return;
+        var result = await SubmitUnlockAsync(masterPassword, totpCode);
+        await CompleteSubmittedUnlockAsync(result);
+    }
+
+    public async Task<VaultUnlockResult> SubmitUnlockAsync(string masterPassword, string totpCode, CancellationToken cancellationToken = default)
+    {
+        await CancelSubmittedUnlockAsync();
+        cancellationToken.ThrowIfCancellationRequested();
+        var previousState = flow.FlowState;
+        if (previousState is not (AppFlowState.Unlock or AppFlowState.TableLocked))
+            throw new InvalidOperationException("Unlock is unavailable in the current state.");
+        var preserveSignIn = flow.IsSignedIn;
+        var operation = flow.UnlockAsync(masterPassword, totpCode, cancellationToken);
+        var submission = new SubmittedUnlock(LifecycleVersion, previousState, preserveSignIn);
+        submittedUnlock = submission;
+        try
+        {
+            var result = await operation;
+            if (cancellationToken.IsCancellationRequested || !ReferenceEquals(submittedUnlock, submission) || submission.Version != LifecycleVersion)
+            {
+                if (ReferenceEquals(submittedUnlock, submission)) await CancelSubmittedUnlockAsync();
+                return new VaultUnlockResult(VaultUnlockStatus.Failed, "Unlock cancelled.");
+            }
+            submission.Result = result;
+            return result;
+        }
+        catch
+        {
+            if (ReferenceEquals(submittedUnlock, submission)) await CancelSubmittedUnlockAsync();
+            throw;
+        }
+    }
+
+    public async Task CancelSubmittedUnlockAsync()
+    {
+        var submission = submittedUnlock;
+        if (submission is null) return;
+        try
+        {
+            submission.Cancellation ??= flow.DiscardUnlockAsync(submission.Version, submission.PreviousState, submission.PreserveSignIn);
+            await submission.Cancellation;
+        }
+        finally
+        {
+            if (ReferenceEquals(submittedUnlock, submission)) submittedUnlock = null;
+        }
+    }
+
+    public async Task<bool> CompleteSubmittedUnlockAsync(VaultUnlockResult result)
+    {
+        var submission = submittedUnlock;
+        if (submission is null || !ReferenceEquals(submission.Result, result)) return false;
+        if (submission.Version != LifecycleVersion)
+        {
+            await CancelSubmittedUnlockAsync();
+            return false;
+        }
+        if (result.Success && !flow.IsVaultSessionActive)
+        {
+            await CancelSubmittedUnlockAsync();
+            return false;
+        }
+        submittedUnlock = null;
         FlowState = flow.FlowState;
         if (!result.Success)
         {
             StatusMessage = result.Message;
             IsStatusOpen = true;
-            return;
+            return false;
         }
 
         try { if (!NeedsRecoveryKey) await CompleteUnlockAsync(result); }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException) { return false; }
+        return true;
     }
 
     public void BeginNewVault()
@@ -181,6 +250,13 @@ public sealed partial class ShellViewModel : ObservableObject
     public async Task InspectRecoveryAsync(string passphrase)
     {
         var version = LifecycleVersion;
+        RecoverySummary = RecoveryPasswordError = string.Empty;
+        try { PasswordTool.Core.Services.VaultBackupService.ValidatePassphrase(passphrase); }
+        catch (ArgumentException)
+        {
+            RecoveryPasswordError = "Use a backup password with at least 12 characters.";
+            return;
+        }
         try
         {
             var inspection = await flow.InspectRecoveryBackupAsync(RecoveryPath, passphrase);
@@ -190,7 +266,11 @@ public sealed partial class ShellViewModel : ObservableObject
         }
         catch (Exception exception)
         {
-            if (version == LifecycleVersion) ShowMappedError(exception);
+            if (version != LifecycleVersion) return;
+            if (exception is System.Security.Cryptography.CryptographicException)
+                RecoveryPasswordError = "The backup password is incorrect, or the backup file was modified.";
+            else if (exception is BackupOperationException backup) RecoveryPasswordError = backup.Message;
+            else ShowMappedError(exception);
         }
     }
 
@@ -267,6 +347,7 @@ public sealed partial class ShellViewModel : ObservableObject
     [RelayCommand]
     private async Task LockAsync()
     {
+        var discardFreshSignIn = submittedUnlock is { PreserveSignIn: false };
         IsBackupReminderOpen = false;
         FlowState = AppFlowState.Unlock;
         Vault.Clear();
@@ -277,7 +358,7 @@ public sealed partial class ShellViewModel : ObservableObject
         PendingAuthenticatorSetup = null;
         RecoveryPath = RecoverySummary = string.Empty;
         IsRecovering = false;
-        var operation = flow.LockAsync();
+        var operation = discardFreshSignIn ? flow.LogoutAsync() : flow.LockAsync();
         var version = LifecycleVersion;
         await operation;
         if (version != LifecycleVersion) return;
@@ -294,7 +375,7 @@ public sealed partial class ShellViewModel : ObservableObject
 
     public async Task LockTableAsync(bool preserveCurrentRoute = false)
     {
-        if (!IsSignedIn) { await LogoutAsync(); return; }
+        if (!IsSignedIn || submittedUnlock is { PreserveSignIn: false }) { await LogoutAsync(); return; }
         var locking = flow.LockTableAsync();
         var version = LifecycleVersion;
         await locking;
@@ -629,13 +710,16 @@ public sealed partial class ShellViewModel : ObservableObject
     private void ShowMappedError(Exception exception)
     {
         if (exception is OperationCanceledException) return;
-        StatusMessage = errorMapper.Map(exception);
+        StatusMessage = exception is UnauthorizedAccessException { Message: "The Master Password is incorrect." }
+            ? "The Master Password is incorrect. Please try again."
+            : errorMapper.Map(exception);
         IsStatusOpen = true;
     }
 
     private void ClearAuthenticationStatus()
     {
         StatusMessage = string.Empty;
+        MasterPasswordError = RecoveryPasswordError = string.Empty;
         IsStatusOpen = false;
     }
 

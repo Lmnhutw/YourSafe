@@ -16,7 +16,7 @@ if ($windowHandle -eq 0) { throw 'The supplied process has no main window.' }
 $null = Get-Command $WinAppPath -ErrorAction Stop
 $outputDirectory = Join-Path $testRoot 'ui-results'
 $groupName = "UI delete check $([Guid]::NewGuid().ToString('N').Substring(0, 8))"
-$confirmationText = "Confirm delete all data in `"$groupName`""
+$confirmationText = "delete $groupName"
 $results = [System.Collections.Generic.List[object]]::new()
 $captures = [System.Collections.Generic.List[string]]::new()
 $groupId = $null
@@ -81,8 +81,9 @@ function OpenDeletion {
     Ui invoke $delete.selector | Out-Null
     Ui wait-for PrimaryButton -p Name --value 'Delete all data' -t 5000 | Out-Null
     Ui wait-for PrimaryButton -p IsEnabled --value False -t 5000 | Out-Null
-    SingleElement $confirmationText '^Text$' | Out-Null
-    return (SingleElement 'Type the exact confirmation below' '^(Edit|TextBox)$').selector
+    SingleElement "Type $confirmationText to delete the group" '^Text$' | Out-Null
+    Ui wait-for TxtGroupDeletionConfirmation -t 5000 | Out-Null
+    return 'TxtGroupDeletionConfirmation'
 }
 
 # Fail closed before creating groups, changing selection, or taking screenshots.

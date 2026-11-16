@@ -106,7 +106,7 @@ public sealed class VaultRecoveryTests : IDisposable
         var storage = new VaultStorageService(tempDirectory);
         using var vault = new VaultService(storage, encryption, totp);
 
-        Assert.Throws<UnauthorizedAccessException>(() => vault.RecoverFromBackup(new VaultRecoveryRequest
+        Assert.Throws<AuthenticatorVerificationException>(() => vault.RecoverFromBackup(new VaultRecoveryRequest
         {
             BackupJson = backupJson,
             BackupPassphrase = BackupPassphrase,

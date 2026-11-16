@@ -28,8 +28,10 @@ The three opt-in Core fixture tests do nothing unless `PASSWORDTOOL_UI_TEST_DIRE
 | `Test-VaultUi.ps1` | Search/filter defaults, read-only details, duplication, group moves, Trash/Restore/delete and password-only table re-unlock |
 | `Test-TotpFlyoutUi.ps1` | Code grouping, timer renewal, setup validation and accessible help |
 | `Test-EditorLockSecurityUi.ps1` | Real one-minute timeout with/without draft TOTP, draft dismissal, cancelled/incorrect re-unlock and a fresh empty editor |
-| `Test-SnapshotRestoreSecurityUi.ps1` | Current/historical password clearing after cancel/failure, paired restore, session end and restored sign-in credentials |
+| `Test-SnapshotRestoreSecurityUi.ps1` | Current/historical password clearing after cancel, retained-input retries after validation failures, paired restore, session end and restored sign-in credentials |
 | `Test-GroupDeletionConfirmationUi.ps1` | Exact displayed confirmation, cancel persistence and deletion of only the batch-created empty group |
+| `Test-InlineValidationUi.ps1` | Blank/duplicate group-name retry, same-dialog Master Password correction, focus/selection and Cancel persistence |
+| `Test-AuthenticationValidationUi.ps1` | `-Scenario Setup` checks setup retry/QR preservation; `-Scenario Recovery` checks key/password/code retry and Cancel persistence |
 | `Test-AutofillNativeIntegration.ps1` | Installed extension and real NativeHost/WinUI approval using isolated browser profiles; `-NativeHostOnly` checks protocol v3/OFF controls, process transport/cancellation/competing clients, queued-dialog Open YourSafe, minimize/restore and the global discovery quota |
 
 `Test-ComboBoxUi.ps1` and `Test-DialogButtonsUi.ps1` were merged into Appearance. `Test-PasswordToolUi.ps1` and `Test-RequestedLayoutUi.ps1` were merged into Workspace; generation and successful verification now run once per batch. The direct native UI batches accept `-WinAppPath` when WinApp CLI is not on PATH. The extension integration wrapper does not accept that argument; its guarded control script uses `winapp` from PATH.
@@ -45,6 +47,8 @@ Remove-Item Env:PASSWORDTOOL_UI_TEST_DIRECTORY
 ```
 
 Use a fresh fixture for independent batches, and keep the app in the foreground for pointer/keyboard checks. Vault tests permanently delete only the copy they create. Scripts verify the exact `YourSafeDisposableUiTest` HelpText directory before driving the app and treat a WinApp wait timeout as failure even when its exit code is zero. Captures/results are ignored; Vault, Appearance and Workspace write under `<TestDirectory>/ui-results`, TOTP writes under `<TestDirectory>`.
+
+Authentication Validation starts before sign-in. `Setup` needs a fresh empty directory launched with `PASSWORDTOOL_UI_TEST_DIRECTORY`; do not seed it. `Recovery` uses `Create_opt_in_disposable_ui_vault`, which writes `ui-test-credentials.json` containing its synthetic Recovery Key. That receipt is test data only and never contains a real user's credentials. Build and launch explicitly with `-c Debug`; Release ignores the disposable-vault environment variable.
 
 Editor Lock Security requires a separate disposable fixture with a one-minute vault duration **before app launch**; the regular thirty-minute fixture deliberately exceeds its 75-second timeout bound. The batch writes under `<TestDirectory>/ui-results`. It verifies readable editor controls and navigation, while protected PasswordBox values and managed references are outside UIA's visibility. It never locks or suspends Windows; record simulated lifecycle tests and actual OS events separately.
 

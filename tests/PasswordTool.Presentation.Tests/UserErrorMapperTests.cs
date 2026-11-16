@@ -1,4 +1,5 @@
 using PasswordTool.Presentation;
+using PasswordTool.Core.Models;
 
 namespace PasswordTool.Presentation.Tests;
 
@@ -18,6 +19,7 @@ public sealed class UserErrorMapperTests
 
     [Theory]
     [InlineData(typeof(UnauthorizedAccessException), "permission")]
+    [InlineData(typeof(AuthenticatorVerificationException), "Authenticator")]
     [InlineData(typeof(InvalidDataException), "format")]
     [InlineData(typeof(OperationCanceledException), "canceled")]
     public void Map_KnownFailure_ReturnsActionableCategory(Type exceptionType, string expectedText)

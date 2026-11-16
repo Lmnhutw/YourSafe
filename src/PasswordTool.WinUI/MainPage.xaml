@@ -13,6 +13,12 @@
     mc:Ignorable="d">
 
     <Page.Resources>
+        <Style x:Key="InputFieldErrorStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{ThemeResource SystemFillColorCriticalBrush}" />
+            <Setter Property="Visibility" Value="Collapsed" />
+        </Style>
         <Style TargetType="local:AppComboBox" BasedOn="{StaticResource DefaultComboBoxStyle}">
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -143,6 +149,7 @@
                             <Button AutomationProperties.AutomationId="BtnChooseRecovery" HorizontalAlignment="Left" Click="ChooseRecoveryButton_Click" Content="Choose backup file" />
                             <TextBlock AutomationProperties.AutomationId="TxtRecoveryPath" Text="{x:Bind ViewModel.RecoveryPath, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                             <PasswordBox x:Name="RecoveryPassphraseInput" AutomationProperties.Name="Backup password" Header="Backup password" />
+                            <TextBlock x:Name="TxtRecoveryPasswordError" AutomationProperties.AutomationId="TxtRecoveryPasswordError" AutomationProperties.LiveSetting="Polite" Style="{StaticResource InputFieldErrorStyle}" />
                             <Button AutomationProperties.AutomationId="BtnInspectRecovery" HorizontalAlignment="Stretch" Click="InspectRecoveryButton_Click" Content="Verify backup" />
                             <InfoBar
                                 x:Name="RecoverySummaryInfoBar"
@@ -158,8 +165,10 @@
                         <StackPanel x:Name="CreateMasterPasswordPanel" Spacing="16" Visibility="Collapsed">
                             <TextBlock Style="{StaticResource PasswordToolPageTitleStyle}" Text="Create your Master Password" />
                             <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Use at least 12 characters. You'll need this password to unlock your vault." TextWrapping="Wrap" />
-                            <PasswordBox x:Name="NewMasterPasswordInput" AutomationProperties.Name="New Master Password" Header="Master Password" PlaceholderText="Enter your password" />
-                            <PasswordBox x:Name="ConfirmMasterPasswordInput" AutomationProperties.Name="Confirm Master Password" Header="Confirm Master Password" PlaceholderText="Enter your password again" />
+                            <PasswordBox x:Name="NewMasterPasswordInput" AutomationProperties.AutomationId="TxtSetupMasterPassword" AutomationProperties.Name="New Master Password" Header="Master Password" PlaceholderText="Enter your password" />
+                            <TextBlock x:Name="TxtNewMasterPasswordError" AutomationProperties.AutomationId="TxtNewMasterPasswordError" AutomationProperties.LiveSetting="Polite" Style="{StaticResource InputFieldErrorStyle}" />
+                            <PasswordBox x:Name="ConfirmMasterPasswordInput" AutomationProperties.AutomationId="TxtSetupConfirmMasterPassword" AutomationProperties.Name="Confirm Master Password" Header="Confirm Master Password" PlaceholderText="Enter your password again" />
+                            <TextBlock x:Name="TxtConfirmMasterPasswordError" AutomationProperties.AutomationId="TxtConfirmMasterPasswordError" AutomationProperties.LiveSetting="Polite" Style="{StaticResource InputFieldErrorStyle}" />
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button Click="BackToWelcomeButton_Click" Content="Back" />
                                 <Button Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="BtnContinueMasterPassword" Click="ContinueMasterPasswordButton_Click" Content="Continue" />
@@ -173,6 +182,7 @@
                             <TextBlock x:Name="AuthenticatorSecretText" AutomationProperties.AutomationId="TxtAuthenticatorSetupSecret" FontFamily="Consolas" TextWrapping="Wrap" />
                             <Button HorizontalAlignment="Left" Click="CopyAuthenticatorSecretButton_Click" Content="Copy setup key" />
                             <local:SixDigitCodeInput x:Name="AuthenticatorConfirmationInput" />
+                            <TextBlock x:Name="TxtAuthenticatorSetupError" AutomationProperties.AutomationId="TxtAuthenticatorSetupError" AutomationProperties.LiveSetting="Polite" Style="{StaticResource InputFieldErrorStyle}" />
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button Click="ExitButton_Click" Content="Cancel" />
                                 <Button Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="BtnCompleteAuthenticator" Click="CompleteAuthenticatorButton_Click" Content="Finish setup" />
@@ -190,6 +200,7 @@
                                     </DataTemplate>
                                 </PasswordBox.HeaderTemplate>
                             </PasswordBox>
+                            <TextBlock x:Name="TxtMasterPasswordError" AutomationProperties.AutomationId="TxtMasterPasswordError" AutomationProperties.LiveSetting="Polite" Style="{StaticResource InputFieldErrorStyle}" />
                             <Button x:Name="UnlockButton" FontSize="16" MinHeight="44" Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="BtnUnlock" HorizontalAlignment="Stretch" AutomationProperties.Name="Sign in" Click="UnlockButton_Click" Content="Sign in" />
                             <Button FontSize="16" MinHeight="40" Content="Forgot Master Password?" Click="ForgotMasterPasswordButton_Click" />
                         </StackPanel>
@@ -829,9 +840,11 @@
                                     </Grid>
                                     <StackPanel Spacing="4">
                                         <PasswordBox x:Name="BackupPassphrase" Password="{x:Bind ViewModel.Backup.BackupPassword, Mode=TwoWay}" AutomationProperties.AutomationId="TxtBackupPassword" AutomationProperties.Name="Backup password" Header="Backup password" />
+                                        <TextBlock x:Name="BackupPasswordError" AutomationProperties.AutomationId="BackupPasswordError" AutomationProperties.LiveSetting="Polite" Style="{StaticResource InputFieldErrorStyle}" />
                                         <TextBlock Style="{StaticResource PasswordToolHintStyle}" Text="At least 12 characters. Separate from your Master Password." />
                                     </StackPanel>
                                     <PasswordBox x:Name="BackupPassphraseConfirmation" Password="{x:Bind ViewModel.Backup.ConfirmBackupPassword, Mode=TwoWay}" AutomationProperties.AutomationId="TxtConfirmBackupPassword" AutomationProperties.Name="Confirm backup password for creation" Header="Confirm backup password" ToolTipService.ToolTip="Confirmation is only required when creating a backup." AutomationProperties.HelpText="Confirmation is only required when creating a backup." />
+                                    <TextBlock x:Name="BackupConfirmationError" AutomationProperties.AutomationId="BackupConfirmationError" AutomationProperties.LiveSetting="Polite" Style="{StaticResource InputFieldErrorStyle}" />
                                     <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
                                         <Button AutomationProperties.AutomationId="BtnVerifyBackup" AutomationProperties.Name="Verify backup file" Click="VerifyBackupButton_Click" Content="Verify file" ToolTipService.ToolTip="Check that an existing backup is still readable using its backup password." />
                                         <Button Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="BtnCreateBackup" Click="ExportBackupButton_Click" Content="Create backup" />
@@ -886,8 +899,10 @@
                                     </ListView.ItemTemplate>
                                 </ListView>
                                 <PasswordBox x:Name="SnapshotMasterPassword" AutomationProperties.AutomationId="TxtSnapshotMasterPassword" AutomationProperties.Name="Master Password for snapshot restore" Header="Current Master Password" />
+                                <TextBlock x:Name="SnapshotCurrentPasswordError" AutomationProperties.AutomationId="SnapshotCurrentPasswordError" AutomationProperties.LiveSetting="Polite" Style="{StaticResource InputFieldErrorStyle}" />
                                 <TextBlock Style="{StaticResource PasswordToolHintStyle}" Text="Enter your current Master Password to restore this snapshot. If the snapshot used a different Master Password, enter that password below. Otherwise, leave the second field blank." />
                                 <PasswordBox x:Name="SnapshotPreviousMasterPassword" AutomationProperties.AutomationId="TxtSnapshotPreviousMasterPassword" AutomationProperties.Name="Snapshot Master Password if different" Header="Snapshot Master Password (if different)" />
+                                <TextBlock x:Name="SnapshotRestoreError" AutomationProperties.AutomationId="SnapshotRestoreError" AutomationProperties.LiveSetting="Polite" Style="{StaticResource InputFieldErrorStyle}" />
                                 <Button AutomationProperties.AutomationId="BtnRestoreSnapshot" HorizontalAlignment="Right" Click="RestoreSnapshotButton_Click" Content="Restore selected snapshot" />
                             </StackPanel>
                         </Border>
@@ -1012,8 +1027,11 @@
                                     <TextBlock Style="{StaticResource PasswordToolDescriptionStyle}" Text="Choose a new Master Password with at least 12 characters." />
                                 </StackPanel>
                                 <PasswordBox x:Name="CurrentMasterPassword" AutomationProperties.Name="Current Master Password" Header="Current Master Password" />
+                                <TextBlock x:Name="SettingsCurrentPasswordError" AutomationProperties.AutomationId="SettingsCurrentPasswordError" AutomationProperties.LiveSetting="Polite" Style="{StaticResource InputFieldErrorStyle}" />
                                 <PasswordBox x:Name="ReplacementMasterPassword" AutomationProperties.Name="New Master Password" Header="New Master Password" />
+                                <TextBlock x:Name="SettingsNewPasswordError" AutomationProperties.AutomationId="SettingsNewPasswordError" AutomationProperties.LiveSetting="Polite" Style="{StaticResource InputFieldErrorStyle}" />
                                 <PasswordBox x:Name="ConfirmReplacementMasterPassword" AutomationProperties.Name="Confirm new Master Password" Header="Confirm new Master Password" />
+                                <TextBlock x:Name="SettingsConfirmPasswordError" AutomationProperties.AutomationId="SettingsConfirmPasswordError" AutomationProperties.LiveSetting="Polite" Style="{StaticResource InputFieldErrorStyle}" />
                                 <Grid ColumnSpacing="16">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                                     <StackPanel Spacing="4">
@@ -1048,7 +1066,9 @@
                                 <Image x:Name="SettingsAuthenticatorQr" Width="220" Height="220" Visibility="Collapsed" />
                                 <TextBlock x:Name="SettingsAuthenticatorSecret" FontFamily="Consolas" TextWrapping="Wrap" />
                                 <PasswordBox x:Name="AuthenticatorResetMasterPassword" AutomationProperties.Name="Master Password for Authenticator reset" Header="Current Master Password" />
+                                <TextBlock x:Name="SettingsAuthenticatorPasswordError" AutomationProperties.AutomationId="SettingsAuthenticatorPasswordError" AutomationProperties.LiveSetting="Polite" Style="{StaticResource InputFieldErrorStyle}" />
                                 <local:SixDigitCodeInput x:Name="AuthenticatorResetCode" />
+                                <TextBlock x:Name="SettingsAuthenticatorCodeError" AutomationProperties.AutomationId="SettingsAuthenticatorCodeError" AutomationProperties.LiveSetting="Polite" Style="{StaticResource InputFieldErrorStyle}" />
                                 <Button HorizontalAlignment="Right" Click="ResetAuthenticatorButton_Click" Content="Verify new Authenticator" />
                             </StackPanel>
                         </Border>

@@ -94,8 +94,9 @@ public sealed class VaultServiceTests : IDisposable
         Assert.Equal(group.Id, item.GroupId);
         Assert.Single(vault.GetGroups());
 
-        var confirmation = "Confirm delete all data in \"Database\"";
-        Assert.Throws<ArgumentException>(() => vault.DeleteGroup(group.Id, "Delete Database", ComputeTotp(secret)));
+        var confirmation = "delete Database";
+        foreach (var invalid in new[] { "Delete Database", "delete database", "Database", "delete Other", "Confirm delete all data in \"Database\"" })
+            Assert.Throws<ArgumentException>(() => vault.DeleteGroup(group.Id, invalid, ComputeTotp(secret)));
         Assert.Equal(2, vault.GetItems().Count);
         Assert.Single(vault.GetGroups());
         Assert.Single(vault.GetDeletedItems());

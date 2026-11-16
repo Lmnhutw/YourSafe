@@ -156,7 +156,7 @@ function Restore([bool]$Confirm) {
 
 function AssertFailure([string]$Expected) {
     Ui wait-for BtnRestoreSnapshot -p IsEnabled --value True -t 15000 | Out-Null
-    Reveal StatusBackup
+    Reveal $(if ($Expected -ceq $currentError) { 'SnapshotCurrentPasswordError' } else { 'SnapshotRestoreError' })
     Ui wait-for $Expected -t 5000 | Out-Null
     AssertUnchanged
 }
@@ -238,28 +238,23 @@ try {
         AssertFailure $historicalError
         Capture cancel-historical-cleared
     }
-    Test 'Failed historical verification clears the current password' {
+    Test 'Failed historical verification retains the current password for retry' {
         Credentials $currentPassword 'incorrect historical fixture password'
         Restore $true
         AssertFailure $historicalError
-        Reveal TxtSnapshotPreviousMasterPassword
-        Ui set-value TxtSnapshotPreviousMasterPassword $historicalPassword | Out-Null
         Restore $true
-        AssertFailure $currentError
-        Capture failure-current-cleared
+        AssertFailure $historicalError
+        Capture failure-current-retained
     }
-    Test 'Failed current authorization clears the historical password' {
+    Test 'Failed current authorization retains the historical password for corrected retry' {
         Credentials 'incorrect current fixture password' $historicalPassword
         Restore $true
         AssertFailure $currentError
         Reveal TxtSnapshotMasterPassword
         Ui set-value TxtSnapshotMasterPassword $currentPassword | Out-Null
-        Restore $true
-        AssertFailure $historicalError
-        Capture failure-historical-cleared
+        Capture failure-historical-retained
     }
     Test 'Successful restore replaces the pair and ends the sign-in session' {
-        Credentials $currentPassword $historicalPassword
         Restore $true
         Ui wait-for TxtMasterPassword -t 15000 | Out-Null
         Ui wait-for NavBackup --gone -t 5000 | Out-Null

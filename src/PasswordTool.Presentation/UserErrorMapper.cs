@@ -14,6 +14,7 @@ public sealed class UserErrorMapper : IUserErrorMapper
     public string Map(Exception exception) => exception switch
     {
         BackupOperationException backup => backup.Message,
+        AuthenticatorVerificationException authenticator => authenticator.Message,
         OperationCanceledException => "The operation was canceled.",
         UnauthorizedAccessException => "YourSafe does not have permission to access the selected location.",
         FileNotFoundException => "The selected file could not be found.",

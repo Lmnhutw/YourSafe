@@ -152,6 +152,18 @@ public sealed class AppFlowCoordinator
         FlowState = AppFlowState.RecoveryKeySave;
     }
 
+    public async Task PrepareRecoveryKeyResetAsync(string masterPassword, string confirmation, CancellationToken cancellationToken = default)
+    {
+        RequireFlowState(AppFlowState.RecoveryMasterPassword);
+        MasterPasswordService.ValidateNewMasterPassword(masterPassword);
+        if (!string.Equals(masterPassword, confirmation, StringComparison.Ordinal))
+            throw new ArgumentException("The Master Password values do not match.", nameof(confirmation));
+        if (await ValidateMasterPasswordAsync(masterPassword, cancellationToken).ConfigureAwait(false))
+            throw new ArgumentException("Choose a different Master Password.", nameof(masterPassword));
+        cancellationToken.ThrowIfCancellationRequested();
+        PrepareRecoveryKeyReset(masterPassword, confirmation);
+    }
+
     public void ConfirmRecoveryKeySaved(bool saved)
     {
         RequireFlowState(AppFlowState.RecoveryKeySave);
@@ -165,15 +177,17 @@ public sealed class AppFlowCoordinator
         FlowState = AppFlowState.Unlock;
     }
 
-    public async Task ResetWithRecoveryKeyAsync(RecoveryKeyResetRequest request)
+    public async Task ResetWithRecoveryKeyAsync(RecoveryKeyResetRequest request, CancellationToken cancellationToken = default)
     {
         RequireFlowState(AppFlowState.RecoveryAuthenticator);
         var version = LifecycleVersion;
         await operations.RunAsync(() =>
         {
             EnsureCurrentFlow(version, AppFlowState.RecoveryAuthenticator);
-            vaultService.ResetWithRecoveryKey(request);
-        }).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            vaultService.ResetWithRecoveryKey(request, () => !cancellationToken.IsCancellationRequested
+                && version == LifecycleVersion && FlowState == AppFlowState.RecoveryAuthenticator);
+        }, cancellationToken).ConfigureAwait(false);
         EnsureCurrentFlow(version, AppFlowState.RecoveryAuthenticator);
         Interlocked.Increment(ref lifecycleVersion);
         FlowState = AppFlowState.Unlock;
@@ -230,6 +244,19 @@ public sealed class AppFlowCoordinator
         if (result.Success && version == Volatile.Read(ref lifecycleVersion) && vaultService.HasActiveVaultSession) FlowState = NeedsRecoveryKey ? AppFlowState.SaveRecoveryKey : AppFlowState.Unlocked;
         else if (result.Success) return new VaultUnlockResult(VaultUnlockStatus.Failed, "Unlock cancelled.");
         return result;
+    }
+
+    internal async Task DiscardUnlockAsync(long version, AppFlowState previousState, bool preserveSignIn)
+    {
+        var discardedVersion = version + 1;
+        if (Interlocked.CompareExchange(ref lifecycleVersion, discardedVersion, version) != version) return;
+        FlowState = previousState;
+        await operations.RunAsync(() =>
+        {
+            if (LifecycleVersion != discardedVersion) return;
+            if (preserveSignIn) vaultService.LockVault();
+            else vaultService.ClearSession();
+        }).ConfigureAwait(false);
     }
 
     public void BeginNewVault()

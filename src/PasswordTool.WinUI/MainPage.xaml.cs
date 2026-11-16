@@ -47,6 +47,8 @@ public sealed partial class MainPage : Page
     public MainPage()
     {
         InitializeComponent();
+        SubscribeFormValidation();
+        InitializeAuthenticationValidation();
         signInTimer.Tick += async (_, _) =>
         {
             if (ViewModel.FlowState == AppFlowState.Unlocked && ViewModel.IsSignedIn && !ViewModel.IsVaultSessionActive)
@@ -367,12 +369,29 @@ public sealed partial class MainPage : Page
         try
         {
             var password = MasterPasswordInput.Password;
-            if (!await ViewModel.ValidateMasterPasswordAsync(password)) return;
-            var code = ViewModel.IsSignedIn ? string.Empty : await dialogs.PromptTotpAsync(
-                "Sign in", "Enter the current 6-digit code from your Authenticator app.");
-            if (code is null) return;
-
-            await ViewModel.UnlockAsync(password, code);
+            if (!await ViewModel.ValidateMasterPasswordAsync(password))
+            {
+                RefreshAuthenticationValidation();
+                return;
+            }
+            if (ViewModel.IsSignedIn) await ViewModel.UnlockAsync(password, string.Empty);
+            else
+            {
+                VaultUnlockResult? submitted = null;
+                var code = await dialogs.PromptTotpAsync(
+                    "Sign in", "Enter the current 6-digit code from your Authenticator app.",
+                    async (value, token) =>
+                    {
+                        submitted = await ViewModel.SubmitUnlockAsync(password, value, token);
+                        return new OperationResult(submitted.Success, submitted.Message);
+                    });
+                if (code is null)
+                {
+                    MasterPasswordInput.Password = string.Empty;
+                    return;
+                }
+                if (submitted is null || !await ViewModel.CompleteSubmittedUnlockAsync(submitted)) return;
+            }
             if (ViewModel.FlowState == AppFlowState.SaveRecoveryKey)
             {
                 var key = await ConfirmRecoveryKeyAsync();
@@ -400,7 +419,7 @@ public sealed partial class MainPage : Page
         catch (OperationCanceledException) { }
         finally
         {
-            MasterPasswordInput.Password = string.Empty;
+            await ViewModel.CancelSubmittedUnlockAsync();
             UnlockButton.IsEnabled = true;
         }
     }
@@ -479,6 +498,10 @@ public sealed partial class MainPage : Page
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(ShellViewModel.IsUnlocked) or nameof(ShellViewModel.FlowState)) ApplyShellState();
+        if (e.PropertyName == nameof(ShellViewModel.MasterPasswordError))
+            InlineValidation.SetError(MasterPasswordInput, masterPasswordError, ViewModel.MasterPasswordError, false);
+        if (e.PropertyName == nameof(ShellViewModel.RecoveryPasswordError))
+            InlineValidation.SetError(RecoveryPassphraseInput, recoveryPasswordError, ViewModel.RecoveryPasswordError, false);
     }
 
     private void CreateVaultButton_Click(object sender, RoutedEventArgs e)
@@ -500,6 +523,7 @@ public sealed partial class MainPage : Page
     private async void InspectRecoveryButton_Click(object sender, RoutedEventArgs e)
     {
         await ViewModel.InspectRecoveryAsync(RecoveryPassphraseInput.Password);
+        RefreshAuthenticationValidation();
         RecoverySummaryInfoBar.IsOpen = !string.IsNullOrWhiteSpace(ViewModel.RecoverySummary);
     }
 
@@ -512,6 +536,7 @@ public sealed partial class MainPage : Page
 
     private async void ContinueMasterPasswordButton_Click(object sender, RoutedEventArgs e)
     {
+        if (!ValidateFirstLaunchPassword()) return;
         ViewModel.PrepareAuthenticator(NewMasterPasswordInput.Password, ConfirmMasterPasswordInput.Password);
         ApplyShellState();
         if (ViewModel.FlowState == AppFlowState.SetupAuthenticator && ViewModel.PendingAuthenticatorSetup is { } setup)
@@ -537,7 +562,8 @@ public sealed partial class MainPage : Page
             if (ViewModel.PendingAuthenticatorSetup is not { } setup
                 || !await ViewModel.ValidateAuthenticatorSetupAsync(setup, AuthenticatorConfirmationInput.Code))
             {
-                await dialogs.ShowErrorAsync("Setup was not completed", "Authenticator setup could not be verified.");
+                InlineValidation.SetError(AuthenticatorConfirmationInput, authenticatorSetupError,
+                    "The code could not be verified. Enter the current code from your Authenticator app.");
                 return;
             }
             if (version != ViewModel.LifecycleVersion || ViewModel.FlowState != AppFlowState.SetupAuthenticator) return;
@@ -556,9 +582,11 @@ public sealed partial class MainPage : Page
             recoveryKey = null;
             if (version == ViewModel.LifecycleVersion)
             {
-                ClearFirstLaunchInputs();
-                if (ViewModel.FlowState == AppFlowState.SetupAuthenticator) ViewModel.CancelFirstLaunchStep();
-                ApplyShellState();
+                if (ViewModel.FlowState != AppFlowState.SetupAuthenticator)
+                {
+                    ClearFirstLaunchInputs();
+                    ApplyShellState();
+                }
             }
             setupCompletionInProgress = false;
         }
@@ -699,9 +727,16 @@ public sealed partial class MainPage : Page
         var recovery = new PasswordBox { Header = "Recovery Key" };
         var password = new PasswordBox { Header = "New Master Password" };
         var confirm = new PasswordBox { Header = "Confirm Master Password" };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(recovery, "TxtRecoveryKey");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(password, "TxtRecoveryNewPassword");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(confirm, "TxtRecoveryConfirmPassword");
+        var keyError = InlineValidation.CreateError("TxtRecoveryKeyError");
         var panel = new StackPanel { Spacing = 12 };
         panel.Children.Add(recovery);
-        var dialog = new AppContentDialog { Title = "Validate Recovery Key", Content = panel, PrimaryButtonText = "Continue", CloseButtonText = "Cancel" };
+        panel.Children.Add(keyError);
+        var dialog = new AppContentDialog { Title = "Validate Recovery Key", Content = panel, PrimaryButtonText = "Continue", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
+        recovery.PasswordChanged += (_, _) => InlineValidation.ClearError(recovery, keyError);
+        dialog.Opened += (_, _) => recovery.Focus(FocusState.Programmatic);
         string? newKey = null;
         long? wizardVersion = null;
         try
@@ -727,16 +762,49 @@ public sealed partial class MainPage : Page
             ViewModel.BeginRecoveryKeyReset();
             var version = ViewModel.LifecycleVersion;
             wizardVersion = version;
+            InlineValidation.AttachAsyncSubmit(dialog, recovery, keyError, async token =>
+            {
+                token.ThrowIfCancellationRequested();
+                try { await ViewModel.ValidateRecoveryKeyAsync(recovery.Password); }
+                catch (Exception exception) when (exception is System.Security.Cryptography.CryptographicException or FormatException or ArgumentException)
+                {
+                    return new OperationResult(false, "The Recovery Key could not be verified. Check the key and try again.");
+                }
+                return new OperationResult(true, string.Empty);
+            });
             if (await App.Services.GetRequiredService<DialogLifetime>().ShowAsync(dialog, CancellationToken.None) != ContentDialogResult.Primary) return;
-            await ViewModel.ValidateRecoveryKeyAsync(recovery.Password);
             if (version != ViewModel.LifecycleVersion) return;
+            ViewModel.RefreshFlowState();
+            var passwordError = InlineValidation.CreateError("TxtRecoveryNewPasswordError");
+            var confirmationError = InlineValidation.CreateError("TxtRecoveryConfirmationError");
             var passwordPanel = new StackPanel { Spacing = 12 };
             passwordPanel.Children.Add(password);
+            passwordPanel.Children.Add(passwordError);
             passwordPanel.Children.Add(confirm);
-            var passwordDialog = new AppContentDialog { Title = "Choose new Master Password", Content = passwordPanel, PrimaryButtonText = "Continue", CloseButtonText = "Cancel" };
+            passwordPanel.Children.Add(confirmationError);
+            var passwordDialog = new AppContentDialog { Title = "Choose new Master Password", Content = passwordPanel, PrimaryButtonText = "Continue", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
+            password.PasswordChanged += (_, _) => InlineValidation.ClearError(password, passwordError);
+            confirm.PasswordChanged += (_, _) => InlineValidation.ClearError(confirm, confirmationError);
+            passwordDialog.Opened += (_, _) => password.Focus(FocusState.Programmatic);
+            InlineValidation.AttachAsyncSubmit(passwordDialog, password, passwordError, async token =>
+            {
+                token.ThrowIfCancellationRequested();
+                InlineValidation.ClearError(password, passwordError);
+                InlineValidation.ClearError(confirm, confirmationError);
+                try { PasswordTool.Core.Services.MasterPasswordService.ValidateNewMasterPassword(password.Password); }
+                catch (ArgumentException) { return new OperationResult(false, "Use a Master Password with at least 12 characters."); }
+                if (!string.Equals(password.Password, confirm.Password, StringComparison.Ordinal))
+                {
+                    InlineValidation.SetError(confirm, confirmationError, "The Master Passwords do not match.");
+                    return new OperationResult(false, string.Empty);
+                }
+                try { await ViewModel.PrepareRecoveryKeyResetAsync(password.Password, confirm.Password, token); }
+                catch (ArgumentException) { return new OperationResult(false, "Choose a different Master Password from your current one."); }
+                return new OperationResult(true, string.Empty);
+            });
             if (await App.Services.GetRequiredService<DialogLifetime>().ShowAsync(passwordDialog, CancellationToken.None) != ContentDialogResult.Primary
                 || version != ViewModel.LifecycleVersion) return;
-            ViewModel.PrepareRecoveryKeyReset(password.Password, confirm.Password);
+            ViewModel.RefreshFlowState();
             newKey = await ConfirmRecoveryKeyAsync();
             if (newKey is null || version != ViewModel.LifecycleVersion) return;
             ViewModel.ConfirmRecoveryKeySaved(true);
@@ -744,18 +812,53 @@ public sealed partial class MainPage : Page
             var secret = setup.SecretBase32;
             var qr = new Image { Width = 220, Height = 220, Source = await CreateQrBitmapAsync(setup.OtpAuthUri) };
             var code = new SixDigitCodeInput();
+            var codeError = InlineValidation.CreateError("TxtRecoveryAuthenticatorError");
+            var resetError = InlineValidation.CreateError("TxtRecoveryResetError");
             var authPanel = new StackPanel { Spacing = 12 };
             authPanel.Children.Add(qr);
             authPanel.Children.Add(code);
-            var authDialog = new AppContentDialog { Title = "Set up new Authenticator", Content = authPanel, PrimaryButtonText = "Reset credentials", CloseButtonText = "Cancel" };
+            authPanel.Children.Add(codeError);
+            authPanel.Children.Add(resetError);
+            var authDialog = new AppContentDialog { Title = "Set up new Authenticator", Content = authPanel, PrimaryButtonText = "Reset credentials", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
+            code.CodeChanged += (_, _) => InlineValidation.ClearError(code, codeError);
+            authDialog.Opened += (_, _) => code.FocusFirst();
+            InlineValidation.AttachAsyncSubmit(authDialog, code, codeError, async token =>
+            {
+                token.ThrowIfCancellationRequested();
+                InlineValidation.ClearError(code, resetError);
+                if (!await ViewModel.ValidateAuthenticatorSetupAsync(setup, code.Code))
+                    return new OperationResult(false, "The code could not be verified. Enter the current code from your Authenticator app.");
+                token.ThrowIfCancellationRequested();
+                try
+                {
+                    await ViewModel.ResetWithRecoveryKeyAsync(new RecoveryKeyResetRequest(recovery.Password, password.Password, newKey, true, secret, code.Code), token);
+                }
+                catch (AuthenticatorVerificationException exception) { return new OperationResult(false, exception.Message); }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    InlineValidation.SetError(code, resetError, App.Services.GetRequiredService<IUserErrorMapper>().Map(exception), false);
+                    return new OperationResult(false, string.Empty);
+                }
+                return new OperationResult(true, string.Empty);
+            });
             try
             {
                 if (version != ViewModel.LifecycleVersion) return;
                 if (await App.Services.GetRequiredService<DialogLifetime>().ShowAsync(authDialog, CancellationToken.None) != ContentDialogResult.Primary) return;
-                await ViewModel.ResetWithRecoveryKeyAsync(new RecoveryKeyResetRequest(recovery.Password, password.Password, newKey, true, secret, code.Code));
+                await ViewModel.LockCommand.ExecuteAsync(null);
                 ApplyShellState();
             }
-            finally { secret = string.Empty; code.Clear(); qr.Source = null; }
+            finally
+            {
+                secret = string.Empty;
+                code.Clear();
+                qr.Source = null;
+                if (version != ViewModel.LifecycleVersion)
+                {
+                    ViewModel.RefreshFlowState();
+                    ApplyShellState();
+                }
+            }
         }
         catch (OperationCanceledException) { }
         catch (Exception) { await dialogs.ShowErrorAsync("Reset was not completed", "Check the Recovery Key, matching passwords, and current Authenticator code. No incomplete credential changes were saved."); }
@@ -912,6 +1015,10 @@ public sealed partial class MainPage : Page
         AuthenticatorSecretText.Text = string.Empty;
         AuthenticatorQrImage.Source = null;
         RecoverySummaryInfoBar.IsOpen = false;
+        InlineValidation.ClearError(NewMasterPasswordInput, newMasterPasswordError);
+        InlineValidation.ClearError(ConfirmMasterPasswordInput, confirmMasterPasswordError);
+        InlineValidation.ClearError(AuthenticatorConfirmationInput, authenticatorSetupError);
+        InlineValidation.ClearError(RecoveryPassphraseInput, recoveryPasswordError);
     }
 
     private static async Task<BitmapImage> CreateQrBitmapAsync(string value)
@@ -939,6 +1046,8 @@ public sealed partial class MainPage : Page
 
     private void ApplyRoute(AppRoute route)
     {
+        if (route != AppRoute.Settings && SettingsPage.Visibility == Visibility.Visible) ClearSettingsInputs();
+        if (route != AppRoute.Backup && BackupPage.Visibility == Visibility.Visible) ClearBackupInputs();
         if (route != AppRoute.HashTool) ResetToolGenerator();
         if (route != AppRoute.Vault) CloseTotpPanel();
         WorkspaceContent.MaxWidth = double.PositiveInfinity;
@@ -1005,7 +1114,7 @@ public sealed partial class MainPage : Page
     {
         if ((sender as FrameworkElement)?.Tag is not VaultItemGroup { Id: { } id, IsAll: false } group) return;
         var version = ViewModel.LifecycleVersion;
-        var name = await PromptAsync("Rename tab", "Tab name", DisplayGroupName(group), "Confirm", "TxtTabName");
+        var name = await PromptAsync("Rename tab", "Tab name", DisplayGroupName(group), "Confirm", "TxtTabName", id);
         if (name is null || !ViewModel.IsCurrentUnlock(version)) return;
         await ViewModel.UpdateGroupAsync(id, name, group.AccentColor);
     }
@@ -1093,19 +1202,26 @@ public sealed partial class MainPage : Page
         if ((sender as FrameworkElement)?.Tag is VaultItemGroup { Id: { } id } group) await ViewModel.DeleteGroupAsync(id, group.Name);
     }
 
-    private async Task<string?> PromptAsync(string title, string header, string value, string primaryText = "Save", string? automationId = null)
+    private async Task<string?> PromptAsync(string title, string header, string value, string primaryText = "Save", string? automationId = null, Guid? groupId = null)
     {
-        var input = new TextBox { Header = header, Text = value, MinWidth = 320 };
+        var version = ViewModel.LifecycleVersion;
+        var input = new TextBox { Header = header, Text = value, MinWidth = 320, MaxLength = 100 };
         if (automationId is not null) Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(input, automationId);
-        var dialog = new AppContentDialog { XamlRoot = XamlRoot, Title = title, Content = input, PrimaryButtonText = primaryText, CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
-        if (primaryText == "Confirm")
+        var error = InlineValidation.CreateError("TxtGroupNameError");
+        var dialog = new AppContentDialog { Title = title, Content = new StackPanel { Spacing = 4, Children = { input, error } }, PrimaryButtonText = primaryText, CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
+        input.TextChanged += (_, _) => InlineValidation.ClearError(input, error);
+        dialog.PrimaryButtonClick += (_, args) =>
         {
-            input.MaxLength = 100;
-            dialog.IsPrimaryButtonEnabled = !string.IsNullOrWhiteSpace(input.Text);
-            input.TextChanged += (_, _) => dialog.IsPrimaryButtonEnabled = !string.IsNullOrWhiteSpace(input.Text);
-        }
+            var name = input.Text.Trim();
+            var message = name.Length == 0 ? "Enter a group name."
+                : ViewModel.Vault.GroupTabs.Any(group => group.Id != groupId && string.Equals(group.Name, name, StringComparison.CurrentCultureIgnoreCase))
+                    ? "A group with this name already exists." : string.Empty;
+            args.Cancel = message.Length > 0;
+            if (args.Cancel) InlineValidation.SetError(input, error, message);
+        };
         dialog.Opened += (_, _) => { input.Focus(FocusState.Programmatic); input.SelectAll(); };
-        return await App.Services.GetRequiredService<DialogLifetime>().ShowAsync(dialog, CancellationToken.None) == ContentDialogResult.Primary ? input.Text : null;
+        return await App.Services.GetRequiredService<DialogLifetime>().ShowAsync(dialog, CancellationToken.None,
+            () => ViewModel.IsCurrentUnlock(version)) == ContentDialogResult.Primary ? input.Text.Trim() : null;
     }
 
     private async Task OpenEditorAsync(Guid itemId, bool duplicate = false)
@@ -1394,6 +1510,9 @@ public sealed partial class MainPage : Page
 
     private void ClearSettingsInputs()
     {
+        ViewModel.Settings.CurrentMasterPasswordError = ViewModel.Settings.NewMasterPasswordError =
+            ViewModel.Settings.ConfirmMasterPasswordError = ViewModel.Settings.AuthenticatorMasterPasswordError =
+            ViewModel.Settings.AuthenticatorCodeError = ViewModel.Settings.SecuritySettingsPasswordError = string.Empty;
         CurrentMasterPassword.Password = string.Empty;
         ReplacementMasterPassword.Password = string.Empty;
         ConfirmReplacementMasterPassword.Password = string.Empty;
@@ -1407,6 +1526,8 @@ public sealed partial class MainPage : Page
 
     private void ClearBackupInputs()
     {
+        ViewModel.Backup.BackupPasswordError = ViewModel.Backup.ConfirmBackupPasswordError =
+            ViewModel.Backup.SnapshotMasterPasswordError = ViewModel.Backup.SnapshotRestoreError = string.Empty;
         BackupPassphrase.Password = string.Empty;
         BackupPassphraseConfirmation.Password = string.Empty;
         SnapshotMasterPassword.Password = string.Empty;
@@ -1768,8 +1889,11 @@ public sealed partial class MainPage : Page
         try { restored = await ViewModel.Backup.RestoreSnapshotAsync(SnapshotMasterPassword.Password, SnapshotPreviousMasterPassword.Password); }
         finally
         {
-            SnapshotMasterPassword.Password = string.Empty;
-            SnapshotPreviousMasterPassword.Password = string.Empty;
+            if (ViewModel.Backup.SnapshotRestoreCanceled)
+            {
+                SnapshotMasterPassword.Password = string.Empty;
+                SnapshotPreviousMasterPassword.Password = string.Empty;
+            }
         }
         if (!restored) return;
         await ViewModel.LockCommand.ExecuteAsync(null);

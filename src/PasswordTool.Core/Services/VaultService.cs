@@ -171,7 +171,7 @@ public sealed class VaultService : IDisposable
         finally { CryptographicOperations.ZeroMemory(key); }
     }
 
-    public void ResetWithRecoveryKey(RecoveryKeyResetRequest request)
+    public void ResetWithRecoveryKey(RecoveryKeyResetRequest request, Func<bool>? canCommit = null)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(request);
@@ -179,7 +179,7 @@ public sealed class VaultService : IDisposable
         MasterPasswordService.ValidateNewMasterPassword(request.NewMasterPassword);
         if (!totpService.IsSecretValid(request.NewTotpSecretBase32)
             || !totpService.VerifyCode(request.NewTotpSecretBase32, request.TotpConfirmationCode))
-            throw new UnauthorizedAccessException("Authenticator setup could not be verified.");
+            throw new AuthenticatorVerificationException();
         var config = storageService.LoadConfig();
         if (config.Version != 4) throw new NotSupportedException("Unsupported Recovery Key configuration.");
         var key = recoveryKeys.Unwrap(request.RecoveryKey, config.RecoveryKeySlot
@@ -215,7 +215,7 @@ public sealed class VaultService : IDisposable
             config.Version = 4;
             config.CredentialRevision++;
             config.UpdatedAt = utcNow();
-            SaveRecoveryState(config, payload, request.NewMasterPassword, request.NewRecoveryKey, key, request.NewTotpSecretBase32);
+            SaveRecoveryState(config, payload, request.NewMasterPassword, request.NewRecoveryKey, key, request.NewTotpSecretBase32, canCommit: canCommit);
             TryDeleteTrustedUnlockToken();
             ClearSession();
         }
@@ -223,7 +223,7 @@ public sealed class VaultService : IDisposable
     }
 
     private void SaveRecoveryState(AppConfig config, string payload, string password, string recoveryKey, byte[] key,
-        string expectedTotpSecret, bool requireOpen = false)
+        string expectedTotpSecret, bool requireOpen = false, Func<bool>? canCommit = null)
     {
         Interlocked.Increment(ref mutationVersion);
         storageService.SaveStateVerified(config, payload, (staged, ciphertext) =>
@@ -241,7 +241,11 @@ public sealed class VaultService : IDisposable
                 _ = encryptionService.DecryptObject<VaultData>(ciphertext, master, MasterPasswordService.VaultContext);
             }
             finally { CryptographicOperations.ZeroMemory(master); CryptographicOperations.ZeroMemory(recovery); }
-        }, requireOpen ? () => EnsureOpen(allowRecoverySetup: true) : null);
+        }, () =>
+        {
+            if (canCommit is not null && !canCommit()) throw new OperationCanceledException();
+            if (requireOpen) EnsureOpen(allowRecoverySetup: true);
+        });
     }
 
     private void RejectReusedRecoveryKey(string candidate, RecoveryKeySlot? previous)
@@ -357,7 +361,7 @@ public sealed class VaultService : IDisposable
         if (!totpService.IsSecretValid(totpSecretBase32))
             throw new ArgumentException("The generated TOTP secret is invalid.", nameof(totpSecretBase32));
         if (!totpService.VerifyCode(totpSecretBase32, confirmationTotpCode))
-            throw new UnauthorizedAccessException("Authenticator setup could not be verified.");
+            throw new AuthenticatorVerificationException();
 
         var vaultKey = RandomNumberGenerator.GetBytes(MasterPasswordService.DefaultKeySizeBytes);
         try
@@ -438,7 +442,7 @@ public sealed class VaultService : IDisposable
         if (!totpService.IsSecretValid(request.NewTotpSecretBase32))
             throw new ArgumentException("The generated TOTP secret is invalid.", nameof(request));
         if (!totpService.VerifyCode(request.NewTotpSecretBase32, request.TotpConfirmationCode))
-            throw new UnauthorizedAccessException("Authenticator setup could not be verified.");
+            throw new AuthenticatorVerificationException();
 
         var recoveredItems = backupService.ReadBackup(request.BackupJson, request.BackupPassphrase);
         var now = utcNow();
@@ -1026,7 +1030,7 @@ public sealed class VaultService : IDisposable
         ThrowIfDisposed();
         EnsureOpen();
         var group = vaultData!.Groups.FirstOrDefault(group => group.Id == id) ?? throw new KeyNotFoundException("Group not found.");
-        if (!string.Equals(confirmation, $"Confirm delete all data in \"{group.Name}\"", StringComparison.Ordinal))
+        if (!string.Equals(confirmation, $"delete {group.Name}", StringComparison.Ordinal))
             throw new ArgumentException("The confirmation text does not match the group name.", nameof(confirmation));
         RequireSensitiveTotp(totpCode);
 

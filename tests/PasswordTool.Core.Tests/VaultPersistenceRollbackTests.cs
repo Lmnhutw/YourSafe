@@ -51,7 +51,7 @@ public sealed class VaultPersistenceRollbackTests : IDisposable
                 case "permanent": vault.PermanentlyDeleteItem(item.Id, ""); break;
                 case "add-group": vault.AddGroup("Failed group"); break;
                 case "update-group": vault.UpdateGroup(group.Id, "Failed rename", "#112233"); break;
-                case "delete-group": vault.DeleteGroup(group.Id, "Confirm delete all data in \"Original group\"", ""); break;
+                case "delete-group": vault.DeleteGroup(group.Id, "delete Original group", ""); break;
                 case "csv": vault.ImportCsv("folder,type,name,login_username,login_password\nFailed CSV group,login,Imported,user,synthetic password", ""); break;
                 case "purge": vault.VerifyTotpForSession(totp.GetCurrentCode(secret).Code); break;
                 default: throw new ArgumentException("Unknown operation.");

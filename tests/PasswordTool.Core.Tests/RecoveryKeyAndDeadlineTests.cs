@@ -74,7 +74,7 @@ public sealed class RecoveryKeyAndDeadlineTests : IDisposable
         var request = new RecoveryKeyResetRequest(oldKey, NewPassword, newKey, true, newSecret, totp.GetCurrentCode(newSecret).Code);
         Assert.DoesNotContain(oldKey, request.ToString());
         Assert.Throws<InvalidOperationException>(() => vault.ResetWithRecoveryKey(request with { RecoveryKeySaved = false }));
-        Assert.Throws<UnauthorizedAccessException>(() => vault.ResetWithRecoveryKey(request with { TotpConfirmationCode = "invalid" }));
+        Assert.Throws<AuthenticatorVerificationException>(() => vault.ResetWithRecoveryKey(request with { TotpConfirmationCode = "invalid" }));
         Assert.Equal(originalConfig, File.ReadAllText(storage.ConfigPath));
         Assert.Equal(originalVault, File.ReadAllText(storage.VaultPath));
         vault.ResetWithRecoveryKey(request);
@@ -404,7 +404,7 @@ public sealed class RecoveryKeyAndDeadlineTests : IDisposable
         var secret = totp.GenerateSecret();
         using var vault = new VaultService(storage, new EncryptionService(), totp);
         Assert.Throws<InvalidOperationException>(() => vault.InitializeNewVault(Password, secret, totp.GetCurrentCode(secret).Code, RecoveryKeyService.Generate(), false));
-        Assert.Throws<UnauthorizedAccessException>(() => vault.InitializeNewVault(Password, secret, "invalid", RecoveryKeyService.Generate(), true));
+        Assert.Throws<AuthenticatorVerificationException>(() => vault.InitializeNewVault(Password, secret, "invalid", RecoveryKeyService.Generate(), true));
         Assert.False(storage.HasConfig);
         Assert.False(storage.HasVault);
     }
@@ -584,7 +584,13 @@ public sealed class RecoveryKeyAndDeadlineTests : IDisposable
         if (!string.IsNullOrWhiteSpace(autofillOrigin))
             Assert.True(Uri.TryCreate(autofillOrigin, UriKind.Absolute, out var origin)
                 && (origin.Scheme == "https" || origin.Scheme == "http" && origin.IsLoopback));
-        vault.InitializeNewVault(Password, secret, totp.GetCurrentCode(secret).Code, RecoveryKeyService.Generate(), true);
+        var recoveryKey = RecoveryKeyService.Generate();
+        vault.InitializeNewVault(Password, secret, totp.GetCurrentCode(secret).Code, recoveryKey, true);
+        File.WriteAllText(Path.Combine(target, "ui-test-credentials.json"), JsonSerializer.Serialize(new
+        {
+            fixture = "YourSafe disposable UI test credentials v1",
+            recoveryKey
+        }));
         var group = vault.AddGroup("Work", "#336699");
         for (var i = 0; i < 20; i++)
             vault.AddItem(new VaultItem { Title = $"Test account {i:D2} with a long title", Username = "user@example.test", Password = "synthetic-test-password", Notes = "A long note for checking ellipsis and icon alignment", GroupId = group.Id });

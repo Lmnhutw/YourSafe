@@ -38,7 +38,8 @@ public sealed class BackupViewModelTests : IDisposable
         Assert.Equal(0, picker.SaveCalls);
         Assert.Equal(password, model.BackupPassword);
         Assert.Equal(confirmation, model.ConfirmBackupPassword);
-        Assert.True(model.IsStatusOpen);
+        Assert.NotEmpty(model.BackupPasswordError + model.ConfirmBackupPasswordError);
+        Assert.False(model.IsStatusOpen);
         Assert.False(model.IsBusy);
     }
 
@@ -65,34 +66,53 @@ public sealed class BackupViewModelTests : IDisposable
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Creation_clears_both_fields_after_success_or_processing_failure(bool fail)
+    public async Task Creation_keeps_fields_on_processing_failure_and_clears_after_successful_retry(bool fail)
     {
         picker.Path = fail ? Path.Combine(directory, "missing", "backup.json") : Path.Combine(directory, "backup.json");
         model.BackupPassword = model.ConfirmBackupPassword = Password;
         await model.ExportAsync();
-        Assert.Equal(string.Empty, model.BackupPassword);
-        Assert.Equal(string.Empty, model.ConfirmBackupPassword);
+        Assert.Equal(fail ? Password : string.Empty, model.BackupPassword);
+        Assert.Equal(fail ? Password : string.Empty, model.ConfirmBackupPassword);
         Assert.False(model.IsBusy);
         Assert.Equal(!fail, File.Exists(picker.Path));
         if (!fail) Assert.Equal("Backup created and verified.", model.StatusMessage);
-        else Assert.DoesNotContain("created and verified", model.StatusMessage);
+        else
+        {
+            Assert.DoesNotContain("created and verified", model.StatusMessage);
+            picker.Path = Path.Combine(directory, "retry.json");
+            await model.ExportAsync();
+            Assert.True(File.Exists(picker.Path));
+            Assert.Equal(string.Empty, model.BackupPassword);
+            Assert.Equal(string.Empty, model.ConfirmBackupPassword);
+            Assert.Equal("Backup created and verified.", model.StatusMessage);
+        }
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Verification_clears_password_on_success_and_failure(bool fail)
+    public async Task Verification_keeps_rejected_password_and_allows_corrected_retry(bool fail)
     {
         picker.Path = Path.Combine(directory, "backup.json");
         File.WriteAllText(picker.Path, new VaultBackupService().CreateBackup([], Password, DateTimeOffset.UtcNow));
         model.BackupPassword = fail ? "incorrect backup password" : Password;
         model.ConfirmBackupPassword = Password;
         await model.VerifyAsync();
-        Assert.Equal(string.Empty, model.BackupPassword);
-        Assert.Equal(string.Empty, model.ConfirmBackupPassword);
+        Assert.Equal(fail ? "incorrect backup password" : string.Empty, model.BackupPassword);
+        Assert.Equal(fail ? Password : string.Empty, model.ConfirmBackupPassword);
         Assert.False(model.CanImportBackup);
         Assert.False(model.IsBusy);
         Assert.Equal(!fail, service.LastVerifiedBackupAt.HasValue);
+        if (fail)
+        {
+            Assert.NotEmpty(model.BackupPasswordError);
+            model.BackupPassword = Password;
+            Assert.Empty(model.BackupPasswordError);
+            await model.VerifyAsync();
+            Assert.True(service.LastVerifiedBackupAt.HasValue);
+            Assert.Empty(model.BackupPassword);
+            Assert.Empty(model.ConfirmBackupPassword);
+        }
     }
 
     [Fact]
@@ -108,9 +128,80 @@ public sealed class BackupViewModelTests : IDisposable
         await model.ImportBackupAsync();
         Assert.Single(service.GetItems());
         Assert.False(model.CanImportBackup);
+        Assert.Empty(model.BackupPassword);
+        model.BackupPassword = Password;
         model.CanImportBackup = true;
         model.BackupPassword = string.Empty;
         Assert.False(model.CanImportBackup);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Selecting_an_invalid_backup_invalidates_the_previous_import_preview(bool verify)
+    {
+        var validPath = Path.Combine(directory, "valid-backup.json");
+        File.WriteAllText(validPath, new VaultBackupService().CreateBackup(
+            [new VaultItem { Title = "Previewed account", Password = "synthetic password" }], Password, DateTimeOffset.UtcNow));
+        picker.Path = validPath;
+        model.BackupPassword = Password;
+        await model.PreviewImportAsync();
+        Assert.True(model.CanImportBackup);
+        var previousSummary = model.Summary;
+
+        picker.Path = null;
+        if (verify) await model.VerifyAsync();
+        else await model.PreviewImportAsync();
+        Assert.True(model.CanImportBackup);
+        Assert.Equal(validPath, model.SelectedBackupPath);
+        Assert.Equal(previousSummary, model.Summary);
+
+        picker.Path = Path.Combine(directory, "invalid-backup.json");
+        File.WriteAllText(picker.Path, "invalid backup contents");
+        if (verify) await model.VerifyAsync();
+        else await model.PreviewImportAsync();
+        Assert.False(model.CanImportBackup);
+        Assert.Empty(model.SelectedBackupPath);
+        Assert.Empty(model.Summary);
+        Assert.Equal(Password, model.BackupPassword);
+        await model.ImportBackupAsync();
+        Assert.Empty(service.GetItems());
+
+        picker.Path = validPath;
+        await model.PreviewImportAsync();
+        await model.ImportBackupAsync();
+        Assert.Equal("Previewed account", Assert.Single(service.GetItems()).Title);
+    }
+
+    [Fact]
+    public async Task Selecting_an_invalid_csv_invalidates_the_previous_import_preview()
+    {
+        var validPath = Path.Combine(directory, "valid.csv");
+        File.WriteAllText(validPath, "name,username,password\nPreviewed account,user,synthetic password");
+        picker.Path = validPath;
+        await model.PreviewCsvAsync();
+        Assert.True(model.CanImportCsv);
+        var previousSummary = model.Summary;
+
+        picker.Path = null;
+        await model.PreviewCsvAsync();
+        Assert.True(model.CanImportCsv);
+        Assert.Equal(validPath, model.SelectedCsvPath);
+        Assert.Equal(previousSummary, model.Summary);
+
+        picker.Path = Path.Combine(directory, "invalid.csv");
+        File.WriteAllText(picker.Path, "name,password\n\"broken,password");
+        await model.PreviewCsvAsync();
+        Assert.False(model.CanImportCsv);
+        Assert.Empty(model.SelectedCsvPath);
+        Assert.Empty(model.Summary);
+        await model.ImportCsvAsync();
+        Assert.Empty(service.GetItems());
+
+        picker.Path = validPath;
+        await model.PreviewCsvAsync();
+        await model.ImportCsvAsync();
+        Assert.Equal("Previewed account", Assert.Single(service.GetItems()).Title);
     }
 
     [Fact]
@@ -181,8 +272,8 @@ public sealed class BackupViewModelTests : IDisposable
         {
             Assert.Equal(config, File.ReadAllText(service.ConfigPath));
             Assert.Equal(AppFlowState.Unlocked, flow.FlowState);
-            Assert.True(model.IsStatusOpen);
-            Assert.Contains("snapshot's Master Password", model.StatusMessage);
+            Assert.Contains("snapshot's Master Password", model.SnapshotRestoreError);
+            Assert.Empty(model.SnapshotMasterPasswordError);
         }
     }
 
@@ -209,6 +300,31 @@ public sealed class BackupViewModelTests : IDisposable
         Assert.Equal(config, File.ReadAllText(service.ConfigPath));
         Assert.Equal(payload, File.ReadAllText(service.VaultPath));
         Assert.Equal(2, service.GetItems().Count);
+    }
+
+    [Fact]
+    public async Task Snapshot_current_password_error_is_separate_from_ambiguous_snapshot_failure()
+    {
+        const string original = "a strong master password";
+        const string replacement = "a replacement strong master password";
+        service.AddItem(new VaultItem { Title = "Historical item", Password = "synthetic password" });
+        Assert.True(service.TryChangeMasterPassword(original, replacement, out var error), error);
+        model.SelectedSnapshot = service.GetSnapshots().First();
+        var config = File.ReadAllText(service.ConfigPath);
+
+        Assert.False(await model.RestoreSnapshotAsync("incorrect password", original));
+        Assert.NotEmpty(model.SnapshotMasterPasswordError);
+        Assert.Empty(model.SnapshotRestoreError);
+        Assert.Equal(config, File.ReadAllText(service.ConfigPath));
+        Assert.False(await model.RestoreSnapshotAsync(replacement, "incorrect historical password"));
+        Assert.Empty(model.SnapshotMasterPasswordError);
+        Assert.Contains("could not be verified or restored", model.SnapshotRestoreError);
+        Assert.Equal(config, File.ReadAllText(service.ConfigPath));
+
+        Assert.True(await model.RestoreSnapshotAsync(replacement, original));
+        Assert.Empty(model.SnapshotMasterPasswordError);
+        Assert.Empty(model.SnapshotRestoreError);
+        Assert.False(service.IsSignInSessionActive);
     }
 
     public void Dispose()

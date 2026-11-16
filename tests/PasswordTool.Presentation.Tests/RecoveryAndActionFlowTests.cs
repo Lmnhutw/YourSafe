@@ -102,7 +102,7 @@ public sealed class RecoveryAndActionFlowTests
         Assert.Equal(30, context.Shell.Settings.VaultDurationMinutes);
         Assert.Equal(tableLocked, context.Shell.IsTableLocked);
         Assert.False(context.Shell.Settings.IsBusy);
-        Assert.Equal("The Master Password is incorrect.", context.Shell.Settings.StatusMessage);
+        Assert.Equal("The Master Password is incorrect.", context.Shell.Settings.SecuritySettingsPasswordError);
     }
 
     [Fact]
@@ -131,9 +131,10 @@ public sealed class RecoveryAndActionFlowTests
         Assert.True(context.Shell.Settings.IsBusy);
         context.Shell.Settings.VaultDurationMinutes = 60;
         Assert.False(await context.Shell.Settings.SaveAsync(Context.Password));
-        Assert.Equal(30, context.Vault.SecuritySettings.VaultOpenDurationMinutes);
+        Assert.Equal(1, context.Vault.SecuritySettings.VaultOpenDurationMinutes);
         runner.Release.SetResult();
         Assert.True(await saving);
+        Assert.Equal(30, context.Vault.SecuritySettings.VaultOpenDurationMinutes);
         Assert.False(context.Shell.Settings.IsBusy);
     }
 
@@ -204,6 +205,8 @@ public sealed class RecoveryAndActionFlowTests
         context.Dialogs.ActionPassword = "wrong";
         await context.Shell.RevealPasswordAsync(item.Id);
         Assert.Empty(context.Dialogs.Secrets);
+        Assert.Contains("Master Password is incorrect", context.Shell.StatusMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("permission", context.Shell.StatusMessage, StringComparison.OrdinalIgnoreCase);
         context.Dialogs.ActionPassword = Context.Password;
         await context.Shell.RevealPasswordAsync(item.Id);
         await context.Shell.RevealPasswordAsync(item.Id);
@@ -414,6 +417,212 @@ public sealed class RecoveryAndActionFlowTests
     }
 
     [Fact]
+    public async Task Sign_in_submission_retries_without_publishing_until_the_dialog_accepts()
+    {
+        using var context = new Context();
+        await context.Shell.LogoutCommand.ExecuteAsync(null);
+        var wrongCode = Enumerable.Range(0, 10).Select(value => $"00000{value}")
+            .First(value => !context.Totp.VerifyCode(context.Secret, value));
+
+        Assert.False((await context.Shell.SubmitUnlockAsync(Context.Password, wrongCode)).Success);
+        Assert.Equal(AppFlowState.Unlock, context.Shell.FlowState);
+        Assert.False(context.Shell.IsStatusOpen);
+        Assert.False(context.Vault.IsVaultUnlocked);
+
+        var accepted = await context.Shell.SubmitUnlockAsync(Context.Password, context.Totp.GetCurrentCode(context.Secret).Code);
+        Assert.True(accepted.Success);
+        Assert.Equal(AppFlowState.Unlock, context.Shell.FlowState);
+        Assert.Equal(AppFlowState.Unlocked, context.Flow.FlowState);
+        Assert.True(await context.Shell.CompleteSubmittedUnlockAsync(accepted));
+        Assert.Equal(AppFlowState.Unlocked, context.Shell.FlowState);
+        Assert.False(await context.Shell.CompleteSubmittedUnlockAsync(accepted));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Dismissed_successful_submission_drops_access_and_preserves_only_an_existing_login(bool tableLocked)
+    {
+        using var context = new Context();
+        if (tableLocked) await context.Shell.LockTableAsync();
+        else await context.Shell.LogoutCommand.ExecuteAsync(null);
+        var loginDeadline = context.Vault.LoginExpiresAt;
+        var result = await context.Shell.SubmitUnlockAsync(Context.Password, context.Totp.GetCurrentCode(context.Secret).Code);
+        Assert.True(result.Success);
+
+        await context.Shell.CancelSubmittedUnlockAsync();
+
+        Assert.False(context.Vault.IsVaultUnlocked);
+        Assert.Equal(tableLocked, context.Shell.IsSignedIn);
+        Assert.Equal(loginDeadline, context.Vault.LoginExpiresAt);
+        Assert.Equal(tableLocked ? AppFlowState.TableLocked : AppFlowState.Unlock, context.Flow.FlowState);
+        Assert.False(await context.Shell.CompleteSubmittedUnlockAsync(result));
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task Locking_an_unpublished_unlock_preserves_only_a_preexisting_login(bool previouslySignedIn, bool tableLock)
+    {
+        using var context = new Context();
+        if (previouslySignedIn) await context.Shell.LockTableAsync();
+        else await context.Shell.LogoutCommand.ExecuteAsync(null);
+        var loginDeadline = context.Vault.LoginExpiresAt;
+        var result = await context.Shell.SubmitUnlockAsync(Context.Password, context.Totp.GetCurrentCode(context.Secret).Code);
+        Assert.True(result.Success);
+
+        if (tableLock) await context.Shell.LockTableAsync();
+        else await context.Shell.LockCommand.ExecuteAsync(null);
+        await context.Shell.CancelSubmittedUnlockAsync();
+
+        Assert.Equal(previouslySignedIn, context.Shell.IsSignedIn);
+        Assert.Equal(loginDeadline, context.Vault.LoginExpiresAt);
+        Assert.False(context.Vault.IsVaultUnlocked);
+        Assert.False(await context.Shell.CompleteSubmittedUnlockAsync(result));
+        Assert.Equal(previouslySignedIn && tableLock ? AppFlowState.TableLocked : AppFlowState.Unlock, context.Shell.FlowState);
+    }
+
+    [Fact]
+    public async Task Cancellation_after_authentication_before_result_delivery_drops_unpublished_access()
+    {
+        var runner = new HoldFirstResultRunner(false);
+        using var context = new Context(runner);
+        await context.Shell.LogoutCommand.ExecuteAsync(null);
+        runner.HoldNextResult();
+        using var cancellation = new CancellationTokenSource();
+        var submitting = context.Shell.SubmitUnlockAsync(Context.Password, context.Totp.GetCurrentCode(context.Secret).Code, cancellation.Token);
+        await runner.Completed.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.True(context.Vault.IsVaultUnlocked);
+
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => submitting);
+
+        Assert.False(context.Shell.IsSignedIn);
+        Assert.False(context.Vault.IsVaultUnlocked);
+        Assert.Equal(AppFlowState.Unlock, context.Shell.FlowState);
+        Assert.Equal(AppFlowState.Unlock, context.Flow.FlowState);
+    }
+
+    [Fact]
+    public async Task A_submitted_result_cannot_publish_after_logout()
+    {
+        using var context = new Context();
+        await context.Shell.LockTableAsync();
+        var result = await context.Shell.SubmitUnlockAsync(Context.Password, "");
+        await context.Shell.LogoutCommand.ExecuteAsync(null);
+
+        Assert.False(await context.Shell.CompleteSubmittedUnlockAsync(result));
+        Assert.False(context.Shell.IsSignedIn);
+        Assert.False(context.Vault.IsVaultUnlocked);
+        Assert.Equal(AppFlowState.Unlock, context.Shell.FlowState);
+    }
+
+    [Fact]
+    public async Task An_expired_submission_cannot_publish_when_the_dialog_accepts_late()
+    {
+        using var context = new Context();
+        await context.Shell.LogoutCommand.ExecuteAsync(null);
+        var result = await context.Shell.SubmitUnlockAsync(Context.Password, context.Totp.GetCurrentCode(context.Secret).Code);
+        context.Now = context.Vault.VaultExpiresAt!.Value;
+
+        Assert.False(await context.Shell.CompleteSubmittedUnlockAsync(result));
+        Assert.False(context.Shell.IsSignedIn);
+        Assert.False(context.Vault.IsVaultUnlocked);
+        Assert.Equal(AppFlowState.Unlock, context.Shell.FlowState);
+    }
+
+    [Fact]
+    public async Task Recovery_dialog_transitions_publish_after_acceptance_and_reject_reused_passwords_early()
+    {
+        using var context = new Context();
+        await context.Shell.LogoutCommand.ExecuteAsync(null);
+        context.Shell.BeginRecoveryKeyReset();
+        await context.Shell.ValidateRecoveryKeyAsync(context.RecoveryKey);
+        Assert.Equal(AppFlowState.RecoveryKeyValidation, context.Shell.FlowState);
+        Assert.Equal(AppFlowState.RecoveryMasterPassword, context.Flow.FlowState);
+        context.Shell.RefreshFlowState();
+        var originalConfig = File.ReadAllBytes(context.Vault.ConfigPath);
+
+        await Assert.ThrowsAsync<ArgumentException>(() => context.Shell.PrepareRecoveryKeyResetAsync(Context.Password, Context.Password));
+        Assert.Equal(AppFlowState.RecoveryMasterPassword, context.Flow.FlowState);
+        Assert.Equal(originalConfig, File.ReadAllBytes(context.Vault.ConfigPath));
+        await context.Shell.PrepareRecoveryKeyResetAsync(Context.ReplacementPassword, Context.ReplacementPassword);
+        Assert.Equal(AppFlowState.RecoveryMasterPassword, context.Shell.FlowState);
+        Assert.Equal(AppFlowState.RecoveryKeySave, context.Flow.FlowState);
+        context.Shell.RefreshFlowState();
+        context.Shell.ConfirmRecoveryKeySaved(true);
+        var setup = context.Flow.CreateAuthenticatorSetup();
+        await context.Shell.ResetWithRecoveryKeyAsync(new RecoveryKeyResetRequest(context.RecoveryKey, Context.ReplacementPassword,
+            RecoveryKeyService.Generate(), true, setup.SecretBase32, context.Totp.GetCurrentCode(setup.SecretBase32).Code));
+        Assert.Equal(AppFlowState.RecoveryAuthenticator, context.Shell.FlowState);
+        Assert.Equal(AppFlowState.Unlock, context.Flow.FlowState);
+        Assert.False(context.Vault.IsVaultUnlocked);
+        await context.Shell.LockCommand.ExecuteAsync(null);
+        Assert.Equal(AppFlowState.Unlock, context.Shell.FlowState);
+    }
+
+    [Fact]
+    public async Task Authentication_password_failure_is_inline_and_backup_retry_invalidates_the_previous_preview()
+    {
+        using var context = new Context();
+        await context.Shell.LogoutCommand.ExecuteAsync(null);
+        Assert.False(await context.Shell.ValidateMasterPasswordAsync("wrong"));
+        Assert.Contains("Master Password is incorrect", context.Shell.MasterPasswordError, StringComparison.Ordinal);
+        Assert.False(context.Shell.IsStatusOpen);
+        context.Shell.BeginRecovery();
+        context.Shell.RecoveryPath = Path.Combine(context.Directory, "recovery-backup.json");
+        File.WriteAllText(context.Shell.RecoveryPath, new VaultBackupService().CreateBackup([], Context.Password, context.Now));
+        await context.Shell.InspectRecoveryAsync(Context.Password);
+        Assert.NotEmpty(context.Shell.RecoverySummary);
+
+        await context.Shell.InspectRecoveryAsync("a wrong backup password");
+
+        Assert.Empty(context.Shell.RecoverySummary);
+        Assert.Contains("backup password is incorrect", context.Shell.RecoveryPasswordError, StringComparison.Ordinal);
+        Assert.False(context.Shell.IsStatusOpen);
+        context.Shell.ContinueRecovery();
+        Assert.Equal(AppFlowState.Recover, context.Shell.FlowState);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Recovery_cancelled_after_staged_verification_cannot_commit_credentials(bool cancelWizard)
+    {
+        using var cancellation = new CancellationTokenSource();
+        AppFlowCoordinator? activeFlow = null;
+        var armed = false;
+        using var context = new Context(stateWriteCheckpoint: phase =>
+        {
+            if (!armed || phase != "verified") return;
+            if (cancelWizard) activeFlow!.CancelRecoveryKeyReset();
+            else cancellation.Cancel();
+        });
+        activeFlow = context.Flow;
+        await context.Shell.LogoutCommand.ExecuteAsync(null);
+        context.Flow.BeginRecoveryKeyReset();
+        await context.Flow.ValidateRecoveryKeyAsync(context.RecoveryKey);
+        await context.Flow.PrepareRecoveryKeyResetAsync(Context.ReplacementPassword, Context.ReplacementPassword);
+        context.Flow.ConfirmRecoveryKeySaved(true);
+        var setup = context.Flow.CreateAuthenticatorSetup();
+        var request = new RecoveryKeyResetRequest(context.RecoveryKey, Context.ReplacementPassword,
+            RecoveryKeyService.Generate(), true, setup.SecretBase32, context.Totp.GetCurrentCode(setup.SecretBase32).Code);
+        var config = File.ReadAllBytes(context.Vault.ConfigPath);
+        var payload = File.ReadAllBytes(context.Vault.VaultPath);
+        armed = true;
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => context.Flow.ResetWithRecoveryKeyAsync(request, cancellation.Token));
+
+        Assert.Equal(config, File.ReadAllBytes(context.Vault.ConfigPath));
+        Assert.Equal(payload, File.ReadAllBytes(context.Vault.VaultPath));
+        Assert.False(context.Flow.IsSignedIn);
+        Assert.False(context.Vault.IsVaultUnlocked);
+        Assert.Equal(cancelWizard ? AppFlowState.Unlock : AppFlowState.RecoveryAuthenticator, context.Flow.FlowState);
+    }
+
+    [Fact]
     public async Task Recovery_requires_each_step_and_never_opens_the_workspace()
     {
         using var context = new Context();
@@ -442,7 +651,7 @@ public sealed class RecoveryAndActionFlowTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => context.Flow.ResetWithRecoveryKeyAsync(request));
         context.Flow.ConfirmRecoveryKeySaved(true);
         Assert.Equal(AppFlowState.RecoveryAuthenticator, context.Flow.FlowState);
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => context.Flow.ResetWithRecoveryKeyAsync(request));
+        await Assert.ThrowsAsync<AuthenticatorVerificationException>(() => context.Flow.ResetWithRecoveryKeyAsync(request));
         Assert.Equal(config, File.ReadAllBytes(context.Vault.ConfigPath));
         Assert.Equal(payload, File.ReadAllBytes(context.Vault.VaultPath));
         context.Flow.CancelRecoveryKeyReset();
@@ -655,10 +864,11 @@ public sealed class RecoveryAndActionFlowTests
         public AppFlowCoordinator Flow { get; }
         public ShellViewModel Shell { get; }
 
-        public Context(IVaultOperationRunner? operationRunner = null, ISensitiveClipboardService? clipboard = null)
+        public Context(IVaultOperationRunner? operationRunner = null, ISensitiveClipboardService? clipboard = null,
+            Action<string>? stateWriteCheckpoint = null)
         {
             Secret = Totp.GenerateSecret();
-            Vault = new(new VaultStorageService(Directory), new EncryptionService(), Totp, utcNow: () => Now);
+            Vault = new(new VaultStorageService(Directory, stateWriteCheckpoint), new EncryptionService(), Totp, utcNow: () => Now);
             Vault.InitializeNewVault(Password, Secret, Totp.GetCurrentCode(Secret).Code, RecoveryKey, true);
             Flow = new(Vault, operationRunner ?? Runner, Totp);
             var workspace = new VaultWorkspaceViewModel(Flow);
@@ -677,9 +887,10 @@ public sealed class RecoveryAndActionFlowTests
         }
     }
 
-    private sealed class HoldFirstResultRunner : IVaultOperationRunner
+    private sealed class HoldFirstResultRunner(bool holdImmediately = true) : IVaultOperationRunner
     {
-        private int first = 1;
+        private int first = holdImmediately ? 1 : 0;
+        public void HoldNextResult() => Interlocked.Exchange(ref first, 1);
         public TaskCompletionSource Completed { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public async Task<T> RunAsync<T>(Func<T> operation, CancellationToken cancellationToken = default)

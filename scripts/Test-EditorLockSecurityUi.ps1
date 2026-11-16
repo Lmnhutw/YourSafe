@@ -152,11 +152,9 @@ try {
             if ($hasTotp) {
                 Ui set-value TxtUnlockMasterPassword 'incorrect-demo-password' | Out-Null
                 Ui invoke PrimaryButton | Out-Null
-                Ui wait-for TxtUnlockMasterPassword --gone -t 15000 | Out-Null
-                Ui wait-for BtnLockVault -p Name --value 'Unlock vault' -t 15000 | Out-Null
+                Ui wait-for TxtUnlockMasterPasswordError --value 'The Master Password is incorrect. Please try again.' -t 15000 | Out-Null
+                Ui wait-for TxtUnlockMasterPassword -p IsEnabled --value True -t 5000 | Out-Null
                 AssertNoDraft
-                Ui invoke BtnLockVault | Out-Null
-                Ui wait-for TxtUnlockMasterPassword -t 5000 | Out-Null
             }
             Ui invoke CloseButton | Out-Null
             Ui wait-for TxtUnlockMasterPassword --gone -t 5000 | Out-Null

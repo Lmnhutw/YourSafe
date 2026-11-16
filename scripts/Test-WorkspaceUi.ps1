@@ -369,11 +369,10 @@ try {
         Ui wait-for TxtUnlockMasterPassword -t 5000 | Out-Null
         Ui set-value TxtUnlockMasterPassword 'incorrect synthetic password' | Out-Null
         Ui invoke PrimaryButton | Out-Null
-        Ui wait-for TxtUnlockMasterPassword --gone -t 15000 | Out-Null
-        Ui wait-for BtnSaveSecuritySettings -p IsEnabled --value True -t 15000 | Out-Null
+        Ui wait-for TxtUnlockMasterPasswordError --value 'The Master Password is incorrect. Please try again.' -t 15000 | Out-Null
+        Ui wait-for TxtUnlockMasterPassword -p IsEnabled --value True -t 5000 | Out-Null
         if ((Get-Content -LiteralPath (Join-Path $testRoot '.config') -Raw) -cne $before) { throw 'Wrong settings password changed persistent configuration.' }
-        Ui invoke BtnSaveSecuritySettings | Out-Null
-        Ui wait-for TxtUnlockMasterPassword -t 5000 | Out-Null
+        Capture 'settings-password-inline-error'
         Ui set-value TxtUnlockMasterPassword 'correct horse battery staple' | Out-Null
         Ui invoke PrimaryButton | Out-Null
         $saved = WaitForNamedType 'Settings saved' 'Window' 15000

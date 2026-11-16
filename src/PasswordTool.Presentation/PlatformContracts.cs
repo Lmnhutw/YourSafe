@@ -17,6 +17,12 @@ public interface IUserDialogService
     Task<bool> ConfirmAsync(string title, string message, string confirmText, CancellationToken cancellationToken = default);
     Task ShowErrorAsync(string title, string message, CancellationToken cancellationToken = default);
     Task<string?> PromptTotpAsync(string title, string message, CancellationToken cancellationToken = default);
+    async Task<string?> PromptTotpAsync(string title, string message,
+        Func<string, CancellationToken, Task<OperationResult>> submit, CancellationToken cancellationToken = default)
+    {
+        var code = await PromptTotpAsync(title, message, cancellationToken);
+        return code is not null && (await submit(code, cancellationToken)).Success ? code : null;
+    }
     Task<string?> PromptBackupPassphraseAsync(string title, string message, CancellationToken cancellationToken = default);
     Task ShowSecretAsync(string title, string value, bool multiline, CancellationToken cancellationToken = default);
 }

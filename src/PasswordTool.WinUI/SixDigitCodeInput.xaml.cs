@@ -22,6 +22,12 @@ public sealed partial class SixDigitCodeInput : UserControl
 
     public void FocusFirst() => digits[0].Focus(FocusState.Programmatic);
 
+    public void SelectForRetry()
+    {
+        foreach (var digit in digits) digit.SelectAll();
+        FocusFirst();
+    }
+
     public void Clear()
     {
         foreach (var digit in digits) digit.Text = string.Empty;

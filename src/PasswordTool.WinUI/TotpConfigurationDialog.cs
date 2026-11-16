@@ -52,22 +52,29 @@ internal static class TotpConfigurationDialog
         var method = new RadioButtons { Header = HeaderWithHelp("Choose a method", "Get a setup key or link from the website's two-step verification settings.", "HelpTotpInputMethod"), Items = { "Enter a setup key", "Paste a setup link" }, SelectedIndex = 0 };
         var secret = new PasswordBox { Password = existing?.Secret ?? string.Empty, PasswordRevealMode = PasswordRevealMode.Peek, MaxLength = 4096 };
         var secretField = FieldWithHelp(secret, "Secret key", "Can't scan the QR code? Choose manual setup on the website and copy its key here. This private string of letters and numbers is the secret key, not the changing verification code.", "HelpTotpSecret");
+        var secretError = InlineValidation.CreateError("TxtTotpSecretError");
+        secretField.Children.Add(secretError);
         var uri = new PasswordBox { PasswordRevealMode = PasswordRevealMode.Peek, MaxLength = 4096 };
         var uriField = FieldWithHelp(uri, "Setup link", "Paste a link starting with otpauth://totp/. It contains the secret and settings from the QR code. An ordinary website URL won't work. If no link is available, choose Enter a setup key.", "HelpTotpUri");
+        var uriError = InlineValidation.CreateError("TxtTotpUriError");
+        uriField.Children.Add(uriError);
         uriField.Visibility = Visibility.Collapsed;
         var issuer = new TextBox { Text = existing?.Issuer ?? title, MaxLength = 4096 };
         var issuerField = FieldWithHelp(issuer, "Website or service (optional)", "Issuer means the service that gave you the key, such as Google or GitHub. This label helps you recognize the account; it doesn't change the code.", "HelpTotpIssuer");
         var account = new TextBox { Header = "Account name", Text = existing?.AccountName ?? username, MaxLength = 4096 };
         var algorithm = new AppComboBox { Header = "Algorithm", ItemsSource = Enum.GetValues<TotpAlgorithm>(), SelectedItem = existing?.Algorithm ?? TotpAlgorithm.Sha1 };
         var digits = new AppComboBox { Header = "Digits", ItemsSource = new[] { 6, 8 }, SelectedItem = existing?.Digits ?? 6 };
+        var algorithmError = InlineValidation.CreateError("TxtTotpAlgorithmError");
+        var digitsError = InlineValidation.CreateError("TxtTotpDigitsError");
         var period = new TextBox { Text = (existing?.Period ?? 30).ToString(CultureInfo.InvariantCulture), MaxLength = 10 };
         var periodField = FieldWithHelp(period, "Code refresh interval (seconds)", "Match the website's interval, usually 30 seconds.", "HelpTotpPeriod");
-        var advancedBody = new StackPanel { Spacing = 12, Children = { algorithm, digits, periodField } };
+        var periodError = InlineValidation.CreateError("TxtTotpPeriodError");
+        periodField.Children.Add(periodError);
+        var advancedBody = new StackPanel { Spacing = 12, Children = { algorithm, algorithmError, digits, digitsError, periodField } };
         var advanced = new Expander { Header = "Advanced settings", Content = advancedBody, HorizontalAlignment = HorizontalAlignment.Stretch };
         var manual = new StackPanel { Spacing = 12, Children = { issuerField, account, advanced } };
         var review = new TextBlock { TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
-        var error = new InfoBar { Severity = InfoBarSeverity.Error, IsClosable = false };
-        var body = new StackPanel { Spacing = 12, MinWidth = 320, MaxWidth = 420, Children = { method, secretField, uriField, manual, review, error } };
+        var body = new StackPanel { Spacing = 12, MinWidth = 320, MaxWidth = 420, Children = { method, secretField, uriField, manual, review } };
         var dialog = new AppContentDialog
         {
             Title = existing is null ? "Add verification code" : "Edit verification code",
@@ -84,36 +91,51 @@ internal static class TotpConfigurationDialog
         AutomationProperties.SetAutomationId(issuer, "TxtTotpIssuer");
         AutomationProperties.SetAutomationId(advanced, "TotpWebsiteSettings");
         TotpConfiguration? parsed = null;
-        bool Parse()
+        void ClearErrors()
+        {
+            InlineValidation.ClearError(secret, secretError);
+            InlineValidation.ClearError(uri, uriError);
+            InlineValidation.ClearError(algorithm, algorithmError);
+            InlineValidation.ClearError(digits, digitsError);
+            InlineValidation.ClearError(period, periodError);
+        }
+        bool Parse(bool selectInput)
         {
             parsed = null;
-            error.IsOpen = false;
+            ClearErrors();
+            bool Fail(Control input, TextBlock error, string message)
+            {
+                InlineValidation.SetError(input, error, message, selectInput);
+                return false;
+            }
             if (method.SelectedIndex == 1 && !uri.Password.TrimStart().StartsWith("otpauth://", StringComparison.OrdinalIgnoreCase))
             {
-                error.Message = "Paste the full setup link starting with otpauth://totp, or choose Enter a setup key.";
-                error.IsOpen = true;
-                return false;
+                return Fail(uri, uriError, "Paste the full setup link starting with otpauth://totp, or choose Enter a setup key.");
             }
             if (!parser.TryParseWebsiteConfiguration(method.SelectedIndex == 1 ? uri.Password : secret.Password, out var configuration, out var message))
             {
-                error.Message = message;
-                error.IsOpen = true;
-                return false;
+                return method.SelectedIndex == 1 ? Fail(uri, uriError, message) : Fail(secret, secretError, message);
             }
             if (method.SelectedIndex == 0)
             {
                 if (secret.Password.TrimStart().StartsWith("otpauth:", StringComparison.OrdinalIgnoreCase))
                 {
-                    error.Message = "This is a setup link. Choose Paste a setup link to import its settings.";
-                    error.IsOpen = true;
-                    return false;
+                    return Fail(secret, secretError, "This is a setup link. Choose Paste a setup link to import its settings.");
                 }
-                if (!int.TryParse(period.Text, NumberStyles.None, CultureInfo.InvariantCulture, out var seconds) || seconds <= 0
-                    || algorithm.SelectedItem is not TotpAlgorithm selectedAlgorithm || digits.SelectedItem is not int selectedDigits)
+                if (algorithm.SelectedItem is not TotpAlgorithm selectedAlgorithm)
                 {
-                    error.Message = "Check the website's code settings: choose an algorithm, 6 or 8 digits, and a refresh interval greater than zero.";
-                    error.IsOpen = true;
-                    return false;
+                    advanced.IsExpanded = true;
+                    return Fail(algorithm, algorithmError, "Choose the algorithm used by the website.");
+                }
+                if (digits.SelectedItem is not int selectedDigits || selectedDigits is not (6 or 8))
+                {
+                    advanced.IsExpanded = true;
+                    return Fail(digits, digitsError, "Choose 6 or 8 digits to match the website.");
+                }
+                if (!int.TryParse(period.Text, NumberStyles.None, CultureInfo.InvariantCulture, out var seconds) || seconds <= 0)
+                {
+                    advanced.IsExpanded = true;
+                    return Fail(period, periodError, "Enter a refresh interval greater than zero.");
                 }
                 configuration = configuration! with { Issuer = issuer.Text.Trim(), AccountName = account.Text.Trim(), Algorithm = selectedAlgorithm, Digits = selectedDigits, Period = seconds };
             }
@@ -127,11 +149,15 @@ internal static class TotpConfigurationDialog
             secretField.Visibility = manual.Visibility = importing ? Visibility.Collapsed : Visibility.Visible;
             uriField.Visibility = review.Visibility = importing ? Visibility.Visible : Visibility.Collapsed;
             parsed = null;
-            error.IsOpen = false;
+            ClearErrors();
             review.Text = string.Empty;
         };
-        uri.PasswordChanged += (_, _) => { review.Text = string.Empty; if (uri.Password.Length > 0) Parse(); };
-        dialog.PrimaryButtonClick += (_, args) => args.Cancel = !Parse();
+        secret.PasswordChanged += (_, _) => { parsed = null; InlineValidation.ClearError(secret, secretError); };
+        period.TextChanged += (_, _) => { parsed = null; InlineValidation.ClearError(period, periodError); };
+        algorithm.SelectionChanged += (_, _) => { parsed = null; InlineValidation.ClearError(algorithm, algorithmError); };
+        digits.SelectionChanged += (_, _) => { parsed = null; InlineValidation.ClearError(digits, digitsError); };
+        uri.PasswordChanged += (_, _) => { review.Text = string.Empty; InlineValidation.ClearError(uri, uriError); if (uri.Password.Length > 0) Parse(false); };
+        dialog.PrimaryButtonClick += (_, args) => args.Cancel = !Parse(true);
         dialog.Opened += (_, _) => secret.Focus(FocusState.Programmatic);
         try
         {
