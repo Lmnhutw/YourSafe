@@ -412,27 +412,74 @@ code {
 }
 
 .language-switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
+  position: relative;
+  flex-shrink: 0;
+  border: 0;
   font-size: 0.8rem;
 }
 
+.language-switch > summary {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 4px;
+}
+
+.language-switch > summary::after,
+.language-switch[open] > summary::after {
+  content: none;
+}
+
+.language-switch > summary:hover,
+.language-switch[open] > summary {
+  background: var(--tint);
+}
+
+.language-switch svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+}
+
+.language-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 40;
+  min-width: 10rem;
+  padding: 0.35rem;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: var(--paper);
+  box-shadow: 0 8px 24px #18232120;
+}
+
 .language-switch a {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  min-width: 36px;
+  justify-content: space-between;
   min-height: 44px;
-  padding: 0.5rem 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 2px;
   text-decoration: none;
+}
+
+.language-switch a:hover,
+.language-switch a[aria-current="page"] {
+  background: var(--tint);
 }
 
 .language-switch a[aria-current="page"] {
   color: var(--accent);
   font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 0.3em;
+}
+
+.language-switch a[aria-current="page"]::after {
+  content: "✓";
 }
 
 .menu-toggle {
@@ -1877,7 +1924,7 @@ details p {
   }
   .site-header {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
   }
 
   .menu-toggle {
@@ -1904,8 +1951,9 @@ details p {
     align-items: center;
   }
 
-  .site-nav .language-switch {
-    grid-column: 1 / -1;
+  .site-header > .language-switch {
+    grid-column: 4;
+    grid-row: 1;
   }
 
   .has-js .site-nav:not(.is-open) {
@@ -2032,7 +2080,7 @@ details p {
   .site-header {
     padding-top: 0.5rem;
     padding-bottom: 0.5rem;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
     gap: 0.5rem;
   }
 
@@ -2331,6 +2379,21 @@ details p {
 
   .footer-socials {
     justify-content: flex-start;
+  }
+}
+
+@media (max-width: 360px) {
+  .site-header .header-download {
+    min-width: 44px;
+    padding: 0.65rem;
+    font-size: 0;
+    gap: 0;
+  }
+
+  .site-header .header-download svg {
+    display: block;
+    width: 20px;
+    height: 20px;
   }
 }
 

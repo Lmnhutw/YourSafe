@@ -70,6 +70,7 @@ async function verifyDownloadPicker(browser, base) {
       const notes = page.locator('[data-download-description]');
       assert.equal(await controls.count(), 2, 'hero and closing each have a picker');
       assert.deepEqual(await links.evaluateAll(items => items.map(item => item.href)), [installer, installer], 'installer is the default');
+      assert.equal(await notes.evaluateAll(items => items.every(item => item.textContent.startsWith('YourSafe-setup.exe ·'))), true, 'default instructions show the real installer filename');
       assert.equal(await page.locator('[data-download-package="installer"][aria-pressed="true"]').count(), 2);
       assert.equal(await links.first().evaluate(link => link.firstElementChild.tagName.toLowerCase()), 'svg', 'download icon is before the label');
       for (const control of await controls.all()) {
@@ -94,7 +95,7 @@ async function verifyDownloadPicker(browser, base) {
       await page.keyboard.press('Tab');
       await page.keyboard.press('Enter');
       await page.waitForFunction(expected => [...document.querySelectorAll('[data-download-link]')].every(link => link.href === expected), zip);
-      assert.deepEqual(await notes.evaluateAll(items => items.map(item => item.textContent)), await notes.evaluateAll(items => items.map(item => item.dataset.portableDescription)), 'ZIP instructions update in both locations');
+      assert.deepEqual(await notes.evaluateAll(items => items.map(item => item.textContent)), await notes.evaluateAll(items => items.map(item => item.dataset.portableDescription.replace('{filename}', 'YourSafe-1.2.3-win-x64.zip'))), 'actual ZIP filename and instructions update in both locations');
       assert.equal(await page.locator('[data-download-package="portable"][aria-pressed="true"]').count(), 2);
       assert.equal(await hero.locator('.download-menu').isVisible(), false, 'selection closes the dropdown');
       const closing = controls.last();
@@ -181,7 +182,7 @@ async function verifyLanguages(browser, base) {
         for (const language of ['vi', 'en']) {
           const suffix = language === 'en' ? '.en.html' : '';
           if (language === 'en') {
-            if (route === 'home' && javaScriptEnabled && width <= 960) await page.locator('.menu-toggle').click();
+            await page.locator('.language-switch > summary').click();
             await page.locator('.language-switch a[lang="en"]').click();
           }
           assert.equal(page.url(), `${base}${route}${suffix}`, 'switch stays on the same page');
@@ -198,19 +199,38 @@ async function verifyLanguages(browser, base) {
               await page.locator('[data-slide="0"]').click();
             }
           }
-          if (route === 'home' && javaScriptEnabled && width <= 960) await page.locator('.menu-toggle').click();
+          const globe = page.locator('.language-switch > summary');
+          assert.equal(await globe.isVisible(), true, 'globe is visible outside the mobile menu');
+          assert.equal(await page.locator('.site-header > :last-child').getAttribute('class'), 'language-switch', 'globe is the final header control');
+          const globeBounds = await globe.boundingBox();
+          const downloadBounds = await page.locator('.header-download').boundingBox();
+          assert.ok(globeBounds.width >= 44 && globeBounds.height >= 44, 'globe has a full touch target');
+          assert.ok(globeBounds.x >= downloadBounds.x + downloadBounds.width, 'globe is to the right of download');
+          assert.equal(await page.locator('.language-switch a[lang="en"]').isVisible(), false, 'language options start collapsed');
+          await globe.click();
           assert.equal(await page.locator('.language-switch a[lang="vi"]').isVisible(), true);
           assert.equal(await page.locator('.language-switch a[lang="en"]').isVisible(), true);
+          assert.equal(await globe.locator('svg circle').count(), 1, 'trigger uses the globe icon');
+          assert.equal(await globe.evaluate(element => getComputedStyle(element, '::after').content), 'none', 'FAQ plus/minus styles do not leak into the globe');
+          const languageMenu = await page.locator('.language-menu').boundingBox();
+          assert.ok(languageMenu.x >= 0 && languageMenu.x + languageMenu.width <= width, 'language dropdown fits viewport');
           if (javaScriptEnabled) {
             assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'language menu fits');
             for (const link of await page.locator('.language-switch a').all()) {
               const bounds = await link.boundingBox();
               assert.ok(bounds.width >= 36 && bounds.height >= 44, 'language links have usable touch targets');
             }
+            await page.keyboard.press('Escape');
+            assert.equal(await page.locator('.language-switch').getAttribute('open'), null, 'Escape closes language dropdown');
+            assert.equal(await globe.evaluate(element => element === document.activeElement), true, 'Escape returns focus to globe');
+            await globe.press('Enter');
+            await page.mouse.click(1, 200);
+            assert.equal(await page.locator('.language-switch').getAttribute('open'), null, 'outside click closes language dropdown');
+          } else {
+            await globe.click();
           }
-          if (route === 'home' && javaScriptEnabled && width <= 960) await page.keyboard.press('Escape');
         }
-        if (route === 'home' && javaScriptEnabled && width <= 960) await page.locator('.menu-toggle').click();
+        await page.locator('.language-switch > summary').press('Enter');
         await page.locator('.language-switch a[lang="vi"]').press('Enter');
         assert.equal(page.url(), `${base}${route}`, 'keyboard switching returns to Vietnamese');
       }
@@ -919,7 +939,7 @@ async function verifyDemo(browser, base) {
         await page.locator('link[rel="icon"]').getAttribute("href"),
         "./assets/app-logo.png",
       );
-      assert.equal(await page.locator('.site-header > :last-child').getAttribute('class'), 'button button-primary header-download');
+      assert.equal(await page.locator('.site-header > :last-child').getAttribute('class'), 'language-switch');
       assert.equal(await page.locator('.site-nav a[href="./demo-login"]').textContent(), 'Demo');
       if (width <= 960) {
         const closedHeader = await page.locator('.site-header').boundingBox();

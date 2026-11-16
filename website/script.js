@@ -6,6 +6,7 @@ const releasesUrl = 'https://github.com/Lmnhutw/YourSafe/releases/latest';
 const englishDownloads = document.documentElement.lang === 'en';
 let selectedPackage = 'installer';
 let portableUrl;
+let portableFileName;
 let portableRequest;
 let portableState = 'idle';
 
@@ -19,7 +20,9 @@ function updateDownloads() {
     link.querySelector('span').textContent = label;
   }
   for (const description of document.querySelectorAll('[data-download-description]')) {
-    description.textContent = portable ? description.dataset.portableDescription : description.dataset.installerDescription;
+    description.textContent = portable
+      ? description.dataset.portableDescription.replace('{filename}', portableFileName || 'ZIP')
+      : description.dataset.installerDescription;
     if (portable && portableState === 'loading') description.textContent += englishDownloads ? ' Finding the latest ZIP…' : ' Đang tìm bản ZIP mới nhất…';
     if (portable && portableState === 'unavailable') description.textContent += englishDownloads ? ' Open the release page to choose the ZIP file.' : ' Mở trang phát hành để chọn tệp ZIP.';
   }
@@ -47,6 +50,7 @@ async function findPortableDownload() {
       || !/^\/Lmnhutw\/YourSafe\/releases\/download\/[^/]+\/[^/]+$/.test(url.pathname)
       || !url.pathname.endsWith(`/${asset.name}`)) throw new Error('Invalid download URL');
     portableUrl = url.href;
+    portableFileName = asset.name;
     portableState = 'ready';
   } catch {
     portableState = 'unavailable';

@@ -10,6 +10,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const menuButton = document.querySelector(".menu-toggle");
   const navigation = document.querySelector(".site-nav");
+  const language = document.querySelector(".language-switch");
+  language.addEventListener("keydown", event => {
+    if (event.key === "Escape" && language.open) {
+      event.stopPropagation();
+      language.open = false;
+      language.querySelector("summary").focus();
+    }
+  });
+  language.addEventListener("focusout", event => {
+    if (!language.contains(event.relatedTarget)) language.open = false;
+  });
+  document.addEventListener("pointerdown", event => {
+    if (!language.contains(event.target)) language.open = false;
+  });
+  language.addEventListener("toggle", () => {
+    if (language.open && navigation) {
+      navigation.classList.remove("is-open");
+      menuButton.setAttribute("aria-expanded", "false");
+    }
+  });
   if (!menuButton || !navigation) return;
 
   function closeMenu() {
