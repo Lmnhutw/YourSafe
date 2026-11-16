@@ -336,8 +336,8 @@ async function verifyAnalytics(browser, base) {
       await page.locator('[data-slide="2"]').click();
       assert.equal(await page.locator('a[data-analytics-event="download_click"]').count(), 4);
       assert.equal(await page.locator('a[data-analytics-event="github_click"]').count(), 5);
-      assert.equal(await page.locator('a[data-analytics-event="extension_click"]').count(), english ? 7 : 6);
-      assert.equal(await page.locator(`a[href="${extensionStoreUrl}"]`).count(), english ? 3 : 2, 'installation links open the published extension');
+      assert.equal(await page.locator('a[data-analytics-event="extension_click"]').count(), 6);
+      assert.equal(await page.locator(`a[href="${extensionStoreUrl}"]`).count(), 2, 'installation links open the published extension');
       for (const selector of ['a[href$="/YourSafe-setup.exe"]', 'a[href="#extension"]', `a[href="${extensionStoreUrl}"]`]) {
         assert.equal(await page.locator(`${selector}:not([data-analytics-event])`).count(), 0, `all relevant ${selector} links are tracked`);
       }
@@ -894,7 +894,7 @@ async function verifyDemo(browser, base) {
       }
       assert.equal(await page.locator('.product-image[data-no-preview]').count(), 2);
       assert.equal(await page.locator('.hero-foot a').count(), 0);
-      assert.equal(await page.locator(`.download-actions .download-extension[href="${extensionStoreUrl}"]`).count(), 2);
+      assert.equal(await page.locator(`.download-actions .download-extension[href="${extensionStoreUrl}"]`).count(), 1);
       for (const caption of await page.locator('figcaption, .visual-note, .showcase-footer p, .manual-demo').all()) {
         const style = await caption.evaluate(element => {
           const css = getComputedStyle(element);

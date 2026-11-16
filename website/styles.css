@@ -1170,7 +1170,7 @@ code {
 .showcase-footer {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.5rem;
   min-width: 0;
 }
@@ -1188,7 +1188,7 @@ code {
 .showcase-link {
   font-size: 0.8rem;
   font-weight: 700;
-  align-self: flex-start;
+  text-align: center;
 }
 
 .showcase-controls {
