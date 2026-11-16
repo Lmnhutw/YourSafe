@@ -1,6 +1,20 @@
 # YourSafe landing page
 
-Static Vietnamese landing page: HTML, CSS, JavaScript, local fonts and captioned product screenshots. No build step, framework, package installation or backend.
+Static English/Vietnamese website: HTML, CSS, JavaScript, local fonts and captioned product screenshots. No build step, framework, package installation or backend.
+
+## Languages
+
+Vietnamese is the default. Each page has a VI/EN switch: in the homepage navigation (inside Menu on mobile), and beside the back link on the demo and privacy pages. Switching opens the same page in the other language. Internal links stay in the selected language. These links work without JavaScript and do not use cookies or local storage.
+
+| Page | Vietnamese | English |
+| --- | --- | --- |
+| Home | `home.html` | `home.en.html` |
+| Login demo | `demo-login.html` | `demo-login.en.html` |
+| Privacy policy | `privacy-policy.html` | `privacy-policy.en.html` |
+
+Both languages share styles, scripts, fonts and images. Keep page structure and links in sync when editing. Vietnamese copy is unchanged; the English pages use plain language. Screenshots still show the existing app UI. English URLs include `.en.html` so they also work on basic static servers. The Pages workflow includes all three English files.
+
+`node website/verify.cjs --languages-only` checks both languages at root and project URLs, with and without JavaScript, at widths from 320px to 1440px. It covers switching, internal links, layout, shared images, and English demo submission and clipboard messages. It does not save screenshots.
 
 ## Preview
 
@@ -27,7 +41,11 @@ Reference: [GitHub publishing-source documentation](https://docs.github.com/en/p
 
 ## Content and releases
 
-The public website and desktop use **YourSafe**; the desktop executable is `YourSafe.exe`, while repository/project names and `%LocalAppData%\PasswordTool` retain `PasswordTool`. The root [README](../README.md) and [release operations](../docs/release-operations.md) describe current behavior. All Windows download links target `https://github.com/Lmnhutw/YourSafe/releases/latest/download/YourSafe-setup.exe` directly. This requests the latest regular release's installer; it requires that release to include an asset named `YourSafe-setup.exe`. Keep that filename when uploading an installer. Link configuration does not establish that a download is available or signed; check the release notes and `release-status.txt`. Asset origins and font license are in [PROVENANCE.md](assets/PROVENANCE.md) and [OFL.txt](assets/OFL.txt).
+The public website and desktop use **YourSafe**; the desktop executable is `YourSafe.exe`, while repository/project names and `%LocalAppData%\PasswordTool` retain `PasswordTool`. The root [README](../README.md) and [release operations](../docs/release-operations.md) describe current behavior. Windows download links default to `https://github.com/Lmnhutw/YourSafe/releases/latest/download/YourSafe-setup.exe`. This requests the latest regular release's installer; it requires that release to include an asset named `YourSafe-setup.exe`. Keep that filename when uploading an installer. Link configuration does not establish that a download is available or signed; check the release notes and `release-status.txt`. Asset origins and font license are in [PROVENANCE.md](assets/PROVENANCE.md) and [OFL.txt](assets/OFL.txt).
+
+The hero and closing download buttons have a separate chevron for choosing **Installer (.exe)** or **No Installer (.zip)**. The download icon sits before the label. Installer is selected on each page load. Both pickers share the selection and update their links and instructions together; header and installation-step links remain installer links. The dropdown supports keyboard activation, Tab, Escape and outside clicks. Without JavaScript, the installer link remains usable and the dropdown stays hidden.
+
+Selecting No Installer makes one public request to `https://api.github.com/repos/Lmnhutw/YourSafe/releases/latest` to find a `YourSafe-<version>-win-x64.zip` asset. Successful results are reused for the rest of the page visit. The response is checked before assigning a GitHub download URL. While loading, or if the lookup fails, the ZIP action leads to the latest release page; the text explains that the visitor can choose the ZIP there. Failed lookups can be retried by selecting No Installer again. This lookup does not include credentials or a referrer. It does not check release signing or download a package automatically.
 
 Features include credentials with recovery codes, local password generation/review, encrypted external backup and optional Chrome/Edge/Brave extension password fill and TOTP viewing. Public extension copy describes account selection in the popup, separate Windows approval for filling/viewing/copying, and the unlocked vault/browser connection requirements. Development installation details stay in the [extension guide](../browser-extension/README.md). The header, showcase, FAQ and closing guidance links lead to `#extension`. The hero and closing links beside the Windows buttons, plus the extension section's primary button, target the [configured Chrome Web Store listing](https://chromewebstore.google.com/detail/yoursafe/lnlgmfdopjjjnjlepnpoohdfgfboheoh). No Edge Add-ons URL is configured; store availability is not established by source review. The extension section's adjacent link opens the sample login page, and `#extension-help` remains the usage FAQ. Installation copy covers the installer, ZIP extraction and recovery key, with technical release details linked separately. Screenshots use demo data. Extension captures run actual popup source with synthetic transport responses and do not prove live integration. Product images share a viewport-contained preview on hover or keyboard focus, except the large vault overview and extension/web context images marked `data-no-preview`. Escape, blur or leaving an eligible image closes its preview. Images retain their aspect ratio and rounded corners, and do not link to image files. Captions use centered 0.8rem text at 85% opacity. Touch devices show the original images without a hover overlay.
 
@@ -55,6 +73,8 @@ Both Chrome Web Store and in-page extension links use the fixed `browser: chrome
 
 After publishing through **Publish YourSafe website**, open the site and check the measurement ID and events with [Tag Assistant](https://tagassistant.google.com/) and GA4 Realtime/DebugView. In GA4, register event-scoped custom dimensions for `location`, `platform` and `browser` to use those parameters in reports. Enhanced measurement is configured in the GA4 property and can produce additional Google-managed events; review those settings separately. Browser privacy tools can block collection. Local verification mocks the Google script and checks the command queue without sending traffic to the property; it cannot confirm ingestion into your account.
 
+The English homepage and privacy page use the same analytics settings and marked links. The English login demo also excludes analytics.
+
 ## Login demo
 
 The header and CTA link to `demo-login`, and links back to the homepage use `home`. The demo's visible address and copy action omit `.html`, even when opened through the legacy `.html` URL. Any username/password (including blank values) succeeds locally after explicit submission. Extension Fill only populates the fields. Submitting or retrying clears the values; leaving the page clears them too. There are no credential requests, logs, cookies, or storage writes. A page CSP blocks form navigation and network connections; inputs stay disabled until the submit handler is attached. The demo does not query extension installation state.
@@ -72,6 +92,8 @@ node --check website/script.js
 node --check website/navigation.js
 node --check website/demo-login.js
 node --check website/analytics.js
+node website/verify.cjs --downloads-only
+node website/verify.cjs --languages-only
 node website/verify.cjs --analytics-only
 node website/verify.cjs
 git diff --check

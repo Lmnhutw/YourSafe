@@ -1,5 +1,112 @@
 "use strict";
 
+const downloadControls = [...document.querySelectorAll('[data-download-control]')];
+const installerUrl = document.querySelector('[data-download-link]').href;
+const releasesUrl = 'https://github.com/Lmnhutw/YourSafe/releases/latest';
+const englishDownloads = document.documentElement.lang === 'en';
+let selectedPackage = 'installer';
+let portableUrl;
+let portableRequest;
+let portableState = 'idle';
+
+function updateDownloads() {
+  const portable = selectedPackage === 'portable';
+  let label = englishDownloads ? 'Download for Windows' : 'Tải cho Windows';
+  if (portable && portableUrl) label = englishDownloads ? 'Download ZIP' : 'Tải bản ZIP';
+  if (portable && !portableUrl) label = englishDownloads ? 'Find ZIP on GitHub' : 'Xem bản ZIP trên GitHub';
+  for (const link of document.querySelectorAll('[data-download-link]')) {
+    link.href = portable ? portableUrl || releasesUrl : installerUrl;
+    link.querySelector('span').textContent = label;
+  }
+  for (const description of document.querySelectorAll('[data-download-description]')) {
+    description.textContent = portable ? description.dataset.portableDescription : description.dataset.installerDescription;
+    if (portable && portableState === 'loading') description.textContent += englishDownloads ? ' Finding the latest ZIP…' : ' Đang tìm bản ZIP mới nhất…';
+    if (portable && portableState === 'unavailable') description.textContent += englishDownloads ? ' Open the release page to choose the ZIP file.' : ' Mở trang phát hành để chọn tệp ZIP.';
+  }
+  for (const option of document.querySelectorAll('[data-download-package]')) {
+    option.setAttribute('aria-pressed', String(option.dataset.downloadPackage === selectedPackage));
+  }
+}
+
+async function findPortableDownload() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const response = await fetch('https://api.github.com/repos/Lmnhutw/YourSafe/releases/latest', {
+      signal: controller.signal, credentials: 'omit', referrerPolicy: 'no-referrer',
+    });
+    if (!response.ok) throw new Error('Release unavailable');
+    const release = await response.json();
+    if (!Array.isArray(release?.assets)) throw new Error('Missing release assets');
+    const asset = release.assets.find(item => item && typeof item.name === 'string'
+      && /^YourSafe-\d[\w.+-]*-win-x64\.zip$/.test(item.name)
+      && typeof item.browser_download_url === 'string');
+    if (!asset) throw new Error('Missing Windows ZIP');
+    const url = new URL(asset.browser_download_url);
+    if (url.origin !== 'https://github.com' || url.username || url.password || url.search || url.hash
+      || !/^\/Lmnhutw\/YourSafe\/releases\/download\/[^/]+\/[^/]+$/.test(url.pathname)
+      || !url.pathname.endsWith(`/${asset.name}`)) throw new Error('Invalid download URL');
+    portableUrl = url.href;
+    portableState = 'ready';
+  } catch {
+    portableState = 'unavailable';
+  } finally {
+    clearTimeout(timeout);
+    portableRequest = undefined;
+    updateDownloads();
+  }
+}
+
+function closeDownloadMenu(control, restoreFocus = false) {
+  control.querySelector('.download-menu').hidden = true;
+  const toggle = control.querySelector('.download-toggle');
+  toggle.setAttribute('aria-expanded', 'false');
+  if (restoreFocus) toggle.focus({ preventScroll: true });
+}
+
+function openDownloadMenu(control) {
+  downloadControls.forEach(item => closeDownloadMenu(item));
+  control.querySelector('.download-menu').hidden = false;
+  control.querySelector('.download-toggle').setAttribute('aria-expanded', 'true');
+  control.querySelector('[aria-pressed="true"]').focus({ preventScroll: true });
+}
+
+for (const control of downloadControls) {
+  const toggle = control.querySelector('.download-toggle');
+  control.classList.add('is-enhanced');
+  toggle.hidden = false;
+  toggle.addEventListener('click', () => {
+    if (toggle.getAttribute('aria-expanded') === 'true') closeDownloadMenu(control);
+    else openDownloadMenu(control);
+  });
+  toggle.addEventListener('keydown', event => {
+    if (event.key === 'ArrowDown') { event.preventDefault(); openDownloadMenu(control); }
+  });
+  control.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') {
+      event.stopPropagation();
+      closeDownloadMenu(control, true);
+    }
+  });
+  control.addEventListener('focusout', event => {
+    if (!control.contains(event.relatedTarget)) closeDownloadMenu(control);
+  });
+  control.querySelectorAll('[data-download-package]').forEach(option => option.addEventListener('click', () => {
+    const next = option.dataset.downloadPackage;
+    if (next !== 'installer' && next !== 'portable') return;
+    selectedPackage = next;
+    if (next === 'portable' && !portableUrl && !portableRequest) {
+      portableState = 'loading';
+      portableRequest = findPortableDownload();
+    }
+    updateDownloads();
+    closeDownloadMenu(control, true);
+  }));
+}
+document.addEventListener('pointerdown', event => {
+  downloadControls.forEach(control => { if (!control.contains(event.target)) closeDownloadMenu(control); });
+});
+
 if (
   "IntersectionObserver" in window &&
   !window.matchMedia("(prefers-reduced-motion: reduce)").matches

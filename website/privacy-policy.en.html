@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GP0TS974S"></script>
+    <script src="./analytics.js" defer></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description"
+      content="How YourSafe and its browser extension handle passwords, account details, and verification codes on your device.">
+    <meta name="theme-color" content="#204bdb">
+    <title>Privacy policy — YourSafe</title>
+    <link rel="alternate" hreflang="vi" href="./privacy-policy">
+    <link rel="alternate" hreflang="en" href="./privacy-policy.en.html">
+    <link rel="icon" href="./assets/app-logo.png" type="image/png"
+      sizes="88x88">
+    <link rel="preload" href="./assets/BeVietnamPro-Bold.ttf" as="font"
+      type="font/ttf" crossorigin>
+    <link rel="preload" href="./assets/BeVietnamPro-Regular.ttf" as="font"
+      type="font/ttf" crossorigin>
+    <script src="./navigation.js"></script>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <header class="site-header demo-header">
+      <a class="brand" href="./home.en.html" aria-label="YourSafe — home">
+        <img class="brand-logo" src="./assets/app-logo.png" alt width="40"
+          height="40">
+        <span>YourSafe</span>
+      </a>
+      <div class="demo-home">
+        <a class="text-link" href="./home.en.html#faq">Back to FAQ <span
+            aria-hidden="true">←</span></a>
+        <span class="language-switch" role="group" aria-label="Language">
+          <a href="./privacy-policy" lang="vi" hreflang="vi">VI</a>
+          <a href="./privacy-policy.en.html" lang="en" hreflang="en" aria-current="page">EN</a>
+        </span>
+      </div>
+      <a class="button button-primary header-download"
+        href="https://github.com/Lmnhutw/YourSafe/releases/latest/download/YourSafe-setup.exe"
+        data-analytics-event="download_click" data-analytics-location="privacy_header">Download
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path
+            d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5" /></svg>
+      </a>
+    </header>
+    <main class="privacy" id="main">
+      <h1>Privacy policy</h1>
+      <p class="privacy-updated">Updated <time
+          datetime="2026-10-14">14 October 2026</time> · YourSafe</p>
+      <p>This policy explains how the YourSafe Windows app, browser extension, and website handle data. You do not need an online account to use the password vault.</p>
+      <section aria-labelledby="privacy-data">
+        <h2 id="privacy-data">Data we handle</h2>
+        <p>The app stores the details you add to the vault: account titles, usernames, passwords, website addresses, notes, TOTP settings, and recovery codes. The vault is encrypted and saved locally on your Windows PC.</p>
+        <p>When you open the extension, it uses the selected page’s address to find matching accounts in the desktop vault. It receives account titles, usernames, and whether each account has a password or TOTP. When you request autofill or a code and approve the request on the desktop, the data needed for that action is handled on the same PC.</p>
+        <p>The selected tab’s URL and origin are used temporarily to match accounts and check the destination. The origin is sent to the desktop app on the same PC. The extension does not keep a browsing history. After you click Fill, its script checks login fields, forms, visibility, and form destinations to decide where it can fill safely. Passwords are filled only after desktop approval. The extension does not collect the full page’s contents.</p>
+      </section>
+      <section aria-labelledby="privacy-use">
+        <h2 id="privacy-use">How data is used and shared</h2>
+        <p>Vault data and selected-page data are used only for the actions you request: managing the vault, finding accounts, filling login details, and viewing or copying codes. The extension communicates with the desktop app through local Native Messaging. This data is not sent to the developer’s servers.</p>
+        <p>Autofill puts the username and password into the selected website’s form. That website can read the filled values under its own policies. YourSafe does not submit the login form.</p>
+        <p>The Windows app and extension do not sell vault data, use it for advertising, send telemetry, or build browsing profiles. The developer cannot access your vault and does not keep a copy for recovery.</p>
+        <p>The extension’s use of data follows the <a
+            href="https://developer.chrome.com/docs/webstore/program-policies/user-data-faq#limited-uses-of-user-data">Chrome Web Store User Data Policy</a>, including its Limited Use requirements. Data is used only for the stated features, never for advertising. Vault data is not transferred to the developer or advertisers.</p>
+      </section>
+      <section aria-labelledby="privacy-permissions">
+        <h2 id="privacy-permissions">Browser extension permissions</h2>
+        <ul>
+          <li><strong>nativeMessaging:</strong> connects to YourSafe Desktop on the same PC to get data for the action you request.</li>
+          <li><strong>activeTab:</strong> temporarily accesses the selected tab when you open the extension.</li>
+          <li><strong>scripting:</strong> finds and fills login fields on the selected page when you request autofill.</li>
+          <li><strong>webNavigation:</strong> checks the destination and cancels the action if the page changes, to avoid filling the wrong page.</li>
+        </ul>
+      </section>
+      <section aria-labelledby="privacy-retention">
+        <h2 id="privacy-retention">Storage and your choices</h2>
+        <p>The extension does not store your passwords or vault, or sync the vault to the cloud. It holds data temporarily in memory for the requested action. Passwords are not saved in the extension’s session state. TOTP results may remain briefly until the code or session expires, or the action is cancelled.</p>
+        <p>You can edit or delete accounts in the desktop app, turn off browser integration, or uninstall the extension. Uninstalling the desktop app does not delete the vault. Exported backups stay where you save them. You control how long to keep the vault and backups, and when to delete them. Copied data passes through the Windows clipboard and may be affected by clipboard history or sync settings.</p>
+      </section>
+      <section aria-labelledby="privacy-website">
+        <h2 id="privacy-website">Website and feedback</h2>
+        <p>The website uses Google Analytics 4 to count visits and link clicks. It may use cookies and process browser and device information as described in <a
+            href="https://policies.google.com/technologies/partner-sites">how Google uses data</a>.</p>
+        <p>The Windows app, extension, and demo login page do not use Google Analytics. The demo processes the form in your browser without sending or saving what you enter. The website is hosted on GitHub Pages, which may process connection information under <a
+            href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub’s privacy policy</a>.</p>
+        <p>If you email the developer or open an issue, the information you provide is used to respond to your question or feedback. Public GitHub issues can be read by others. Do not send passwords, verification codes, recovery keys, or vault files. You can ask the developer to delete any support information they retain. Data on third-party services is covered by those services’ policies.</p>
+      </section>
+      <section aria-labelledby="privacy-contact">
+        <h2 id="privacy-contact">Contact and policy changes</h2>
+        <p>For privacy questions, email <a
+            href="mailto:lmnhut0211@gmail.com">lmnhut0211@gmail.com</a>. If data handling changes, this page and its revision date will be updated.</p>
+      </section>
+    </main>
+  </body>
+</html>

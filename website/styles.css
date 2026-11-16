@@ -405,7 +405,34 @@ code {
 }
 
 .demo-home {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
   margin-left: auto;
+}
+
+.language-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+}
+
+.language-switch a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 44px;
+  padding: 0.5rem 0.25rem;
+  text-decoration: none;
+}
+
+.language-switch a[aria-current="page"] {
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
 }
 
 .menu-toggle {
@@ -528,6 +555,132 @@ code {
 
 .closing .download-actions a:focus-visible {
   outline-color: var(--white);
+}
+
+.download-control {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  max-width: 100%;
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--white);
+}
+
+.download-control .button {
+  gap: 0.75rem;
+}
+
+.download-control.is-enhanced > .button {
+  border-radius: 4px 0 0 4px;
+}
+
+.download-control .button:hover {
+  transform: none;
+}
+
+.download-toggle {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  min-width: 44px;
+  padding: 0.65rem;
+  border: 0;
+  border-left: 1px solid #ffffff40;
+  border-radius: 0 4px 4px 0;
+  background: transparent;
+  color: inherit;
+}
+
+.download-toggle:hover,
+.download-toggle[aria-expanded="true"] {
+  background: #00000012;
+}
+
+.download-toggle svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  transition: transform 180ms var(--ease);
+}
+
+.download-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.download-control-light {
+  background: var(--white);
+  color: var(--accent);
+}
+
+.download-control-light .download-toggle {
+  border-left-color: #204bdb30;
+}
+
+.closing .download-toggle:focus-visible {
+  outline-color: var(--white);
+}
+
+.download-menu {
+  position: absolute;
+  z-index: 35;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  width: max(100%, 17rem);
+  max-width: calc(100vw - 2 * var(--gutter));
+  padding: 0.35rem;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 8px 24px #18232120;
+}
+
+.download-menu button {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 64px;
+  padding: 0.65rem 2rem 0.65rem 0.75rem;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.download-menu button span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.download-menu button:hover,
+.download-menu button[aria-pressed="true"] {
+  background: var(--tint);
+}
+
+.download-menu button[aria-pressed="true"]::after {
+  content: "✓";
+  position: absolute;
+  right: 0.75rem;
+  top: 0.65rem;
+  color: var(--accent);
+}
+
+.download-menu button:focus-visible {
+  outline-offset: -3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .download-toggle svg {
+    transition: none;
+  }
 }
 
 .manual {
@@ -1749,6 +1902,10 @@ details p {
     min-height: 44px;
     display: inline-flex;
     align-items: center;
+  }
+
+  .site-nav .language-switch {
+    grid-column: 1 / -1;
   }
 
   .has-js .site-nav:not(.is-open) {

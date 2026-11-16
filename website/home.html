@@ -2,13 +2,16 @@
 <html lang="vi">
   <head>
     <meta charset="utf-8">
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1GP0TS974S"></script>
+    <script async
+      src="https://www.googletagmanager.com/gtag/js?id=G-1GP0TS974S"></script>
     <script src="./analytics.js" defer></script>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description"
       content="Lưu mật khẩu, mã xác thực và mã khôi phục ngay trên máy Windows với YourSafe. Dùng được khi không có internet.">
     <meta name="theme-color" content="#204bdb">
     <title>YourSafe - Keep your passwords safe.</title>
+    <link rel="alternate" hreflang="vi" href="./home">
+    <link rel="alternate" hreflang="en" href="./home.en.html">
     <link rel="icon" href="./assets/app-logo.png" type="image/png"
       sizes="88x88">
     <link rel="preload" href="./assets/BeVietnamPro-Bold.ttf" as="font"
@@ -39,12 +42,18 @@
         <a href="./demo-login">Demo</a>
         <a
           href="https://github.com/Lmnhutw/PasswordTool.Core"
-          data-analytics-event="github_click" data-analytics-location="header">Mã nguồn <span
+          data-analytics-event="github_click"
+          data-analytics-location="header">Mã nguồn <span
             aria-hidden="true">↗</span></a>
+        <span class="language-switch" role="group" aria-label="Ngôn ngữ">
+          <a href="./home" lang="vi" hreflang="vi" aria-current="page">VI</a>
+          <a href="./home.en.html" lang="en" hreflang="en">EN</a>
+        </span>
       </nav>
       <a class="button button-primary header-download"
         href="https://github.com/Lmnhutw/YourSafe/releases/latest/download/YourSafe-setup.exe"
-        data-analytics-event="download_click" data-analytics-location="header">Tải xuống
+        data-analytics-event="download_click"
+        data-analytics-location="header">Tải xuống
         <svg viewBox="0 0 24 24" aria-hidden="true"><path
             d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5" /></svg>
       </a>
@@ -59,18 +68,30 @@
               <h2>Mật khẩu của bạn<br>lưu ngay trên máy.</h2>
               <p>Mật khẩu, mã xác thực và mã khôi phục — cùng một kho trên
                 Windows. Không cần tài khoản trực tuyến.</p>
-              <div class="download-actions"><a class="button button-primary"
+              <div class="download-actions"><div class="download-control" data-download-control>
+                <a class="button button-primary" data-download-link aria-describedby="hero-download-note"
                   href="https://github.com/Lmnhutw/YourSafe/releases/latest/download/YourSafe-setup.exe"
-                  data-analytics-event="download_click" data-analytics-location="hero">Tải
-                  cho Windows <svg viewBox="0 0 24 24" aria-hidden="true"><path
-                      d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5" /></svg></a>
-                <a class="text-link download-extension" href="https://chromewebstore.google.com/detail/yoursafe/lnlgmfdopjjjnjlepnpoohdfgfboheoh"
-                  data-analytics-event="extension_click" data-analytics-location="hero">Khám
+                  data-analytics-event="download_click"
+                  data-analytics-location="hero"><svg viewBox="0 0 24 24" aria-hidden="true"><path
+                      d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5" /></svg><span>Tải cho Windows</span></a>
+                <button class="download-toggle" type="button" aria-label="Chọn bản tải cho Windows"
+                  aria-expanded="false" aria-controls="hero-download-menu" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></button>
+                <div class="download-menu" id="hero-download-menu" role="group" aria-label="Bản tải cho Windows" hidden>
+                  <button type="button" data-download-package="installer" aria-pressed="true">Installer (.exe)<span>Cài đặt vào máy · Mặc định</span></button>
+                  <button type="button" data-download-package="portable" aria-pressed="false">No Installer (.zip)<span>Giải nén và chạy YourSafe.exe</span></button>
+                </div>
+              </div>
+                <a class="text-link download-extension"
+                  href="https://chromewebstore.google.com/detail/yoursafe/lnlgmfdopjjjnjlepnpoohdfgfboheoh"
+                  data-analytics-event="extension_click"
+                  data-analytics-location="hero">Khám
                   phá tiện ích
                   <span aria-hidden="true">↗</span></a>
               </div>
-              <p class="download-note">Windows 64-bit · Dùng được khi không có
-                internet<br><a href="#install">Xem hướng dẫn cài đặt</a></p>
+              <p class="download-note" id="hero-download-note"><span data-download-description
+                  data-installer-description="Installer (.exe) · Windows 64-bit. Chạy bộ cài rồi mở YourSafe từ Start Menu."
+                  data-portable-description="No Installer (.zip) · Windows 64-bit. Giải nén toàn bộ rồi chạy YourSafe.exe, không cần cài đặt."
+                  aria-live="polite">Installer (.exe) · Windows 64-bit. Chạy bộ cài rồi mở YourSafe từ Start Menu.</span><br><a href="#install">Xem hướng dẫn cài đặt</a></p>
             </div>
             <div class="showcase" role="region"
               aria-roledescription="trình chiếu" aria-label="Khám phá YourSafe">
@@ -244,8 +265,10 @@
                 trình duyệt trong Cài đặt của YourSafe trên Windows.</p>
               <p class="extension-note">Dùng trên Chrome, Edge và Brave.</p>
               <div class="extension-actions">
-                <a class="button button-primary" href="https://chromewebstore.google.com/detail/yoursafe/lnlgmfdopjjjnjlepnpoohdfgfboheoh"
-                  data-analytics-event="extension_click" data-analytics-location="features">Xem cách
+                <a class="button button-primary"
+                  href="https://chromewebstore.google.com/detail/yoursafe/lnlgmfdopjjjnjlepnpoohdfgfboheoh"
+                  data-analytics-event="extension_click"
+                  data-analytics-location="features">Xem cách
                   dùng tiện ích <svg
                     viewBox="0 0 24 24" aria-hidden="true"><path
                       d="M4 12h16m-6-6 6 6-6 6" /></svg></a>
@@ -308,7 +331,8 @@
             </details>
             <a class="text-link"
               href="https://github.com/Lmnhutw/PasswordTool.Core#security-model-and-limits"
-              data-analytics-event="github_click" data-analytics-location="local">Tìm
+              data-analytics-event="github_click"
+              data-analytics-location="local">Tìm
               hiểu cách bảo vệ dữ liệu
               <span aria-hidden="true">↗</span>
             </a>
@@ -376,7 +400,8 @@
           <li><div><h3>Tải YourSafe</h3><p>Tải bộ cài .exe cho Windows 64-bit
                 và mở tệp để bắt đầu.</p><a class="text-link"
                 href="https://github.com/Lmnhutw/YourSafe/releases/latest/download/YourSafe-setup.exe"
-                data-analytics-event="download_click" data-analytics-location="install">Tải
+                data-analytics-event="download_click"
+                data-analytics-location="install">Tải
                 bộ cài Windows <span aria-hidden="true">↗</span></a></div></li>
           <li><div><h3>Mở và cài đặt</h3><p>Mở tệp .exe vừa tải và làm theo
                 hướng dẫn. Sau đó mở YourSafe từ Start Menu.</p></div></li>
@@ -407,7 +432,8 @@
         </details>
         <a class="text-link install-technical"
           href="https://github.com/Lmnhutw/YourSafe/blob/main/docs/release-operations.md"
-          data-analytics-event="github_click" data-analytics-location="install">Thông
+          data-analytics-event="github_click"
+          data-analytics-location="install">Thông
           tin kỹ thuật về bản tải <span aria-hidden="true">↗</span></a>
       </section>
       <section class="section faq" id="faq" aria-labelledby="faq-title">
@@ -498,32 +524,41 @@
               muốn
               xóa cả kho, hãy chắc chắn bạn có bản sao lưu dùng được trước khi
               tự xóa dữ liệu.</p></details>
-          <p class="faq-privacy"><a class="text-link" href="./privacy-policy">Chính
+          <p class="faq-privacy"><a class="text-link"
+              href="./privacy-policy">Chính
               sách quyền riêng tư <span aria-hidden="true">→</span></a></p>
         </div>
       </section>
       <section class="closing" aria-labelledby="closing-title"><div
           class="closing-inner"><h2 id="closing-title">Mật khẩu của
-            bạn.<br>Quyền kiểm soát của bạn.</h2><div><div
-              class="download-actions"><a
-                class="button button-light"
+            bạn.<br>Quyền kiểm soát của bạn.</h2><div>
+            <div
+              class="download-actions"><div class="download-control download-control-light" data-download-control>
+              <a class="button button-light" data-download-link aria-describedby="closing-download-note"
                 href="https://github.com/Lmnhutw/YourSafe/releases/latest/download/YourSafe-setup.exe"
-                data-analytics-event="download_click" data-analytics-location="closing">Tải
-                cho Windows <svg viewBox="0 0 24 24" aria-hidden="true"><path
-                    d="M4 12h16m-6-6 6 6-6 6" /></svg></a>
-              <a class="text-link download-extension" href="https://chromewebstore.google.com/detail/yoursafe/lnlgmfdopjjjnjlepnpoohdfgfboheoh"
-                data-analytics-event="extension_click" data-analytics-location="closing">Khám phá
-                tiện ích
-                <span aria-hidden="true">↗</span></a></div><p>Tải YourSafe và
-              bắt
-              đầu lưu mật khẩu trên Windows. Xem hướng dẫn cài đặt ở trên.</p>
+                data-analytics-event="download_click"
+                data-analytics-location="closing"><svg viewBox="0 0 24 24" aria-hidden="true"><path
+                    d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5" /></svg><span>Tải cho Windows</span></a>
+              <button class="download-toggle" type="button" aria-label="Chọn bản tải cho Windows"
+                aria-expanded="false" aria-controls="closing-download-menu" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></button>
+              <div class="download-menu" id="closing-download-menu" role="group" aria-label="Bản tải cho Windows" hidden>
+                <button type="button" data-download-package="installer" aria-pressed="true">Installer (.exe)<span>Cài đặt vào máy · Mặc định</span></button>
+                <button type="button" data-download-package="portable" aria-pressed="false">No Installer (.zip)<span>Giải nén và chạy YourSafe.exe</span></button>
+              </div>
+              </div>
+            </div>
+            <p class="download-note" id="closing-download-note"><span data-download-description
+                data-installer-description="Installer (.exe) · Windows 64-bit. Chạy bộ cài rồi mở YourSafe từ Start Menu."
+                data-portable-description="No Installer (.zip) · Windows 64-bit. Giải nén toàn bộ rồi chạy YourSafe.exe, không cần cài đặt."
+                aria-live="polite">Installer (.exe) · Windows 64-bit. Chạy bộ cài rồi mở YourSafe từ Start Menu.</span><br><a href="#install">Xem hướng dẫn cài đặt</a></p>
             <div class="closing-demo">
               <h3>Đã cài YourSafe?</h3>
               <p>Dùng tiện ích trình duyệt để điền thông tin đăng nhập từ kho
                 lưu trữ
                 của bạn.</p>
               <div class="closing-extension-actions">
-                <a class="text-link" href="#extension" data-analytics-event="extension_click"
+                <a class="text-link" href="#extension"
+                  data-analytics-event="extension_click"
                   data-analytics-location="closing">Khám phá tiện ích <span
                     aria-hidden="true">↗</span></a>
                 <a class="text-link" href="./demo-login">Thử Demo <span

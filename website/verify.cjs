@@ -45,11 +45,249 @@ async function offlineContext(browser, options) {
   return context;
 }
 
+async function verifyDownloadPicker(browser, base) {
+  const api = 'https://api.github.com/repos/Lmnhutw/YourSafe/releases/latest';
+  const installer = 'https://github.com/Lmnhutw/YourSafe/releases/latest/download/YourSafe-setup.exe';
+  const zip = 'https://github.com/Lmnhutw/YourSafe/releases/download/v1.2.3/YourSafe-1.2.3-win-x64.zip';
+  const release = { assets: [
+    { name: 'YourSafe-extension-1.2.3.zip', browser_download_url: 'https://example.test/extension.zip' },
+    { name: 'YourSafe-1.2.3-win-x64.zip', browser_download_url: zip },
+  ] };
+  for (const route of ['home', 'home.en.html']) {
+    const context = await offlineContext(browser, { reducedMotion: 'reduce' });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    let lookups = 0;
+    await context.route(api, request => { lookups++; return request.fulfill({ json: release }); });
+    for (const width of [1440, 1024, 768, 390, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${base}${route}`);
+      await page.evaluate(() => document.fonts.ready);
+      const initialLookups = lookups;
+      const controls = page.locator('[data-download-control]');
+      const links = page.locator('[data-download-link]');
+      const notes = page.locator('[data-download-description]');
+      assert.equal(await controls.count(), 2, 'hero and closing each have a picker');
+      assert.deepEqual(await links.evaluateAll(items => items.map(item => item.href)), [installer, installer], 'installer is the default');
+      assert.equal(await page.locator('[data-download-package="installer"][aria-pressed="true"]').count(), 2);
+      assert.equal(await links.first().evaluate(link => link.firstElementChild.tagName.toLowerCase()), 'svg', 'download icon is before the label');
+      for (const control of await controls.all()) {
+        const toggle = control.locator('.download-toggle');
+        await toggle.click();
+        assert.equal(await toggle.getAttribute('aria-expanded'), 'true');
+        const menu = await control.locator('.download-menu').boundingBox();
+        assert.ok(menu.x >= 0 && menu.x + menu.width <= width, `dropdown fits at ${width}`);
+        assert.equal(await control.locator('[aria-pressed="true"]').evaluate(element => element === document.activeElement), true);
+        assert.equal(await control.locator('.download-menu button').first().evaluate(element => {
+          const bounds = element.getBoundingClientRect();
+          return element.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2));
+        }), true, 'dropdown is not hidden behind page content');
+        await page.keyboard.press('Escape');
+        assert.equal(await toggle.getAttribute('aria-expanded'), 'false');
+        assert.equal(await toggle.evaluate(element => element === document.activeElement), true);
+      }
+      assert.equal(lookups, initialLookups, 'opening a picker does not fetch release data');
+      const hero = controls.first();
+      await hero.locator('.download-toggle').focus();
+      await page.keyboard.press('ArrowDown');
+      await page.keyboard.press('Tab');
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(expected => [...document.querySelectorAll('[data-download-link]')].every(link => link.href === expected), zip);
+      assert.deepEqual(await notes.evaluateAll(items => items.map(item => item.textContent)), await notes.evaluateAll(items => items.map(item => item.dataset.portableDescription)), 'ZIP instructions update in both locations');
+      assert.equal(await page.locator('[data-download-package="portable"][aria-pressed="true"]').count(), 2);
+      assert.equal(await hero.locator('.download-menu').isVisible(), false, 'selection closes the dropdown');
+      const closing = controls.last();
+      await closing.locator('.download-toggle').click();
+      await closing.locator('[data-download-package="installer"]').click();
+      assert.deepEqual(await links.evaluateAll(items => items.map(item => item.href)), [installer, installer]);
+      assert.deepEqual(await notes.evaluateAll(items => items.map(item => item.textContent)), await notes.evaluateAll(items => items.map(item => item.dataset.installerDescription)), 'installer instructions are restored');
+      await closing.locator('.download-toggle').click();
+      await closing.locator('[data-download-package="portable"]').click();
+      assert.equal(lookups, initialLookups + 1, 'both pickers share one release lookup');
+      await page.evaluate(() => document.addEventListener('click', event => { if (event.target.closest('[data-download-link]')) event.preventDefault(); }));
+      const before = await page.evaluate(() => window.dataLayer.length);
+      await links.last().click();
+      assert.deepEqual(await page.evaluate(() => Array.from(window.dataLayer.at(-1))), ['event', 'download_click', { location: 'closing', platform: 'windows' }]);
+      assert.equal(await page.evaluate(() => window.dataLayer.length), before + 1, 'one analytics event for the download');
+      await hero.locator('.download-toggle').click();
+      await page.locator('.hero-copy h2').click();
+      assert.equal(await hero.locator('.download-menu').isVisible(), false, 'outside click closes the menu');
+      await hero.locator('.download-toggle').click();
+      await page.keyboard.press('Tab');
+      assert.equal(await hero.locator('.download-menu').isVisible(), false, 'Tab leaving the last option closes the menu');
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `selected ZIP fits at ${width}`);
+    }
+    assert.deepEqual(errors, []);
+    await context.close();
+  }
+  console.log('PASS verifyDownloadPicker: default installer, icon/caret, EN/VI hero/footer synchronization, dynamic instructions, ZIP asset selection/cache, keyboard/Escape/Tab/outside click, analytics and 1440/1024/768/390/320 layouts.');
+
+  for (const failure of ['http-error', 'missing-zip', 'untrusted-url', 'network-error']) {
+    const context = await offlineContext(browser, { reducedMotion: 'reduce' });
+    const page = await context.newPage();
+    await context.route(api, request => {
+      if (failure === 'network-error') return request.abort();
+      if (failure === 'http-error') return request.fulfill({ status: 503, body: '' });
+      if (failure === 'missing-zip') return request.fulfill({ json: { assets: [] } });
+      return request.fulfill({ json: { assets: [{ name: 'YourSafe-1.2.3-win-x64.zip', browser_download_url: 'https://example.test/YourSafe-1.2.3-win-x64.zip' }] } });
+    });
+    await page.goto(`${base}home.en.html`);
+    await page.locator('.hero-copy .download-toggle').click();
+    await page.locator('#hero-download-menu [data-download-package="portable"]').click();
+    await page.waitForFunction(() => document.querySelector('[data-download-description]').textContent.includes('Open the release page'));
+    assert.deepEqual(await page.locator('[data-download-link]').evaluateAll(items => items.map(item => item.href)), [
+      'https://github.com/Lmnhutw/YourSafe/releases/latest', 'https://github.com/Lmnhutw/YourSafe/releases/latest',
+    ], 'unavailable ZIP falls back to the trusted release page');
+    await context.close();
+  }
+  const context = await offlineContext(browser, { reducedMotion: 'reduce' });
+  let pending;
+  await context.route(api, request => { pending = request; });
+  const page = await context.newPage();
+  await page.goto(`${base}home`);
+  await page.locator('.hero-copy .download-toggle').click();
+  await page.locator('#hero-download-menu [data-download-package="portable"]').click();
+  await page.waitForFunction(() => document.querySelector('[data-download-description]').textContent.includes('Đang tìm'));
+  await page.locator('.hero-copy .download-toggle').click();
+  await page.locator('#hero-download-menu [data-download-package="installer"]').click();
+  assert.ok(pending);
+  await pending.fulfill({ json: release });
+  await page.waitForFunction(() => portableState === 'ready');
+  assert.deepEqual(await page.locator('[data-download-link]').evaluateAll(items => items.map(item => item.href)), [installer, installer], 'late ZIP lookup cannot replace an installer selection');
+  await context.close();
+
+  const noJs = await offlineContext(browser, { javaScriptEnabled: false });
+  const plain = await noJs.newPage();
+  for (const route of ['home', 'home.en.html']) {
+    await plain.goto(`${base}${route}`);
+    assert.equal(await plain.locator('.download-toggle:visible').count(), 0);
+    assert.deepEqual(await plain.locator('[data-download-link]').evaluateAll(items => items.map(item => item.href)), [installer, installer], 'installer remains available without JavaScript');
+  }
+  await noJs.close();
+  console.log('PASS verifyDownloadFallback: HTTP/network/missing ZIP/untrusted URL fallback, stale-response handling and no-JS installer links.');
+}
+
+async function verifyLanguages(browser, base) {
+  for (const javaScriptEnabled of [true, false]) {
+    const context = await offlineContext(browser, { javaScriptEnabled, reducedMotion: 'reduce' });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    for (const width of [1440, 1024, 961, 960, 768, 390, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const route of ['home', 'demo-login', 'privacy-policy']) {
+        await page.goto(`${base}${route}`);
+        for (const language of ['vi', 'en']) {
+          const suffix = language === 'en' ? '.en.html' : '';
+          if (language === 'en') {
+            if (route === 'home' && javaScriptEnabled && width <= 960) await page.locator('.menu-toggle').click();
+            await page.locator('.language-switch a[lang="en"]').click();
+          }
+          assert.equal(page.url(), `${base}${route}${suffix}`, 'switch stays on the same page');
+          assert.equal(await page.locator('html').getAttribute('lang'), language);
+          assert.equal(await page.locator('.language-switch a[aria-current="page"]').getAttribute('lang'), language);
+          if (javaScriptEnabled) {
+            await page.evaluate(() => document.fonts.ready);
+            assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${route}/${language} fits at ${width}`);
+            const links = await page.locator('a[href^="./"]:not(.language-switch a)').evaluateAll(items => items.map(item => item.getAttribute('href')));
+            assert.ok(links.every(link => language === 'en' ? link.includes('.en.html') : !link.includes('.en.html')), 'internal navigation keeps the language');
+            if (route === 'home') {
+              await page.locator('[data-slide="1"]').click();
+              await assertSlide(page, 1);
+              await page.locator('[data-slide="0"]').click();
+            }
+          }
+          if (route === 'home' && javaScriptEnabled && width <= 960) await page.locator('.menu-toggle').click();
+          assert.equal(await page.locator('.language-switch a[lang="vi"]').isVisible(), true);
+          assert.equal(await page.locator('.language-switch a[lang="en"]').isVisible(), true);
+          if (javaScriptEnabled) {
+            assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'language menu fits');
+            for (const link of await page.locator('.language-switch a').all()) {
+              const bounds = await link.boundingBox();
+              assert.ok(bounds.width >= 36 && bounds.height >= 44, 'language links have usable touch targets');
+            }
+          }
+          if (route === 'home' && javaScriptEnabled && width <= 960) await page.keyboard.press('Escape');
+        }
+        if (route === 'home' && javaScriptEnabled && width <= 960) await page.locator('.menu-toggle').click();
+        await page.locator('.language-switch a[lang="vi"]').press('Enter');
+        assert.equal(page.url(), `${base}${route}`, 'keyboard switching returns to Vietnamese');
+      }
+    }
+    assert.deepEqual(errors, []);
+    await context.close();
+  }
+
+  const context = await offlineContext(browser, { reducedMotion: 'reduce' });
+  const page = await context.newPage();
+  await page.goto(`${base}home.en.html`);
+  await page.locator('.site-nav a[href="./demo-login.en.html"]').click();
+  assert.equal(await page.locator('h1').innerText(), 'Try autofill\nwith YourSafe.');
+  await page.locator('.demo-home a[href="./home.en.html"]').click();
+  await page.locator('.faq-privacy a').click();
+  assert.equal(await page.locator('h1').innerText(), 'Privacy policy');
+  await page.locator('.demo-home a[href="./home.en.html#faq"]').click();
+  assert.equal(page.url(), `${base}home.en.html#faq`, 'privacy returns to the English FAQ');
+  const assets = await page.locator('img').evaluateAll(images => images.map(image => image.getAttribute('src')));
+  for (const asset of new Set(assets)) {
+    const response = await context.request.get(new URL(asset, page.url()).href);
+    assert.equal(response.ok(), true, `English asset loads: ${asset}`);
+  }
+  await context.close();
+  console.log('PASS verifyLanguages: EN/VI switching, keyboard, no-JS, language-preserving navigation, carousel, assets and 1440/1024/961/960/768/390/320 layouts.');
+}
+
+async function verifyEnglishDemo(browser, base) {
+  const context = await offlineContext(browser, { reducedMotion: 'reduce' });
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: async text => { window.copiedAddress = text; } } });
+  });
+  const page = await context.newPage();
+  await page.goto(`${base}demo-login.en.html`);
+  await page.waitForLoadState('networkidle');
+  const requests = [];
+  page.on('request', request => requests.push(request.url()));
+  await page.getByRole('button', { name: 'Copy', exact: true }).click();
+  assert.equal(await page.locator('#address-status').textContent(), 'Address copied.');
+  assert.equal(await page.evaluate(() => window.copiedAddress), `${base}demo-login.en.html`);
+  await page.evaluate(() => { navigator.clipboard.writeText = async () => { throw new Error('denied'); }; });
+  await page.getByRole('button', { name: 'Copy', exact: true }).click();
+  assert.equal(await page.locator('#address-status').textContent(), 'Could not copy. Select and copy the address above.');
+  await page.getByLabel('Username', { exact: true }).fill('demo@example.test');
+  await page.getByLabel('Password', { exact: true }).fill('fake-demo-password');
+  await page.getByLabel('Password', { exact: true }).press('Enter');
+  assert.equal(await page.locator('#login-success').isVisible(), true);
+  assert.equal(await page.locator('#demo-status').textContent(), 'Demo sign-in complete');
+  assert.equal(await page.locator('#demo-password').inputValue(), '');
+  await page.getByRole('button', { name: 'Try again', exact: true }).click();
+  assert.equal(await page.getByLabel('Username', { exact: true }).inputValue(), '');
+  assert.equal(await page.getByLabel('Username', { exact: true }).evaluate(element => element === document.activeElement), true);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  assert.equal(await page.locator('#login-success').isVisible(), true, 'empty demo input still succeeds');
+  assert.deepEqual(requests, [], 'demo interaction sends no requests');
+  assert.deepEqual(await page.evaluate(() => [localStorage.length, sessionStorage.length, document.cookie]), [0, 0, '']);
+  await context.close();
+
+  for (const javaScriptEnabled of [true, false]) {
+    const blocked = await offlineContext(browser, { javaScriptEnabled });
+    if (javaScriptEnabled) await blocked.route('**/demo-login.js', route => route.abort());
+    const disabled = await blocked.newPage();
+    await disabled.goto(`${base}demo-login.en.html`);
+    assert.equal(await disabled.getByLabel('Password', { exact: true }).isDisabled(), true, 'demo stays disabled if its handler cannot run');
+    await blocked.close();
+  }
+  console.log('PASS verifyEnglishDemo: localized copy success/failure, correct page address, keyboard sign-in/reset, no requests/storage and no-JS/script-failure safety.');
+}
+
 async function verifyAnalytics(browser, base) {
   const context = await offlineContext(browser, { reducedMotion: 'reduce', viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
   const queue = () => page.evaluate(() => window.dataLayer.map(command => Array.from(command)));
-  for (const route of ['', 'home', 'home.html', 'privacy-policy']) {
+  for (const route of ['', 'home', 'home.html', 'privacy-policy', 'home.en.html', 'privacy-policy.en.html']) {
+    const privacy = route.startsWith('privacy-policy');
+    const english = route.includes('.en.html');
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`${base}${route}?private=do-not-track#private-fragment`);
     const tag = page.locator('script[src^="https://www.googletagmanager.com/gtag/js"]');
     assert.equal(await tag.count(), 1, 'one Google tag per document');
@@ -73,13 +311,13 @@ async function verifyAnalytics(browser, base) {
       document.addEventListener('auxclick', event => event.preventDefault());
       document.querySelectorAll('details').forEach(details => { details.open = true; });
     });
-    if (route !== 'privacy-policy') {
-      assert.equal(await page.locator('.faq-privacy a').getAttribute('href'), './privacy-policy');
+    if (!privacy) {
+      assert.equal(await page.locator('.faq-privacy a').getAttribute('href'), english ? './privacy-policy.en.html' : './privacy-policy');
       await page.locator('[data-slide="2"]').click();
       assert.equal(await page.locator('a[data-analytics-event="download_click"]').count(), 4);
       assert.equal(await page.locator('a[data-analytics-event="github_click"]').count(), 5);
-      assert.equal(await page.locator('a[data-analytics-event="extension_click"]').count(), 7);
-      assert.equal(await page.locator(`a[href="${extensionStoreUrl}"]`).count(), 3, 'installation links open the published extension');
+      assert.equal(await page.locator('a[data-analytics-event="extension_click"]').count(), english ? 7 : 6);
+      assert.equal(await page.locator(`a[href="${extensionStoreUrl}"]`).count(), english ? 3 : 2, 'installation links open the published extension');
       for (const selector of ['a[href$="/YourSafe-setup.exe"]', 'a[href="#extension"]', `a[href="${extensionStoreUrl}"]`]) {
         assert.equal(await page.locator(`${selector}:not([data-analytics-event])`).count(), 0, `all relevant ${selector} links are tracked`);
       }
@@ -101,7 +339,7 @@ async function verifyAnalytics(browser, base) {
       if (name === 'extension_click') expected.browser = 'chrome_edge_brave';
       assert.deepEqual(after.at(-1), ['event', name, expected], 'only fixed event metadata is collected');
     }
-    if (route === 'privacy-policy') {
+    if (privacy) {
       for (const width of [390, 320]) {
         await page.setViewportSize({ width, height: 844 });
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `analytics disclosure fits at ${width}`);
@@ -476,8 +714,19 @@ async function verifyDemo(browser, base) {
       headless: true,
       channel: process.platform === "win32" ? "msedge" : undefined,
     });
+    if (process.argv.includes('--downloads-only')) {
+      await verifyDownloadPicker(browser, base);
+      return;
+    }
+    if (process.argv.includes('--languages-only')) {
+      await verifyLanguages(browser, base);
+      await verifyLanguages(browser, new URL('/', base).href);
+      await verifyEnglishDemo(browser, base);
+      return;
+    }
     await verifyAnalytics(browser, base);
     if (process.argv.includes('--analytics-only')) return;
+    await verifyDownloadPicker(browser, base);
     const errors = [];
     const layoutScores = [];
     const context = await offlineContext(browser, { reducedMotion: "reduce" });
@@ -709,7 +958,7 @@ async function verifyDemo(browser, base) {
         assert.equal(await page.locator("#site-nav").isVisible(), true);
       }
       if (width <= 960) await page.locator('.menu-toggle').click();
-      for (const link of await page.locator('.site-nav a').all()) {
+      for (const link of await page.locator('.site-nav > a').all()) {
         await page.mouse.move(0, 0);
         assert.equal(await link.evaluate(element => getComputedStyle(element).textDecorationLine), 'none', 'no permanent navigation underline');
         await link.hover();

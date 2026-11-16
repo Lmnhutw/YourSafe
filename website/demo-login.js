@@ -4,13 +4,14 @@ const form = document.querySelector("#demo-form");
 const fields = document.querySelector("#login-fields");
 const success = document.querySelector("#login-success");
 const status = document.querySelector("#demo-status");
+const english = document.documentElement.lang === "en";
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
   form.reset();
   fields.hidden = true;
   success.hidden = false;
-  status.textContent = "Đăng nhập thử thành công";
+  status.textContent = document.querySelector("#success-title").textContent;
   document.querySelector("#success-title").focus();
 });
 
@@ -27,7 +28,7 @@ window.addEventListener("pagehide", () => form.reset());
 form.querySelector("fieldset").disabled = false;
 
 const address = document.querySelector("#demo-address");
-const demoUrl = new URL("./demo-login", location.href).href;
+const demoUrl = new URL(english ? "./demo-login.en.html" : "./demo-login", location.href).href;
 address.href = demoUrl;
 address.textContent = demoUrl;
 
@@ -38,9 +39,11 @@ if (navigator.clipboard && window.isSecureContext) {
   copyButton.addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(demoUrl);
-      copyStatus.textContent = "Đã sao chép địa chỉ.";
+      copyStatus.textContent = english ? "Address copied." : "Đã sao chép địa chỉ.";
     } catch {
-      copyStatus.textContent = "Không sao chép được. Hãy chọn và sao chép địa chỉ ở trên.";
+      copyStatus.textContent = english
+        ? "Could not copy. Select and copy the address above."
+        : "Không sao chép được. Hãy chọn và sao chép địa chỉ ở trên.";
     }
   });
 }

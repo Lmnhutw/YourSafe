@@ -2,6 +2,10 @@
 
 # YourSafe
 
+**English** · [Tiếng Việt](README.vi.md) · [MIT License](LICENSE)
+
+> Your passwords. On your device.
+
 YourSafe is a local Windows password manager for passwords, website verification codes (TOTP), and account recovery codes. It includes an encrypted vault, password and passphrase generation, a local security check, and optional Chrome, Edge, and Brave integration.
 
 Vault data stays on your device. The desktop app uses WinUI 3 and works without an online account, cloud service, telemetry, or an internet connection. Encrypted backups and updates are managed manually.
@@ -9,6 +13,22 @@ Vault data stays on your device. The desktop app uses WinUI 3 and works without 
 ![YourSafe vault with annotated search, group tabs, protected actions and lock control](docs/diagrams/vault-overview.svg)
 
 Existing WinUI Debug capture with synthetic demo accounts. [Open full size](docs/diagrams/vault-overview.svg) · [Diagram collection and editable sources](docs/diagrams/README.md).
+
+## Contents
+
+- [Features](#what-is-included)
+- [Download and install](#download-and-install)
+- [First-time setup](#first-time-setup)
+- [Everyday use](#everyday-use)
+- [Browser autofill](#browser-autofill)
+- [Backup and recovery](#backup-and-recovery)
+- [Security model and limits](#security-model-and-limits)
+- [Local files](#local-files)
+- [Password hashing utility and API](#password-hashing-utility-and-api)
+- [Build from source](#build-from-source)
+- [Windows releases](#windows-releases)
+- [Repository layout](#repository-layout)
+- [License](#license)
 
 ## What is included
 
@@ -329,7 +349,7 @@ tests/
   PasswordTool.Presentation.Tests/ # application flows and native protocol checks
 browser-extension/            # standalone TypeScript Chrome/Edge/Brave extension
 docs/                         # architecture, release, and verification guides
-website/                      # static Vietnamese landing page
+website/                      # static English/Vietnamese website
 ```
 
 For implementation boundaries and compatibility rules, read the [architecture guide](docs/architecture.md) and [Core contract](src/PasswordTool.Core/README.md).
@@ -337,3 +357,9 @@ For implementation boundaries and compatibility rules, read the [architecture gu
 ![Desktop layers, optional extension and NativeHost, local storage, backups and independent hashing API](docs/diagrams/system-architecture.svg)
 
 Arrows show runtime calls and data paths; NativeHost relays to the running desktop and has no Core project reference. [Full size](docs/diagrams/system-architecture.svg) · [Mermaid source](docs/diagrams/system-architecture.mmd) · [Responsibilities and source map](docs/diagrams/README.md#system-architecture).
+
+## License
+
+YourSafe is licensed under the [MIT License](LICENSE).
+
+Copyright (c) 2026 Lmnhutw.
