@@ -1,5 +1,20 @@
 # YourSafe dev log
 
+## v0.1.9 — 2026-11-20
+
+### Windows update checks
+
+- **Settings → YourSafe updates** shows the installed version and provides a **Check for updates** button.
+- Daily checks are off by default. When enabled, YourSafe checks while the app is open and saves the last attempt across restarts so it checks at most once every 24 hours.
+- When GitHub has a newer published release with a Windows package, YourSafe shows a notice. **View release** opens the official release page so users can download and install it manually.
+- YourSafe compares versions on the PC. The request fetches public release information without sending the installed version or vault data. The vault works offline.
+- Updated both languages of the README, website FAQ, and Privacy Policy to explain optional update checks.
+
+### Verification
+
+- A versioned WinUI test build detected the published v0.1.8 release through both manual and scheduled checks. Verified that the daily preference survives a restart and that reopening within 24 hours does not repeat the check.
+- All 198 .NET tests passed, including version comparison, unavailable releases, failed responses, and the saved daily schedule. Release qualification tests and website language checks also passed.
+
 ## v0.1.8 — 2026-11-20
 
 ### Vault and desktop
