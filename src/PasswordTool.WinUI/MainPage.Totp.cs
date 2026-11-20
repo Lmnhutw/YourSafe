@@ -26,6 +26,20 @@ public sealed partial class MainPage
         return ViewModel.IsCurrentNormalUnlock(ViewModel.LifecycleVersion);
     }
 
+    private async void CopyTotpRowButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: Guid id, IsEnabled: true } button) return;
+        button.IsEnabled = false;
+        try
+        {
+            if (!await EnsureTotpUnlockedAsync()) return;
+            await App.Services.GetRequiredService<AppFlowCoordinator>().CopyWebsiteTotpAsync(id);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception) { await dialogs.ShowErrorAsync("Copy failed", "The verification code could not be copied. Try again."); }
+        finally { button.IsEnabled = true; }
+    }
+
     private async void ViewTotpRowButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: Guid id } button) return;

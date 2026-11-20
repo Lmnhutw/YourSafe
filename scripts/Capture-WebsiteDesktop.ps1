@@ -22,7 +22,7 @@ function Ui {
 function Capture([string]$Name) {
     Start-Sleep -Milliseconds 400
     $path = Join-Path $outputDirectory "$Name.png"
-    Ui screenshot -o $path | Out-Null
+    Ui screenshot --capture-screen -o $path | Out-Null
     if ((Get-Item -LiteralPath $path).Length -lt 1000) { throw 'Empty capture.' }
     $results.Add(@{ name = $Name; status = 'CAPTURED'; path = $path })
     Write-Output "CAPTURED: $Name"
@@ -59,6 +59,7 @@ if (@((Ui search TxtMasterPassword).matches).Count -gt 0) {
     Ui wait-for PrimaryButton -p IsEnabled --value True -t 5000 | Out-Null
     Ui invoke PrimaryButton | Out-Null
 }
+Ui wait-for NavVault -t 12000 | Out-Null
 Ui invoke NavVault | Out-Null
 Ui wait-for TxtVaultSearch -t 5000 | Out-Null
 Ui set-value TxtVaultSearch '' | Out-Null
@@ -75,6 +76,7 @@ Step '02-desktop-editor' {
     if ($edit.Count -ne 1) { throw 'Expected one GitHub editor action.' }
     Ui invoke $edit[0].automationId | Out-Null
     Ui wait-for TxtEditorTitle --value GitHub -t 5000 | Out-Null
+    Ui wait-for TxtEditorAutofillStatus --value 'Autofill matches https://github.com.' -t 5000 | Out-Null
     Ui focus TxtEditorTitle | Out-Null
     Capture '02-desktop-editor'
 }

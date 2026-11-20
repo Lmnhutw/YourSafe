@@ -92,6 +92,7 @@ const results = [];
 let context;
 let browserCdp;
 let page;
+let relaunchedPid;
 let caseId = 'setup';
 let version;
 let secondaryBrowserVersion;
@@ -104,17 +105,39 @@ const clipboardCases = new Set(['E05-copy-denied-no-clipboard-change', 'E05-appr
 for (const kind of ['OTP', 'password']) for (const replacement of ['same-text', 'changed-text']) for (const trigger of ['timer', 'lock']) {
   clipboardCases.add(`E12-${kind}-${replacement}-replacement-survives-${trigger}`);
 }
-async function desktop(action, timeout = 20000) {
+async function desktop(action, timeout = 20000, processId = appPid) {
   console.log(`CONTROL ${caseId}: ${action}`);
   try {
-    await execFileAsync('pwsh', ['-NoProfile', '-File', controlScript, '-Action', action,
-      '-ProcessId', String(appPid), '-TestDirectory', root], { timeout, windowsHide: true });
+    const { stdout } = await execFileAsync('pwsh', ['-NoProfile', '-File', controlScript, '-Action', action,
+      '-ProcessId', String(processId), '-TestDirectory', root], { timeout, windowsHide: true });
+    return JSON.parse(stdout.trim());
   } catch (error) {
     // The guarded helper returns a bounded JSON reason instead of printing clipboard contents.
     let reason;
     try { reason = JSON.parse(String(error.stdout ?? '').trim()).reason; } catch { }
     throw new Error(`Desktop ${action} failed: ${typeof reason === 'string' ? reason.slice(0, 1000) : 'helper failed or timed out'}`);
   }
+}
+async function desktopProcess(executable, timeoutMs = 0) {
+  const { stdout } = await execFileAsync('pwsh', ['-NoProfile', '-Command', `
+    $timeout = [int]$env:YOURSAFE_TEST_PROCESS_TIMEOUT
+    $deadline = [DateTimeOffset]::UtcNow.AddMilliseconds($timeout)
+    do {
+      $matching = @(Get-Process -Name YourSafe -ErrorAction SilentlyContinue |
+        Where-Object { $_.Path -eq $env:YOURSAFE_TEST_DESKTOP_EXECUTABLE })
+      if ($matching.Count -gt 1) { throw 'More than one process was opened for the marked test executable.' }
+      if ($matching.Count -eq 1 -and ($timeout -eq 0 -or $matching[0].MainWindowHandle -ne [IntPtr]::Zero)) {
+        $matching[0].Id
+        break
+      }
+      if ([DateTimeOffset]::UtcNow -ge $deadline) { break }
+      Start-Sleep -Milliseconds 100
+    } while ($true)
+    exit 0`], {
+    env: { ...process.env, YOURSAFE_TEST_DESKTOP_EXECUTABLE: executable, YOURSAFE_TEST_PROCESS_TIMEOUT: String(timeoutMs) },
+    timeout: timeoutMs + 5000, windowsHide: true
+  });
+  return Number(stdout.trim());
 }
 function safeFailure(error) {
   return (error instanceof Error ? error.message : 'Unknown error').replaceAll(syntheticPassword, '[synthetic password]')
@@ -166,7 +189,7 @@ async function openPopup(targetContext = context, cdp = browserCdp, fixturePage 
   await popup.locator('#status').waitFor();
   await popup.waitForFunction(pendingAllowed => {
     const state = document.getElementById('status')?.dataset.state;
-    return pendingAllowed && state === 'pending' || ['ready', 'empty', 'success', 'off', 'locked', 'unavailable', 'incompatible', 'error'].includes(state ?? '')
+    return pendingAllowed && state === 'pending' || ['ready', 'empty', 'success', 'off', 'off-locked', 'locked', 'unavailable', 'incompatible', 'error'].includes(state ?? '')
       && document.getElementById('accounts')?.getAttribute('aria-busy') === 'false';
   }, allowPending, { timeout: 12000 });
   return popup;
@@ -239,7 +262,12 @@ async function competingProfile(otherExecutable) {
 function account(popup, title) { return popup.locator('.account').filter({ has: popup.locator('strong', { hasText: title }) }); }
 async function choose(action = 'Fill', title = passwordTitle, approvalExpected = true) {
   const popup = await openPopup();
-  await account(popup, title).getByRole('button', { name: action === 'Fill' ? /^Fill / : /^View code for / }).click();
+  if (/^Request canceled /.test(await popup.locator('#status').innerText())) await popup.locator('#refresh').click();
+  try { await account(popup, title).getByRole('button', { name: action === 'Fill' ? /^Fill / : /^View code for / }).click(); }
+  catch (error) {
+    const status = popup.isClosed() ? 'Popup closed' : await popup.locator('#status').innerText();
+    throw new Error(`Could not choose the synthetic account. Popup status: ${status}. ${safeFailure(error)}`);
+  }
   if (approvalExpected) await desktop('waitApproval');
   return popup;
 }
@@ -276,6 +304,7 @@ try {
   await new Promise((ready, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', ready); });
   context = await chromium.launchPersistentContext(profile, {
     executablePath, headless: false, viewport: null,
+    env: { ...process.env, PASSWORDTOOL_UI_TEST_DIRECTORY: root },
     args: ['--enable-unsafe-extension-debugging'],
     ignoreDefaultArgs: ['--disable-extensions']
   });
@@ -287,6 +316,8 @@ try {
   page = context.pages()[0] ?? await context.newPage();
   await load();
   await record('E01-integration-off', async () => {
+    await desktop('minimizeDesktop');
+    await page.bringToFront();
     const popup = await openPopup();
     assert.equal(await popup.locator('.account').count(), 0);
     assert.equal(await popup.locator('#status').getAttribute('data-state'), 'off');
@@ -294,9 +325,24 @@ try {
     assert.match(await popup.locator('#integration-off').innerText(), /Settings/);
     assert.equal(await popup.locator('#integration-off-open').isEnabled(), true);
     await popup.locator('#integration-off-open').click();
+    const restored = (await desktop('assertRestored')).windowState;
+    assert.equal(restored.minimized, false);
+    assert.equal(restored.visible, true);
+    console.log(`Open YourSafe restored the running window. Foreground: ${restored.foreground}.`);
     await desktop('assertNoApproval');
     await popup.close();
     await emptyPassword();
+  });
+  await record('E01-integration-off-and-locked', async () => {
+    await desktop('lock');
+    await page.bringToFront();
+    const popup = await openPopup();
+    assert.equal(await popup.locator('#status').getAttribute('data-state'), 'off-locked');
+    assert.match(await popup.locator('#integration-off-guide').innerText(), /unlock your vault first.*Then enable Browser integration/);
+    assert.equal(await popup.locator('.account').count(), 0);
+    await popup.close();
+    await emptyPassword();
+    await desktop('unlock');
   });
   await desktop('enable');
   await record('E02-desktop-locked', async () => {
@@ -313,6 +359,7 @@ try {
     await record(`E03-fill-${mode}`, async () => {
       await load(mode);
       await choose();
+      await emptyPassword();
       await desktop('approve');
       await page.bringToFront();
       await filled(mode === 'password-only' ? 2 : 4);
@@ -332,7 +379,12 @@ try {
     await page.bringToFront();
     const popup = await openPopup();
     await emptyPassword();
+    assert.match(await popup.locator('#status').innerText(), /Request canceled in YourSafe on Windows/);
+    assert.equal(await popup.locator('.account').count(), 0);
     assert(!/[0-9]{6}/.test(await popup.locator('#totp-code').innerText()));
+    await popup.locator('#refresh').click();
+    await account(popup, passwordTitle).getByRole('button', { name: /^Fill / }).waitFor();
+    await emptyPassword();
     await popup.close();
   });
   await record('E04-desktop-approval-deadline', async () => {
@@ -477,13 +529,18 @@ try {
     await load();
     await choose();
     const other = await context.newPage();
-    await other.goto(`http://127.0.0.1:${port}/normal`);
+    await other.goto(`http://127.0.0.1:${port}/normal?switched=1`);
     await other.bringToFront();
+    await desktop('waitApprovalGone');
+    const switchedPopup = await openPopup(context, browserCdp, other);
+    assert.match(await switchedPopup.locator('#status').innerText(), /Request canceled because you switched browser tabs or windows/);
+    assert.equal(await other.locator('#password').inputValue(), '');
+    await switchedPopup.close();
     await other.close();
     await page.bringToFront();
     const popup = await openPopup();
     await emptyPassword();
-    assert.doesNotMatch(await popup.locator('#status').innerText(), /^Login details filled/);
+    assert.match(await popup.locator('#status').innerText(), /Request canceled because you switched browser tabs or windows/);
     await popup.close();
   });
   await record('E07-unrelated-background-tab-does-not-cancel', async () => {
@@ -674,6 +731,7 @@ try {
     });
   }
   await record('E14-desktop-close-cancels-pending-approval', async () => {
+    const { executablePath: installedDesktop } = await desktop('validate');
     await load();
     await choose();
     await desktop('closeDesktop');
@@ -683,7 +741,22 @@ try {
     assert.equal(await popup.locator('#status').getAttribute('data-state'), 'unavailable');
     assert.equal(await popup.locator('.account').count(), 0);
     assert.equal(await popup.locator('#totp-code').innerText(), '');
+    assert.equal(await desktopProcess(installedDesktop), 0, 'A passive popup status check must not start YourSafe');
+    await popup.locator('#show-app').click();
+    const startedPid = await desktopProcess(installedDesktop, 15000);
+    assert(startedPid > 0 && startedPid !== appPid, 'Open YourSafe must start a new desktop process');
+    await desktop('validate', 20000, startedPid);
+    relaunchedPid = startedPid;
+    const window = (await desktop('assertRestored', 20000, relaunchedPid)).windowState;
+    console.log(`Open YourSafe started and showed a new desktop. Foreground: ${window.foreground}.`);
+    await desktop('assertNoApproval', 20000, relaunchedPid);
     await popup.close();
+    await page.bringToFront();
+    const reopened = await openPopup();
+    assert.equal(await reopened.locator('#status').getAttribute('data-state'), 'off-locked');
+    assert.equal(await reopened.locator('.account').count(), 0);
+    await emptyPassword();
+    await reopened.close();
   });
   assert(results.length > 0, 'No E2E case matched the requested prefix');
   campaignComplete = true;
@@ -696,7 +769,8 @@ try {
   console.error(`FAIL CAMPAIGN: ${campaignError}`);
   process.exitCode = 1;
 } finally {
-  const cleanup = await Promise.allSettled([context?.close(), server.listening ? new Promise(closed => server.close(closed)) : undefined]);
+  const cleanup = await Promise.allSettled([context?.close(), server.listening ? new Promise(closed => server.close(closed)) : undefined,
+    relaunchedPid && desktop('closeDesktop', 20000, relaunchedPid)]);
   for (const outcome of cleanup) if (outcome.status === 'rejected') { campaignError ??= safeFailure(outcome.reason); process.exitCode = 1; }
   await writeEvidence();
 }

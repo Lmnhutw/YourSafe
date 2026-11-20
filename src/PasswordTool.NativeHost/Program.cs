@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using System.Diagnostics;
 using System.IO.Pipes;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -29,7 +31,13 @@ try
                 {
                     using var pipe = new NamedPipeClientStream(".", PipePeer.PipeName, PipeDirection.InOut,
                         PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
-                    await pipe.ConnectAsync(3000, timeout.Token);
+                    var openDesktop = request.Action == "showApp";
+                    try { await pipe.ConnectAsync(openDesktop ? 500 : 3000, timeout.Token); }
+                    catch (TimeoutException) when (openDesktop)
+                    {
+                        StartDesktopIfNeeded(timeout.Token);
+                        await pipe.ConnectAsync(12000, timeout.Token);
+                    }
                     PipePeer.Verify(pipe, server: false, "YourSafe.exe");
                     await Framing.WriteAsync(pipe, bytes, timeout.Token);
                     responseBytes = await Framing.ReadAsync(pipe, timeout.Token) ?? throw new EndOfStreamException();
@@ -63,6 +71,50 @@ catch (Exception error) when (error is IOException or InvalidDataException or Js
 {
     // No payloads, stack traces, secrets or non-protocol output on stdout/stderr.
     return 1;
+}
+
+static void StartDesktopIfNeeded(CancellationToken cancellationToken)
+{
+    cancellationToken.ThrowIfCancellationRequested();
+    var directory = Path.GetDirectoryName(Environment.ProcessPath)
+        ?? throw new UnauthorizedAccessException("Invalid NativeHost executable path.");
+    var executable = Path.Combine(directory, "YourSafe.exe");
+    if (!File.Exists(executable)) throw new FileNotFoundException("The adjacent YourSafe app is unavailable.");
+
+    using var launch = new Mutex(false, $@"Local\{PipePeer.PipeName}.Launch");
+    var acquired = false;
+    try
+    {
+        try { acquired = launch.WaitOne(0); }
+        catch (AbandonedMutexException) { acquired = true; }
+        if (!acquired) return;
+
+        using var host = Process.GetCurrentProcess();
+        var desktops = Process.GetProcessesByName("YourSafe");
+        try
+        {
+            // A running or starting desktop may temporarily have no available pipe listener.
+            if (desktops.Any(desktop => desktop.SessionId == host.SessionId)) return;
+        }
+        finally
+        {
+            foreach (var desktop in desktops) desktop.Dispose();
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        // The fixed sibling path needs no browser arguments or inherited Native Messaging streams.
+        using var started = Process.Start(new ProcessStartInfo(executable)
+        {
+            WorkingDirectory = directory,
+            UseShellExecute = true,
+            WindowStyle = ProcessWindowStyle.Normal
+        });
+    }
+    catch (Exception error) when (error is Win32Exception or InvalidOperationException)
+    {
+        throw new IOException("YourSafe could not be started.", error);
+    }
+    finally { if (acquired) launch.ReleaseMutex(); }
 }
 
 static async Task CancelOnExtraInputAsync(Task<int> incoming, CancellationTokenSource lifetime, CancellationToken requestFinished)

@@ -10,9 +10,9 @@ YourSafe is a local Windows password manager for passwords, website verification
 
 Vault data stays on your device. The desktop app uses WinUI 3 and works without an online account, cloud service, telemetry, or an internet connection. Encrypted backups and updates are managed manually.
 
-![YourSafe vault with annotated search, group tabs, protected actions and lock control](docs/diagrams/vault-overview.svg)
+![YourSafe sample vault with a lock countdown, filters and 2FA controls](website/assets/homepage/desktop-vault.png)
 
-Existing WinUI Debug capture with synthetic demo accounts. [Open full size](docs/diagrams/vault-overview.svg) · [Diagram collection and editable sources](docs/diagrams/README.md).
+WinUI Debug capture with synthetic demo accounts. [Open full size](website/assets/homepage/desktop-vault.png) · [Diagram collection and editable sources](docs/diagrams/README.md).
 
 ## Contents
 
@@ -117,7 +117,7 @@ Password and TOTP edits stay in the editor draft until you save; Cancel discards
 
 ![Saving a credential through validation, encryption and paired commit, with failure paths](docs/diagrams/save-credential.svg)
 
-Only a validated draft reaches encryption and storage. The vault pair includes encrypted `.storage` and `.config` metadata with wrapped keys. [Full size](docs/diagrams/save-credential.svg) · [Mermaid source](docs/diagrams/save-credential.mmd) · [Annotated editor](docs/diagrams/editor-overview.svg).
+Only a validated draft reaches encryption and storage. The vault pair includes encrypted `.storage` and `.config` metadata with wrapped keys. [Full size](docs/diagrams/save-credential.svg) · [Mermaid source](docs/diagrams/save-credential.mmd) · [Desktop editor screenshot](website/assets/homepage/desktop-editor.png).
 
 </details>
 
@@ -126,6 +126,8 @@ Only a validated draft reaches encryption and storage. The vault pair includes e
 Search for the account and use its explicit reveal or copy action. The app checks the current session before returning a secret; list rows do not hold password values or TOTP secrets.
 
 While the vault is unlocked, ordinary actions do not request another Authenticator code. If the table is locked during an active login, a desktop action can request the Master Password, open the vault for that action, and immediately relock it. **Unlock vault** instead opens it for the configured duration.
+
+The vault shows the remaining time before it locks. Clearing the search box keeps the current filters. Password and 2FA cells show dots when a value is present and stay blank otherwise. Use the eye and copy icons in the 2FA column to view or copy the current code. The item editor shows whether the saved URL is eligible for browser autofill.
 
 Sensitive copies use best-effort clipboard cleanup after 30 seconds and on lock, while YourSafe still owns the copied value. A value you replace is preserved. Cleanup cannot retract an earlier paste or a copy already read by another application.
 
@@ -174,14 +176,14 @@ For an enrolled vault: login and vault-open deadlines are separate. Windows life
 
 ## Browser autofill
 
-Browser integration is optional and starts disabled each app session. YourSafe must already be running. Protocol v3 permits status checks and **Open YourSafe** while integration is off; account discovery and secrets require integration on and an explicitly unlocked vault. The extension never starts the desktop, enables integration, or unlocks the vault automatically.
+Browser integration is optional and starts disabled each app session. Protocol v3 permits status checks and **Open YourSafe** while integration is off. Clicking **Open YourSafe** brings the desktop forward or starts the installed app if it is closed. Account discovery and access to secrets require enabling integration and unlocking the vault on the desktop.
 
 The integration-off reminder appears only on Vault. Its close button hides it for the current app session; opening Settings or another page hides it without dismissing it.
 
 1. Save an account with its complete website URL in the desktop app, then enable browser integration in **Settings**.
 2. Open the matching website and the YourSafe browser popup. Discovery returns matching account titles, usernames, and password/TOTP capability flags without another desktop prompt.
 3. Choose an account and **Fill**, **View code**, or **Copy code**. Each action requests a separate one-time approval on the desktop.
-4. Review the account, stored website, reported website, and requested action. After approval, Fill populates eligible fields; it never submits the form. If the vault is locked, use **Open YourSafe**, unlock on the desktop, then refresh the popup. While approval is pending, **Open YourSafe** and **Cancel** remain available; opening the app does not restart or extend the request.
+4. Review the account, stored website, reported website, and requested action. After approval, Fill populates eligible fields; it never submits the form. If the vault is locked, use **Open YourSafe**, unlock on the desktop, and reopen the popup. Use **Refresh** if the popup stayed open. While approval is pending, **Open YourSafe** and **Cancel** remain available; opening the app does not restart or extend the request.
 
 Matching uses the URL's origin: scheme, normalized host, and effective port. Paths do not restrict matching; a different subdomain or port is a different origin. Public HTTPS and explicitly allowed loopback HTTP are supported. Missing, invalid, and unrelated URLs are excluded.
 

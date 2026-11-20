@@ -46,9 +46,12 @@ try {
       postMessage({ requestId, message }) {
         window.popupRequests.push(message);
         const result = message.action === 'resume' ? { ok: true, result: { resumed: location.search === '?pending', interaction: {
-          token: 'synthetic-token', origin: 'https://example.test', accounts: [], truncated: false, busy: true,
+          token: 'synthetic-token', origin: 'https://example.test', accounts: [
+            { id: '11111111-1111-1111-1111-111111111111', title: 'Example account', username: 'test-user', hasPassword: true, hasTotp: false }
+          ], truncated: false, busy: true,
           selectedId: '11111111-1111-1111-1111-111111111111', action: 'select'
-        } } } : { ok: false, error: message.action === 'showApp' ? 'desktopUnavailable' : 'integrationDisabled' };
+        } } } : { ok: false, error: message.action === 'showApp' ? 'desktopUnavailable'
+          : location.search === '?locked' ? 'locked' : 'integrationDisabled' };
         queueMicrotask(() => listeners.forEach(listener => listener({ requestId, ...result })));
       }
     }) };
@@ -69,8 +72,15 @@ try {
     await page.keyboard.press('Enter');
     await page.getByText(/Could not connect to YourSafe/).waitFor();
     assert.equal(await page.locator('#status').getAttribute('data-state'), 'off');
+    await page.goto(base + '/popup.html?locked');
+    await page.getByText(/unlock it, then reopen this popup/).waitFor();
+    await page.keyboard.press('Tab');
+    assert.equal(await page.locator('#show-app').evaluate(button => button === document.activeElement), true,
+      'Open YourSafe is the first keyboard action while locked');
+    assert.equal(await page.locator('#refresh').isEnabled(), true);
     await page.goto(base + '/popup.html?pending');
     await page.waitForFunction(() => document.getElementById('status')?.dataset.state === 'pending');
+    assert.equal(await page.locator('#status').innerText(), 'Fill password for Example account (test-user). Approve in YourSafe on Windows.');
     assert.equal(await page.locator('#show-app').isEnabled(), true);
     assert.equal(await page.locator('#cancel').isEnabled(), true);
     assert.equal(await page.locator('#cancel').isVisible(), true);
@@ -81,5 +91,5 @@ try {
     assert.deepEqual(await page.evaluate(() => window.popupRequests.map(message => message.action)), ['resume', 'showApp']);
   }
   assert.deepEqual(errors, []);
-  console.log('PASS: popup OFF/pending, keyboard, opening failure and layout in Light/Dark/forced-colors (synthetic worker)');
+  console.log('PASS: popup OFF/locked/pending, keyboard, opening failure and layout in Light/Dark/forced-colors (synthetic worker)');
 } finally { await browser?.close(); await new Promise(resolveClosed => server.close(resolveClosed)); }

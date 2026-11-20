@@ -10,9 +10,15 @@ sequenceDiagram
     H->>A: Verified named pipe: getStatus
     A-->>H: integrationEnabled, unlocked
     H-->>W: Validated protocol v3 response
-    alt Disabled or locked
+    alt Desktop closed
+        W->>W: Show unavailable state
+        opt User clicks Open YourSafe
+            W->>H: showApp
+            H->>A: Start installed YourSafe and verify pipe peer
+        end
+    else Disabled or locked
         W->>W: Show enable or unlock guidance
-        Note over W,A: Open YourSafe can foreground a running app
+        Note over W,A: Open YourSafe restores or foregrounds the running app
     else Enabled and explicitly unlocked
         W->>H: findCredentials(canonical origin)
         H->>A: Validate frame and forward one request

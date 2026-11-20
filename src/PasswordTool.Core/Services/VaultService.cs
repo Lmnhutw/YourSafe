@@ -72,6 +72,15 @@ public sealed class VaultService : IDisposable
     public bool IsSignInSessionActive => signInSessionExpiresAt is { } expiresAt && expiresAt > utcNow();
     public DateTimeOffset? LoginExpiresAt => signInSessionExpiresAt;
     public DateTimeOffset? VaultExpiresAt => vaultExpiresAt;
+    public TimeSpan? VaultLockRemaining
+    {
+        get
+        {
+            if (vaultExpiresAt is not { } deadline) return null;
+            var remaining = deadline - utcNow();
+            return remaining > TimeSpan.Zero ? remaining : null;
+        }
+    }
     public bool HasActiveVaultSession => IsSignInSessionActive && isVaultOpen && encryptionKey is not null
         && vaultExpiresAt > utcNow();
     public bool IsVaultUnlocked => HasActiveVaultSession && !recoveryKeyRequired;

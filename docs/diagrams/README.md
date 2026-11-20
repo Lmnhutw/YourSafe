@@ -177,6 +177,8 @@ Source: [TOTP editor/flyout](../../src/PasswordTool.WinUI/MainPage.Totp.cs), [To
 
 ## Browser discovery
 
+If the desktop is closed, its status is unavailable. Clicking **Open YourSafe** starts the installed desktop beside NativeHost. The vault opens locked and browser integration starts disabled.
+
 ![Status, matching metadata and same-document checks across the local bridge](browser-discovery.svg)
 
 Integration starts disabled each app session. Status and Open YourSafe remain available while it is disabled or locked; Open only foregrounds a running desktop. Discovery requires opt-in, an explicitly unlocked vault, supported origin and the protected-request quota. It needs no individual approval because it returns metadata only.
@@ -289,6 +291,8 @@ Hash validates input and rejects educational-only generation with 400. Verify tr
 Source: [Program.cs](../../src/PasswordTool.Api/Program.cs), [registry](../../src/PasswordTool.Core/Registry/PasswordHasherRegistry.cs), [inspector](../../src/PasswordTool.Core/Inspection/PasswordHashInspector.cs), [API guide and request examples](../../src/PasswordTool.Api/README.md).
 
 ## Vault and editor
+
+Current WinUI captures with sample data are available for the [vault](../../website/assets/homepage/desktop-vault.png) and the [item editor](../../website/assets/homepage/desktop-editor.png). The annotated examples below show the earlier layout.
 
 ![Existing vault capture with search, group tabs and protected-action annotations](vault-overview.svg)
 

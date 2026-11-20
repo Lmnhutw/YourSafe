@@ -94,6 +94,8 @@ public sealed class AppFlowCoordinator
     public bool IsSignedIn => vaultService.IsSignInSessionActive;
     public bool NeedsRecoveryKey => vaultService.NeedsRecoveryKey;
     public bool IsVaultSessionActive => vaultService.HasActiveVaultSession;
+    public TimeSpan? VaultLockRemaining => IsCurrentNormalUnlock(LifecycleVersion) ? vaultService.VaultLockRemaining : null;
+
     public async Task<bool> ValidateAuthenticatorSetupAsync(AuthenticatorSetup setup, string code)
     {
         var version = LifecycleVersion;
@@ -473,7 +475,7 @@ public sealed class AppFlowCoordinator
                 return (Credential: candidate, Revision: vaultService.MutationVersion);
             }, lifetime.Token).ConfigureAwait(false);
             if (!await approval(new(snapshot.Credential, action, origin), lifetime.Token).WaitAsync(lifetime.Token).ConfigureAwait(false))
-                throw new UnauthorizedAccessException("Desktop approval was declined.");
+                throw new AutofillApprovalDeclinedException();
             var result = await RunUnlockedVaultAsync(() =>
             {
                 RequireBrowserIntegration();

@@ -1,3 +1,4 @@
+using PasswordTool.Autofill;
 using PasswordTool.Core.Models;
 using PasswordTool.Core.Services;
 
@@ -19,6 +20,16 @@ public sealed record VaultItemEditorInput(
     TotpConfiguration? TotpConfiguration = null)
 {
     public override string ToString() => nameof(VaultItemEditorInput);
+
+    public static string DescribeAutofillUrl(string url, bool hiddenInList)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return "No URL to match for autofill.";
+        if (!CanonicalOrigin.TryParse(url.Trim(), out var origin))
+            return "Autofill needs a full HTTPS sign-in URL or a local HTTP address.";
+        return hiddenInList
+            ? $"Autofill matches {origin}. The URL is hidden in the vault list."
+            : $"Autofill matches {origin}.";
+    }
 
     public IReadOnlyDictionary<string, string> Validate()
     {

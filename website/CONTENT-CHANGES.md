@@ -200,3 +200,13 @@ Giữ nguyên nội dung.
 - Mật khẩu của bạn. Quyền kiểm soát của bạn.
 - Tải cho Windows
 - Tải YourSafe và bắt đầu lưu mật khẩu trên Windows. Xem hướng dẫn cài đặt và trạng thái bản tải ở trên.
+## Bản cập nhật UI desktop và autofill
+
+| Vị trí | Tiếng Việt | English |
+| --- | --- | --- |
+| Tiện ích | Bấm **Open YourSafe** để mở ứng dụng Windows hoặc đưa cửa sổ lên trước. Mở khóa kho, rồi bật kết nối trình duyệt trong Cài đặt. | Select **Open YourSafe** to start the Windows app or bring it forward. Unlock the vault, then enable browser integration in Settings. |
+| FAQ autofill | Địa chỉ đã lưu phải khớp với website đang mở. Màn hình chỉnh sửa mục cho biết URL có dùng được cho autofill hay không. | The saved website must match the site you are visiting. The item editor indicates whether the URL can be used for autofill. |
+| FAQ khóa kho | Màn hình kho hiển thị thời gian còn lại trước khi khóa. | The vault shows the time remaining. |
+| Chú thích ảnh | Kho mẫu với thời gian còn lại trước khi khóa và các nút xem, sao chép mã 2FA. | Sample vault showing the lock countdown and the 2FA view and copy controls. |
+
+README desktop mô tả thêm trạng thái ô Password/2FA, giữ bộ lọc khi xóa tìm kiếm và cách đọc trạng thái URL. Sơ đồ Browser discovery có thêm nhánh mở YourSafe từ trạng thái đã đóng.

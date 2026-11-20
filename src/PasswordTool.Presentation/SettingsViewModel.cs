@@ -20,11 +20,22 @@ public sealed partial class SettingsViewModel(AppFlowCoordinator flow, IUserErro
     [ObservableProperty] public partial string AuthenticatorCodeError { get; set; } = string.Empty;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(BrowserIntegrationDescription))]
+    [NotifyPropertyChangedFor(nameof(CanChangeBrowserIntegration))]
     public partial bool BrowserIntegrationEnabled { get; set; }
+
+    public bool CanChangeBrowserIntegration => BrowserIntegrationEnabled || flow.IsCurrentNormalUnlock(flow.LifecycleVersion);
 
     public string BrowserIntegrationDescription => BrowserIntegrationEnabled
         ? "Browser integration is on. Matching account names and usernames are shared with your extension. Passwords and verification codes require your approval each time."
-        : "Browser integration is off. Your browser cannot access saved accounts. Turn it on to enable autofill and verification codes.";
+        : CanChangeBrowserIntegration
+            ? "Browser integration is off. Your browser cannot access saved accounts. Turn it on to enable autofill and verification codes."
+            : "Unlock the vault before enabling browser integration.";
+
+    internal void RefreshBrowserIntegrationStatus()
+    {
+        OnPropertyChanged(nameof(CanChangeBrowserIntegration));
+        OnPropertyChanged(nameof(BrowserIntegrationDescription));
+    }
 
     partial void OnBrowserIntegrationEnabledChanged(bool value)
     {

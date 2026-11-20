@@ -3,6 +3,13 @@ import { nativeSession } from './native';
 import { isPopup, sameTarget, type Target } from './context';
 
 type Popup = { port: chrome.runtime.Port };
+type CancellationNotice = {
+  reason: 'approvalDeclined' | 'tabChanged';
+  windowId: number;
+  nextWindowId: number | undefined;
+  tabId: number | undefined;
+  expiresAt: number;
+};
 type Interaction = {
   token: string; target: Target; accounts: Credential[]; truncated: boolean; busy: boolean; expiresAt: number; deadline: number;
   selectedId: string | undefined; action: 'select' | 'viewTotp' | 'copyTotp' | undefined;
@@ -10,6 +17,7 @@ type Interaction = {
 };
 let popup: Popup | undefined;
 let interaction: Interaction | undefined;
+let cancellationNotice: CancellationNotice | undefined;
 let connection: ReturnType<typeof nativeSession> | undefined;
 let watchedTarget: Pick<Target, 'tabId' | 'windowId'> | undefined;
 let generation = 0;
@@ -22,8 +30,15 @@ function notify(message: unknown): void {
   try { session.port.postMessage(message); }
   catch { if (popup === session) popup = undefined; session.port.disconnect(); }
 }
-function invalidate(error?: string): void {
+function invalidate(error?: string, tabChangeWindow?: number): void {
   const active = interaction;
+  if (active?.busy && (error === 'approvalDeclined' || error === 'tabChanged')) {
+    // Retain only the outcome for reopening the popup, never its authorization or account data.
+    cancellationNotice = {
+      reason: error, windowId: active.target.windowId, nextWindowId: tabChangeWindow, expiresAt: performance.now() + 30000,
+      tabId: error === 'approvalDeclined' ? active.target.tabId : undefined
+    };
+  }
   if (active) void deliver(active.target, { action: 'cancel', token: active.token, url: active.target.url }).catch(() => {});
   generation++;
   inFlight = undefined;
@@ -44,14 +59,16 @@ chrome.webNavigation.onCommitted.addListener(event => { if (event.frameId === 0)
 chrome.webNavigation.onHistoryStateUpdated.addListener(event => { if (event.frameId === 0) invalidateTab(event.tabId); });
 chrome.webNavigation.onReferenceFragmentUpdated.addListener(event => { if (event.frameId === 0) invalidateTab(event.tabId); });
 chrome.tabs.onActivated.addListener(event => {
-  if (watchedTarget && event.windowId === watchedTarget.windowId && event.tabId !== watchedTarget.tabId) invalidate('targetChanged');
+  if (watchedTarget && event.windowId === watchedTarget.windowId && event.tabId !== watchedTarget.tabId)
+    invalidate(interaction?.busy ? 'tabChanged' : 'targetChanged', event.windowId);
 });
 chrome.tabs.onRemoved.addListener(invalidateTab);
 chrome.tabs.onDetached.addListener(invalidateTab);
 chrome.tabs.onUpdated.addListener((tabId, change) => { if (change.url || change.status === 'loading') invalidateTab(tabId); });
 // Desktop approval reports WINDOW_ID_NONE; switching to another browser window cancels.
 chrome.windows.onFocusChanged.addListener(windowId => {
-  if (watchedTarget && windowId !== chrome.windows.WINDOW_ID_NONE && windowId !== watchedTarget.windowId) invalidate('targetChanged');
+  if (watchedTarget && windowId !== chrome.windows.WINDOW_ID_NONE && windowId !== watchedTarget.windowId)
+    invalidate(interaction?.busy ? 'tabChanged' : 'targetChanged', windowId);
 });
 chrome.windows.onRemoved.addListener(windowId => {
   if (watchedTarget?.windowId === windowId) invalidate('targetChanged');
@@ -104,11 +121,22 @@ async function popupAction(session: Popup, message: Record<string, unknown>): Pr
   switch (message.action) {
     case 'resume': {
       const active = interaction;
-      if (!active) return { resumed: false };
-      await requireCurrent(active);
-      return { resumed: true, interaction: snapshot(active) };
+      if (active) {
+        await requireCurrent(active);
+        return { resumed: true, interaction: snapshot(active) };
+      }
+      const notice = cancellationNotice;
+      if (notice && notice.expiresAt > performance.now()) {
+        const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+        if (popup === session && notice === cancellationNotice && notice.expiresAt > performance.now()
+          && tab && (tab.windowId === notice.windowId || tab.windowId === notice.nextWindowId)
+          && (notice.tabId === undefined || tab.id === notice.tabId))
+          return { resumed: false, cancellation: notice.reason };
+      }
+      return { resumed: false };
     }
     case 'discover': {
+      cancellationNotice = undefined;
       invalidate();
       const epoch = generation;
       const expiresAt = Date.now() + 60000, deadline = performance.now() + 60000;
@@ -117,7 +145,7 @@ async function popupAction(session: Popup, message: Record<string, unknown>): Pr
       const status = await native().request('getStatus');
       if (popup !== session || epoch !== generation) throw new Error('targetChanged');
       if (!isStatus(status)) throw new Error('invalidRequest');
-      if (!status.integrationEnabled) throw new Error('integrationDisabled');
+      if (!status.integrationEnabled) throw new Error(status.unlocked ? 'integrationDisabled' : 'integrationLocked');
       if (!status.unlocked) throw new Error('locked');
       const discovery = await native().request('findCredentials', { origin: target.origin });
       const current = await currentTarget();
@@ -133,13 +161,13 @@ async function popupAction(session: Popup, message: Record<string, unknown>): Pr
       const action = message.action;
       const active = accountFor(message, action === 'select' ? 'hasPassword' : 'hasTotp');
       active.busy = true;
+      active.selectedId = String(message.id);
+      active.action = action;
+      active.result = undefined;
+      clearTimeout(codeExpiry);
       try {
         await requireCurrent(active);
         // Only this explicit action starts an approval lifetime; reconnects and countdowns never renew it.
-        active.selectedId = String(message.id);
-        active.action = action;
-        active.result = undefined;
-        clearTimeout(codeExpiry);
         lifetime(active, 70000);
         if (action === 'select') {
           const prepare = { action: 'prepare', token: active.token, url: active.target.url };
@@ -195,7 +223,8 @@ async function popupAction(session: Popup, message: Record<string, unknown>): Pr
   }
 }
 function safeError(error: unknown): string {
-  const allowed = ['locked', 'integrationDisabled', 'protocolMismatch', 'unavailable', 'desktopUnavailable', 'invalidRequest', 'targetChanged', 'ambiguousFields', 'unsupportedPage'];
+  const allowed = ['locked', 'integrationDisabled', 'integrationLocked', 'protocolMismatch', 'unavailable', 'desktopUnavailable',
+    'invalidRequest', 'targetChanged', 'tabChanged', 'approvalDeclined', 'ambiguousFields', 'unsupportedPage'];
   return error instanceof Error && allowed.includes(error.message) ? error.message : 'unavailable';
 }
 

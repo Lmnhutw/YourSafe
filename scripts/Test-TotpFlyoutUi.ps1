@@ -61,6 +61,7 @@ OpenTotp 'TOTP password account'
 $codeElement = Element 'TxtTotpCode'
 $indicator = Element 'TotpTimeRemaining'
 $copy = Element 'BtnCopyTotp'
+$rowCopy = Element 'Copy verification code'
 $manage = Element 'Manage verification code'
 Ui screenshot -o (Join-Path $directory 'totp-flyout.png') | Out-Null
 if ($codeElement.name -notmatch '^\d{3}\u2009\d{3}$') { throw 'Expected six digits with a thin grouping space.' }
@@ -68,6 +69,7 @@ $firstHalf = Element 'TxtTotpCodeFirstHalf'
 $secondHalf = Element 'TxtTotpCodeSecondHalf'
 if ([Math]::Abs($secondHalf.x - ($firstHalf.x + $firstHalf.width) - 4) -gt 1) { throw 'Code groups must have a four-pixel gap.' }
 if ([Math]::Abs(($copy.y + $copy.height / 2) - ($manage.y + $manage.height / 2)) -gt 3 -or $copy.x -le $manage.x) { throw 'Copy and Manage must share the footer row.' }
+if ($rowCopy.automationId -notlike 'CopyTotp_*' -or $copy.name -ne 'Copy current verification code securely') { throw 'The row and flyout must have distinct, accessible copy buttons.' }
 if ([Math]::Abs(($indicator.y + $indicator.height / 2) - ($firstHalf.y + $firstHalf.height / 2)) -gt 3 -or $indicator.x -le $secondHalf.x) { throw 'The filled timer must sit to the right of the code.' }
 if (@((Ui search ProgressBar).matches).Count -gt 0 -or @((Ui search 's').matches | Where-Object { $_.type -eq 'Text' -and $_.name -match '^\d+s$' }).Count -gt 0) { throw 'The old countdown is still visible.' }
 Ui screenshot -o (Join-Path $directory 'totp-flyout.png') | Out-Null
@@ -75,32 +77,32 @@ $decreased = $renewed = $false
 Write-Output 'PASS: flyout layout and four-pixel grouping; observing one code renewal.'
 $previousCode = CurrentCode
 $initialTime = (Ui get-property TotpTimeRemaining -p HelpText).properties.HelpText
-if ($initialTime -notmatch '^([1-8])/8 remaining\.') { throw 'Initial timer state missing.' }
-$previousSlices = [int]$Matches[1]
+if ($initialTime -notmatch '^Code expires in ([1-9]\d*) seconds\.$') { throw 'Initial timer state missing.' }
+$previousSeconds = [int]$Matches[1]
 $deadline = [DateTimeOffset]::UtcNow.AddSeconds(40)
 do {
     $before = CurrentCode
     $value = (Ui get-property TotpTimeRemaining -p HelpText).properties.HelpText
     $after = CurrentCode
     if ([string]::IsNullOrEmpty($value) -and ($before -eq '' -or $after -eq '')) { continue }
-    if ($value -notmatch '^([1-8])/8 remaining\.') { throw 'Invalid circular countdown state.' }
-    $slices = [int]$Matches[1]
+    if ($value -notmatch '^Code expires in ([1-9]\d*) seconds\.$') { throw 'Invalid circular countdown state.' }
+    $seconds = [int]$Matches[1]
     if ($before -eq $after) {
         if ($after -eq $previousCode) {
-            if ($slices -gt $previousSlices) { throw 'The timer grew before the code changed.' }
-            if ($slices -lt $previousSlices) { $decreased = $true }
+            if ($seconds -gt $previousSeconds) { throw 'The timer grew before the code changed.' }
+            if ($seconds -lt $previousSeconds) { $decreased = $true }
         } else {
-            if ($slices -ne 8) { throw 'A renewed code must reset to a filled circle.' }
+            if ($seconds -lt 26 -or $seconds -gt 30) { throw 'A renewed code must reset near the start of its 30-second period.' }
             $renewed = $true
             Ui screenshot -o (Join-Path $directory 'totp-flyout-renewed.png') | Out-Null
         }
         $previousCode = $after
-        $previousSlices = $slices
+        $previousSeconds = $seconds
     }
     if (-not ($decreased -and $renewed)) { Start-Sleep -Milliseconds 700 }
 } while (-not ($decreased -and $renewed) -and [DateTimeOffset]::UtcNow -lt $deadline)
 if (-not ($decreased -and $renewed)) { throw 'The countdown did not decrease and reset within one period.' }
-Write-Output 'PASS: compact layout, four-pixel digit gap, eight-step countdown and reset on code renewal.'
+Write-Output 'PASS: compact layout, four-pixel digit gap, accessible countdown and reset on code renewal.'
 Ui send-keys escape | Out-Null
 Ui wait-for TxtTotpCode --gone -t 5000 | Out-Null
 }

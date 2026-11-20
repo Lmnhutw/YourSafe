@@ -137,7 +137,9 @@ public static class WireProtocol
         if (response.Version != Version) throw new ProtocolMismatchException(request.RequestId);
         if (!response.Ok)
         {
-            if (response.Result is not null || response.Error is not ("integrationDisabled" or "locked" or "unavailable" or "desktopUnavailable" or "invalidRequest" or "protocolMismatch"))
+            var validError = response.Error is "integrationDisabled" or "locked" or "unavailable" or "desktopUnavailable" or "invalidRequest" or "protocolMismatch"
+                || response.Error == "approvalDeclined" && request.Action is ("getCredentialSecret" or "getCredentialTotp" or "copyCredentialTotp");
+            if (response.Result is not null || !validError)
                 throw new JsonException("Invalid error response.");
             return response;
         }

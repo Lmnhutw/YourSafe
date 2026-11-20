@@ -5,6 +5,7 @@ using Microsoft.UI.Windowing;
 using PasswordTool.Autofill;
 using PasswordTool.Autofill.Transport;
 using PasswordTool.Presentation;
+using PasswordTool.Presentation.Autofill;
 
 namespace PasswordTool_WinUI;
 
@@ -106,6 +107,10 @@ internal sealed class AutofillPipeServer
                 _ => WireProtocol.Failure(request.RequestId, "invalidRequest")
             };
         }
+        catch (AutofillApprovalDeclinedException)
+        {
+            return WireProtocol.Failure(request.RequestId, "approvalDeclined");
+        }
         catch (Exception error) when (error is OperationCanceledException or InvalidOperationException or UnauthorizedAccessException or ArgumentException
             or System.Runtime.InteropServices.COMException)
         {
@@ -143,9 +148,11 @@ internal sealed class AutofillPipeServer
         {
             try
             {
-                if (App.Window.AppWindow.Presenter is OverlappedPresenter presenter && presenter.State != OverlappedPresenterState.Restored)
+                var window = App.Window.AppWindow;
+                if (window.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized } presenter)
                     presenter.Restore();
-                App.Window.AppWindow.Show();
+                window.Show();
+                window.MoveInZOrderAtTop();
                 App.Window.Activate();
                 completion.TrySetResult(true);
             }

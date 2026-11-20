@@ -104,7 +104,7 @@ assert.equal((await send({ action: 'discover' }, content)).ok, false);
 assert.equal((await send({ action: 'select', id }, content)).ok, false);
 assert.equal(nativeActions.length, 0, 'content cannot trigger discovery/retrieval');
 assert.equal((await send({ action: 'showApp' })).result.shown, true, 'showApp closes its connection after returning a response');
-for (const state of [{ integrationEnabled: false, unlocked: false, error: 'integrationDisabled' },
+for (const state of [{ integrationEnabled: false, unlocked: false, error: 'integrationLocked' },
   { integrationEnabled: false, unlocked: true, error: 'integrationDisabled' },
   { integrationEnabled: true, unlocked: false, error: 'locked' }]) {
   integrationEnabled = state.integrationEnabled;
@@ -132,6 +132,26 @@ const fillsBefore = deliveries.filter(item => item.message.action === 'fill').le
 assert.equal((await send({ action: 'select', token: discovery.result.token, id })).error, 'targetChanged');
 assert.equal(deliveries.filter(item => item.message.action === 'fill').length, fillsBefore, 'navigation discards the secret');
 changeDuringSecret = false;
+for (const reason of ['approvalDeclined', 'tabChanged']) {
+  discovery = await send({ action: 'discover' });
+  const fills = deliveries.filter(item => item.message.action === 'fill').length;
+  delayedAction = 'getCredentialSecret';
+  const selecting = send({ action: 'select', token: discovery.result.token, id });
+  await new Promise(resolve => setImmediate(resolve));
+  if (reason === 'approvalDeclined') nativeError = reason;
+  else chrome.tabs.onActivated.emit({ tabId: 2, windowId: 1 });
+  delayedReply();
+  nativeError = delayedAction = undefined;
+  assert.equal((await selecting).error, reason);
+  session.disconnect();
+  session = connect();
+  const calls = nativeActions.length;
+  assert.deepEqual((await send({ action: 'resume' })).result, { resumed: false, cancellation: reason });
+  assert.equal(nativeActions.length, calls, 'a cancellation notice cannot replay or discover credentials');
+  assert.equal(deliveries.filter(item => item.message.action === 'fill').length, fills, 'canceled requests never fill');
+  monotonic += 30001;
+  assert.deepEqual((await send({ action: 'resume' })).result, { resumed: false }, 'cancellation notice expires');
+}
 discovery = await send({ action: 'discover' });
 documentId = 'document-two';
 const secretsBefore = nativeActions.filter(action => action === 'getCredentialSecret').length;
@@ -217,14 +237,25 @@ Date.now = () => realNow() + 30001;
 let copiedResume = await send({ action: 'resume' });
 assert.equal(copiedResume.result.interaction.result, undefined, 'expired display code is removed from recovery');
 delayedAction = 'copyCredentialTotp';
+let finishTargetCheck;
+const queryTabs = chrome.tabs.query;
+chrome.tabs.query = () => {
+  chrome.tabs.query = queryTabs;
+  return new Promise(resolve => { finishTargetCheck = async () => resolve(await queryTabs()); });
+};
+const actionsBeforeTargetCheck = nativeActions.length;
 void send({ action: 'copyTotp', token: discovery.result.token, id });
-await new Promise(resolve => setImmediate(resolve));
-const actionsBeforeCopyRecovery = nativeActions.length;
 session.disconnect();
 session = connect();
 copiedResume = await send({ action: 'resume' });
 assert.equal(copiedResume.result.interaction.busy, true);
+assert.equal(copiedResume.result.interaction.selectedId, id, 'reopening during validation identifies the pending account');
 assert.equal(copiedResume.result.interaction.action, 'copyTotp');
+assert.equal(copiedResume.result.interaction.result, undefined);
+assert.equal(nativeActions.length, actionsBeforeTargetCheck, 'resuming does not bypass the original tab check or request a code');
+await finishTargetCheck();
+await new Promise(resolve => setImmediate(resolve));
+const actionsBeforeCopyRecovery = nativeActions.length;
 delayedReply();
 await new Promise(resolve => setImmediate(resolve));
 copiedResume = await send({ action: 'resume' });

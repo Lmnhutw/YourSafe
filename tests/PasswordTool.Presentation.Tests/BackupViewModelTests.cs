@@ -239,8 +239,9 @@ public sealed class BackupViewModelTests : IDisposable
     public async Task First_item_offers_backup_once_unless_backup_already_exists(bool hasBackup)
     {
         if (hasBackup) service.CreateExternalBackupFile(Path.Combine(directory, "backup.json"), Password, string.Empty);
-        var shell = new ShellViewModel(flow, workspace, null!, null!, model, null!, null!,
-            new NavigationService(), null!, picker, new UserErrorMapper(), null!);
+        var errors = new UserErrorMapper();
+        var shell = new ShellViewModel(flow, workspace, null!, new SettingsViewModel(flow, errors), model, null!, null!,
+            new NavigationService(), null!, picker, errors, null!);
         Assert.False(shell.IsBackupReminderOpen);
         var input = new VaultItemEditorInput(null, "First item", "user", "saved password", "", "", "", "", null, false, false, false);
         Assert.True(await shell.SaveItemAsync(input));

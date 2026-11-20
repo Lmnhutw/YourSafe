@@ -37,7 +37,8 @@ public sealed class AutofillApprovalTests
         changes.Clear();
         await fixture.Flow.LogoutAsync();
         settings.Clear();
-        Assert.Equal(off, settings.BrowserIntegrationDescription);
+        Assert.Equal("Unlock the vault before enabling browser integration.", settings.BrowserIntegrationDescription);
+        Assert.False(settings.CanChangeBrowserIntegration);
         Assert.Contains(nameof(settings.BrowserIntegrationDescription), changes);
     }
 
@@ -64,7 +65,7 @@ public sealed class AutofillApprovalTests
         fixture.Flow.SetBrowserIntegrationEnabled(true);
         var approvals = new List<AutofillApprovalRequest>();
         fixture.Flow.RequestAutofillApprovalAsync = (request, _) => { approvals.Add(request); return Task.FromResult(false); };
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => fixture.Request(action));
+        await Assert.ThrowsAsync<AutofillApprovalDeclinedException>(() => fixture.Request(action));
         var denied = Assert.Single(approvals);
         Assert.Equal(fixture.Item.Id, denied.Credential.Id);
         Assert.Equal("Synthetic account", denied.Credential.Title);
@@ -78,7 +79,7 @@ public sealed class AutofillApprovalTests
         if (action == AutofillAction.CopyTotp) Assert.True(fixture.Clipboard.ClearAutomatically);
         // A subsequent request cannot reuse the previous decision.
         fixture.Flow.RequestAutofillApprovalAsync = (_, _) => Task.FromResult(false);
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => fixture.Request(action));
+        await Assert.ThrowsAsync<AutofillApprovalDeclinedException>(() => fixture.Request(action));
     }
 
     [Theory]

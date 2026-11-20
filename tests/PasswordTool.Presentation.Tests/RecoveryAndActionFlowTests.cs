@@ -336,6 +336,21 @@ public sealed class RecoveryAndActionFlowTests
     }
 
     [Fact]
+    public async Task Vault_countdown_uses_the_existing_deadline_and_disappears_when_locked()
+    {
+        using var context = new Context();
+        var deadline = context.Vault.VaultExpiresAt!.Value;
+        Assert.Equal(deadline - context.Now, context.Shell.VaultLockRemaining);
+        context.Now = deadline.AddMilliseconds(-500);
+        Assert.Equal(TimeSpan.FromMilliseconds(500), context.Shell.VaultLockRemaining);
+        context.Now = deadline;
+        Assert.Null(context.Shell.VaultLockRemaining);
+        Assert.True(context.Shell.IsSignedIn);
+        await context.Shell.LockTableAsync();
+        Assert.Null(context.Shell.VaultLockRemaining);
+    }
+
+    [Fact]
     public async Task Adding_after_vault_timeout_prompts_even_before_the_ui_timer_locks_the_table()
     {
         using var context = new Context();
@@ -561,6 +576,35 @@ public sealed class RecoveryAndActionFlowTests
         Assert.False(context.Vault.IsVaultUnlocked);
         await context.Shell.LockCommand.ExecuteAsync(null);
         Assert.Equal(AppFlowState.Unlock, context.Shell.FlowState);
+    }
+
+    [Fact]
+    public async Task Empty_sign_in_password_reports_the_required_field_inline()
+    {
+        using var context = new Context();
+        await context.Shell.LogoutCommand.ExecuteAsync(null);
+        Assert.False(await context.Shell.ValidateMasterPasswordAsync(string.Empty));
+        Assert.Equal("Enter your Master Password.", context.Shell.MasterPasswordError);
+        Assert.False(context.Shell.IsStatusOpen);
+        Assert.False(context.Vault.IsVaultUnlocked);
+    }
+
+    [Fact]
+    public async Task Locked_settings_require_unlock_to_enable_browser_integration_but_allow_turning_it_off()
+    {
+        using var context = new Context();
+        await context.Shell.LockTableAsync();
+        Assert.False(context.Shell.Settings.CanChangeBrowserIntegration);
+        Assert.Equal("Unlock the vault before enabling browser integration.", context.Shell.Settings.BrowserIntegrationDescription);
+        context.Dialogs.ActionPassword = Context.Password;
+        Assert.True(await context.Shell.UnlockTableAsync());
+        Assert.True(context.Shell.Settings.CanChangeBrowserIntegration);
+        Assert.False(context.Shell.Settings.BrowserIntegrationEnabled);
+        context.Shell.Settings.BrowserIntegrationEnabled = true;
+        await context.Shell.LockTableAsync();
+        Assert.True(context.Shell.Settings.CanChangeBrowserIntegration);
+        context.Shell.Settings.BrowserIntegrationEnabled = false;
+        Assert.False(context.Shell.Settings.CanChangeBrowserIntegration);
     }
 
     [Fact]

@@ -36,6 +36,7 @@ public sealed partial class VaultWorkspaceViewModel : ObservableObject
     [ObservableProperty] public partial bool IsVerticalTabs { get; set; }
     public string ItemCountText => $"{Items.Count:N0} item{(Items.Count == 1 ? string.Empty : "s")}";
     public bool IsEmpty => Items.Count == 0 && !IsBusy;
+    public string EmptyMessage => allItems.Count == 0 ? "Your vault has no items yet." : "No items match this view.";
     public bool CanClearFilters => SearchText.Length > 0 || SelectedViewFilter.Value != VaultViewFilter.All || FilterByGroup || !SelectedGroup.IsAll || SelectedSortOrder.Value != VaultSortOrder.TitleAscending;
 
     public async Task RefreshAsync(CancellationToken cancellationToken = default)
@@ -115,12 +116,7 @@ public sealed partial class VaultWorkspaceViewModel : ObservableObject
 
     private bool HasFilter => !string.IsNullOrWhiteSpace(SearchText) || SelectedViewFilter?.Value != VaultViewFilter.All;
 
-    partial void OnSearchTextChanged(string oldValue, string newValue)
-    {
-        if (updatingView) return;
-        if (!string.IsNullOrWhiteSpace(oldValue) && string.IsNullOrWhiteSpace(newValue)) ResetToDefaultView(resetGroupFilter: false);
-        else ApplyFilter();
-    }
+    partial void OnSearchTextChanged(string value) => ApplyFilter();
     partial void OnSelectedViewFilterChanged(VaultFilterOption oldValue, VaultFilterOption newValue)
     {
         if (updatingView) return;
@@ -154,6 +150,7 @@ public sealed partial class VaultWorkspaceViewModel : ObservableObject
         for (var index = 0; index < visible.Count; index++) Items.Add(visible[index] with { IsLastInGroup = index == visible.Count - 1 });
         SelectedItem = Items.FirstOrDefault(item => item.Id == selectedId);
         OnPropertyChanged(nameof(ItemCountText)); OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(EmptyMessage));
         OnPropertyChanged(nameof(CanClearFilters));
     }
 

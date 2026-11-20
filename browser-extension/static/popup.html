@@ -9,7 +9,7 @@
     <section id="integration-off" class="integration-off" role="region" aria-labelledby="integration-off-title" hidden>
       <svg class="integration-off-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M9 3v4m6-4v4M7 7h10v3a5 5 0 0 1-10 0V7Zm5 8v6M3 3l18 18" /></svg>
       <h2 id="integration-off-title">Browser integration is off</h2>
-      <p>Open YourSafe on Windows, then enable Browser integration in Settings. Refresh here when it is on.</p>
+      <p id="integration-off-guide"></p>
       <button id="integration-off-open" type="button">Open YourSafe <span aria-hidden="true">↗</span></button>
     </section>
     <p id="open-app-feedback" class="open-app-feedback" role="status" aria-live="polite" hidden></p>
@@ -22,7 +22,7 @@
       <div class="totp-timing"><progress id="totp-progress" max="30000" value="0" aria-label="Time until code expires"></progress><span id="totp-countdown"></span></div>
     </div>
   </main>
-  <footer><button id="cancel" type="button" hidden>Cancel request</button><div class="actions"><button id="refresh" type="button">Refresh</button><button id="show-app" type="button">Open YourSafe <span aria-hidden="true">↗</span></button></div><p class="footnote">Approve each request in YourSafe on the desktop.</p></footer>
+  <footer><button id="cancel" type="button" hidden>Cancel request</button><div class="actions"><button id="show-app" type="button">Open YourSafe <span aria-hidden="true">↗</span></button><button id="refresh" type="button">Refresh</button></div><p class="footnote">Approve each request in YourSafe on the desktop.</p></footer>
   <script src="popup.js"></script>
 </body>
 </html>

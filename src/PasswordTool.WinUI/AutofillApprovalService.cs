@@ -105,10 +105,12 @@ internal sealed class AutofillApprovalService(DialogLifetime dialogs) : IDisposa
         var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         if (!App.DispatcherQueue.TryEnqueue(async () =>
         {
-            if (disposed || cancellationToken.IsCancellationRequested) { completion.TrySetResult(false); return; }
+            if (disposed) { completion.TrySetException(new InvalidOperationException("Desktop approval is unavailable.")); return; }
+            if (cancellationToken.IsCancellationRequested) { completion.TrySetCanceled(cancellationToken); return; }
             var requestId = Guid.NewGuid();
             var notificationId = 0u;
             var approved = false;
+            Exception? failure = null;
             try
             {
                 pendingRequest = requestId;
@@ -205,11 +207,14 @@ internal sealed class AutofillApprovalService(DialogLifetime dialogs) : IDisposa
                 dialog.Resources["ContentDialogMaxWidth"] = 440d;
                 AutomationProperties.SetAutomationId(dialog, "DlgAutofillApproval");
                 AutomationProperties.SetName(dialog, action);
-                approved = await dialogs.ShowAsync(dialog, cancellationToken,
-                    () => !cancellationToken.IsCancellationRequested) == ContentDialogResult.Primary
-                    && !cancellationToken.IsCancellationRequested;
+                var dialogGeneration = dialogs.Generation;
+                var result = await dialogs.ShowAsync(dialog, cancellationToken, () => !cancellationToken.IsCancellationRequested);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!dialogs.IsCurrent(dialogGeneration)) throw new OperationCanceledException();
+                approved = result == ContentDialogResult.Primary;
             }
-            catch { approved = false; }
+            catch (OperationCanceledException error) { failure = error; }
+            catch (Exception error) { failure = new InvalidOperationException("Desktop approval is unavailable.", error); }
             finally
             {
                 if (pendingRequest == requestId)
@@ -221,9 +226,11 @@ internal sealed class AutofillApprovalService(DialogLifetime dialogs) : IDisposa
                     catch { } // Window shutdown must still complete the pending request.
                 }
                 _ = RemoveNotificationAsync(notificationId);
-                completion.TrySetResult(approved && !cancellationToken.IsCancellationRequested);
+                if (cancellationToken.IsCancellationRequested) completion.TrySetCanceled(cancellationToken);
+                else if (failure is not null) completion.TrySetException(failure);
+                else completion.TrySetResult(approved);
             }
-        })) completion.TrySetResult(false);
+        })) completion.TrySetException(new InvalidOperationException("Desktop approval is unavailable."));
         return completion.Task;
     }
 

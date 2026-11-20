@@ -6,3 +6,7 @@ public enum AutofillAction { Password, ViewTotp, CopyTotp }
 
 // Vault-derived identity; Origin is a claim from the extension, not browser attestation.
 public sealed record AutofillApprovalRequest(AutofillCredential Credential, AutofillAction Action, string Origin);
+
+public sealed class AutofillApprovalDeclinedException() : UnauthorizedAccessException("Desktop approval was declined.")
+{
+}

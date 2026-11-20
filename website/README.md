@@ -12,7 +12,7 @@ Vietnamese is the default. Each page has a globe at the far right of the header,
 | Login demo | `demo-login.html` | `demo-login.en.html` |
 | Privacy policy | `privacy-policy.html` | `privacy-policy.en.html` |
 
-Both languages share styles, scripts, fonts and images. Keep page structure and links in sync when editing. Vietnamese copy is unchanged; the English pages use plain language. Screenshots still show the existing app UI. English URLs include `.en.html` so they also work on basic static servers. The Pages workflow includes all three English files.
+Both languages share styles, scripts, fonts and images. Keep page structure and links in sync when editing. Both languages describe the **Open YourSafe** button, the vault lock countdown, and URL eligibility for autofill. The desktop screenshots use a dedicated synthetic vault. English URLs include `.en.html` so they also work on basic static servers. The Pages workflow includes all three English files.
 
 `node website/verify.cjs --languages-only` checks both languages at root and project URLs, with and without JavaScript, at widths from 320px to 1440px. It covers switching, internal links, layout, shared images, and English demo submission and clipboard messages. It does not save screenshots.
 

@@ -9,6 +9,7 @@ const origin = element('origin', HTMLParagraphElement);
 const accounts = element('accounts', HTMLDivElement);
 const showApp = element('show-app', HTMLButtonElement);
 const integrationOff = element('integration-off', HTMLElement);
+const integrationGuide = element('integration-off-guide', HTMLParagraphElement);
 const integrationOffOpen = element('integration-off-open', HTMLButtonElement);
 const openAppFeedback = element('open-app-feedback', HTMLParagraphElement);
 const refresh = element('refresh', HTMLButtonElement);
@@ -22,12 +23,15 @@ const progress = element('totp-progress', HTMLProgressElement);
 const copy = element('totp-copy', HTMLButtonElement);
 const close = element('totp-close', HTMLButtonElement);
 const errors: Record<string, string> = {
-  locked: 'Your vault is locked. Open YourSafe, unlock your vault, then click Refresh here.',
+  locked: 'Your vault is locked. Open YourSafe, unlock it, then reopen this popup. If it stays open, use Refresh.',
   desktopUnavailable: 'Could not connect to YourSafe. Make sure the Windows app is running. If it is running, update both YourSafe and this extension, then try again.',
   integrationDisabled: 'Browser integration is off. Enable it in YourSafe Settings, then click Refresh.',
+  integrationLocked: 'Unlock your vault before enabling browser integration.',
   protocolMismatch: 'YourSafe and this extension use different protocol versions. Update both the Windows app and extension, then try again.',
-  ambiguousFields: 'Click the username or password field you want to fill, then reopen this extension.',
-  targetChanged: 'The page changed or access expired. Refresh and choose an account again.',
+  ambiguousFields: 'YourSafe could not identify a field to fill. Click the username or password field, then reopen this popup and choose the account again.',
+  targetChanged: 'The page changed or this request expired. Return to the sign-in page, then reopen this popup or refresh and choose an account again.',
+  tabChanged: 'Request canceled because you switched browser tabs or windows. Return to the sign-in page and refresh to choose an account again.',
+  approvalDeclined: 'Request canceled in YourSafe on Windows. Refresh to choose an account again.',
   unavailable: "This request wasn't completed. Refresh to try again.",
   unsupportedPage: 'Open an HTTPS sign-in page, then reopen YourSafe.'
 };
@@ -52,6 +56,12 @@ function setBusy(value: boolean): void {
   accounts.querySelectorAll('button').forEach(button => { button.disabled = value; });
   accounts.setAttribute('aria-busy', String(value));
   if (value && authorizationToken) status.dataset.state = 'pending';
+}
+function approvalStatus(action: 'select' | 'viewTotp' | 'copyTotp' | undefined, account?: Credential): string {
+  if (!account || !action) return 'Approve this request in YourSafe on Windows.';
+  const label = account.username ? `${account.title} (${account.username})` : account.title;
+  const task = action === 'select' ? 'Fill password' : action === 'viewTotp' ? 'View verification code' : 'Copy verification code';
+  return `${task} for ${label}. Approve in YourSafe on Windows.`;
 }
 function clearPanel(): void {
   epoch++;
@@ -83,12 +93,16 @@ function failure(error: unknown): void {
   authorizationToken = undefined;
   clearPanel();
   accounts.replaceChildren();
-  if (!origin.textContent) origin.textContent = 'Website unavailable';
   const reason = error instanceof Error ? error.cause : undefined;
-  const off = reason === 'integrationDisabled';
+  if (!origin.textContent || reason === 'tabChanged') origin.textContent = 'Website unavailable';
+  const needsUnlock = reason === 'integrationLocked';
+  const off = needsUnlock || reason === 'integrationDisabled';
   integrationOff.hidden = !off;
   showApp.hidden = off;
-  status.dataset.state = off ? 'off' : reason === 'locked' ? 'locked'
+  if (off) integrationGuide.textContent = needsUnlock
+    ? 'Open YourSafe and unlock your vault first. Then enable Browser integration in Settings and reopen this popup.'
+    : 'Open YourSafe on Windows, then enable Browser integration in Settings. Refresh here when it is on.';
+  status.dataset.state = needsUnlock ? 'off-locked' : off ? 'off' : reason === 'locked' ? 'locked'
     : reason === 'desktopUnavailable' ? 'unavailable' : reason === 'protocolMismatch' ? 'incompatible' : 'error';
   status.textContent = error instanceof Error ? error.message : 'YourSafe is unavailable.';
   setBusy(false);
@@ -162,7 +176,7 @@ async function readTotp(currentEpoch: number): Promise<void> {
   const active = selected;
   if (!active || currentEpoch !== epoch || busy) return;
   setBusy(true);
-  status.textContent = 'Approve this request in YourSafe on Windows. If this popup closes, reopen it after approval.';
+  status.textContent = approvalStatus('viewTotp', active.account);
   try {
     const result = await request({ action: 'viewTotp', token: active.token, id: active.account.id });
     if (currentEpoch !== epoch || selected !== active) return;
@@ -214,7 +228,7 @@ function accountRow(account: Credential, token: string): HTMLElement {
       clearPanel();
       const currentEpoch = epoch;
       setBusy(true);
-      status.textContent = 'Approve this request in YourSafe on Windows. If this popup closes, reopen it after approval.';
+      status.textContent = approvalStatus('select', account);
       void request({ action: 'select', token, id: account.id }).then(() => {
         if (currentEpoch !== epoch) return;
         accounts.replaceChildren();
@@ -240,6 +254,7 @@ async function discover(focusAccountId?: string): Promise<void> {
   if (busy) return;
   clearPanel();
   const currentEpoch = epoch;
+  authorizationToken = undefined;
   setBusy(true);
   status.dataset.state = 'loading';
   accounts.replaceChildren();
@@ -254,7 +269,8 @@ async function discover(focusAccountId?: string): Promise<void> {
     authorizationToken = result.token;
     origin.textContent = result.origin;
     status.textContent = result.truncated ? 'Only part of your account list is shown. View all accounts in YourSafe on Windows.'
-      : result.accounts.length ? 'Choose an action for an account below.' : 'No accounts match this website. Add this website address to an account in YourSafe on Windows, then click Refresh.';
+      : result.accounts.length ? 'Choose an action for an account below.'
+        : 'No accounts match this website. In YourSafe on Windows, edit the account and set its URL to this website’s sign-in address. Then refresh or reopen this popup.';
     status.dataset.state = result.accounts.length ? 'ready' : 'empty';
     for (const account of result.accounts) accounts.append(accountRow(account, result.token));
   } catch (error) { if (currentEpoch === epoch) failure(error); }
@@ -271,7 +287,7 @@ function renderSnapshot(value: unknown): void {
   if (!record(value) || typeof value.token !== 'string' || typeof value.origin !== 'string'
     || !Array.isArray(value.accounts) || !value.accounts.every(isCredential) || typeof value.truncated !== 'boolean'
     || typeof value.busy !== 'boolean' || (value.selectedId !== undefined && typeof value.selectedId !== 'string')
-    || ![undefined, 'select', 'viewTotp', 'copyTotp'].some(action => value.action === action)
+    || (value.action !== undefined && value.action !== 'select' && value.action !== 'viewTotp' && value.action !== 'copyTotp')
     || (value.result !== undefined && !isTotp(value.result)
       && (!record(value.result) || (value.result.filled !== true && value.result.copied !== true)))) throw errorFor('unavailable');
   clearPanel();
@@ -280,7 +296,7 @@ function renderSnapshot(value: unknown): void {
   accounts.replaceChildren();
   for (const account of value.accounts) accounts.append(accountRow(account, value.token));
   const account = value.accounts.find(item => item.id === value.selectedId);
-  if (account && ['viewTotp', 'copyTotp'].includes(String(value.action))) {
+  if (account && (value.action === 'viewTotp' || value.action === 'copyTotp')) {
     selected = { account, token: value.token };
     panelTitle.textContent = account.title;
     panelUsername.textContent = account.username || 'No username';
@@ -290,7 +306,7 @@ function renderSnapshot(value: unknown): void {
     timer = setInterval(paintTotp, 100);
   }
   status.dataset.state = value.busy ? 'loading' : 'ready';
-  status.textContent = value.busy ? 'Approve this request in YourSafe on Windows. If this popup closes, reopen it after approval.'
+  status.textContent = value.busy ? approvalStatus(value.action, account)
     : record(value.result) && 'filled' in value.result && value.result.filled === true ? 'Login details filled. Check them, then click the website\'s sign-in button.'
     : record(value.result) && 'copied' in value.result && value.result.copied === true ? 'Copied the current code.'
     : isTotp(value.result) ? 'This code expires when the timer reaches 0. Copy code requests the current code with a separate approval in YourSafe on Windows.'
@@ -303,7 +319,7 @@ copy.addEventListener('click', () => {
   if (busy || !active) return;
   const currentEpoch = epoch;
   setBusy(true);
-  status.textContent = 'Approve this request in YourSafe on Windows. If this popup closes, reopen it after approval.';
+  status.textContent = approvalStatus('copyTotp', active.account);
   void request({ action: 'copyTotp', token: active.token, id: active.account.id }).then(result => {
     if (currentEpoch !== epoch) return;
     if (!record(result) || result.copied !== true) throw errorFor('unavailable');
@@ -347,11 +363,16 @@ async function openYourSafe(): Promise<void> {
     if (currentEpoch !== epoch) return;
     openAppFeedback.textContent = record(result) && result.shown === true
       ? busy ? 'YourSafe is open. Review the pending request on Windows.'
-        : !integrationOff.hidden ? 'Enable Browser integration in Settings, then click Refresh here.'
-          : 'YourSafe is open. Unlock your vault if needed, then click Refresh here.'
+        : status.dataset.state === 'off-locked' ? 'Unlock your vault first, then enable Browser integration in Settings.'
+          : !integrationOff.hidden ? 'Enable Browser integration in Settings, then click Refresh here.'
+          : status.dataset.state === 'locked' ? 'Unlock your vault in YourSafe, then reopen this popup or use Refresh.'
+            : 'YourSafe is open.'
       : 'YourSafe could not open its window. Open it from the taskbar.';
   } catch (error) {
-    if (currentEpoch === epoch) openAppFeedback.textContent = error instanceof Error ? error.message : 'YourSafe could not open its window.';
+    if (currentEpoch !== epoch) return;
+    openAppFeedback.textContent = error instanceof Error && error.cause === 'desktopUnavailable'
+      ? 'Could not connect to YourSafe. Open it from the Windows Start menu, then reopen this popup.'
+      : error instanceof Error ? error.message : 'YourSafe could not open its window.';
   } finally {
     openingApp = false;
     showApp.disabled = integrationOffOpen.disabled = false;
@@ -367,13 +388,16 @@ window.addEventListener('pagehide', () => {
   port.disconnect();
 });
 async function open(): Promise<void> {
+  const currentEpoch = epoch;
   setBusy(true);
   status.textContent = 'Checking the current request…';
   try {
     const result = await request({ action: 'resume' });
+    if (epoch !== currentEpoch) return;
     if (!record(result) || typeof result.resumed !== 'boolean') throw errorFor('unavailable');
     if (result.resumed) renderSnapshot(result.interaction);
+    else if (result.cancellation === 'approvalDeclined' || result.cancellation === 'tabChanged') failure(errorFor(result.cancellation));
     else { setBusy(false); await discover(); }
-  } catch (error) { failure(error); }
+  } catch (error) { if (epoch === currentEpoch) failure(error); }
 }
 void open();

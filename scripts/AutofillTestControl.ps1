@@ -521,6 +521,7 @@ try {
         }
     }
     $result = @{ action = $Action; status = 'verified'; processId = $ProcessId; testDirectory = $testRoot }
+    if ($Action -eq 'validate') { $result.executablePath = $process.Path }
     if ($Action -in 'minimizeDesktop', 'assertRestored') { $result.windowState = $windowState }
     $result | ConvertTo-Json -Compress
 }

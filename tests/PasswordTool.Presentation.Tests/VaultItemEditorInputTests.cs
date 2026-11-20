@@ -5,6 +5,18 @@ namespace PasswordTool.Presentation.Tests;
 
 public sealed class VaultItemEditorInputTests
 {
+    [Theory]
+    [InlineData("  https://Example.com:8443/login?session=sample  ", false, "Autofill matches https://example.com:8443.")]
+    [InlineData("https://example.com/login", true, "Autofill matches https://example.com. The URL is hidden in the vault list.")]
+    [InlineData("http://localhost:8080/sign-in", false, "Autofill matches http://localhost:8080.")]
+    [InlineData("", false, "No URL to match for autofill.")]
+    [InlineData("example.com", false, "Autofill needs a full HTTPS sign-in URL or a local HTTP address.")]
+    [InlineData("http://example.com", true, "Autofill needs a full HTTPS sign-in URL or a local HTTP address.")]
+    public void Autofill_url_hint_uses_the_saved_url_origin(string url, bool hiddenInList, string expected)
+    {
+        Assert.Equal(expected, VaultItemEditorInput.DescribeAutofillUrl(url, hiddenInList));
+    }
+
     [Fact]
     public void ToVaultItem_Credential_KeepsPasswordAndRecoveryCodes()
     {

@@ -49,48 +49,36 @@
     <main class="privacy" id="main">
       <h1>Privacy policy</h1>
       <p class="privacy-updated">Updated <time
-          datetime="2026-10-14">14 October 2026</time> · YourSafe</p>
-      <p>This policy explains how the YourSafe Windows app, browser extension, and website handle data. You do not need an online account to use the password vault.</p>
+          datetime="2026-11-20">20 November 2026</time> · YourSafe</p>
       <section aria-labelledby="privacy-data">
-        <h2 id="privacy-data">Data we handle</h2>
-        <p>The app stores the details you add to the vault: account titles, usernames, passwords, website addresses, notes, TOTP settings, and recovery codes. The vault is encrypted and saved locally on your Windows PC.</p>
-        <p>When you open the extension, it uses the selected page’s address to find matching accounts in the desktop vault. It receives account titles, usernames, and whether each account has a password or TOTP. When you request autofill or a code and approve the request on the desktop, the data needed for that action is handled on the same PC.</p>
-        <p>The selected tab’s URL and origin are used temporarily to match accounts and check the destination. The origin is sent to the desktop app on the same PC. The extension does not keep a browsing history. After you click Fill, its script checks login fields, forms, visibility, and form destinations to decide where it can fill safely. Passwords are filled only after desktop approval. The extension does not collect the full page’s contents.</p>
-      </section>
-      <section aria-labelledby="privacy-use">
-        <h2 id="privacy-use">How data is used and shared</h2>
-        <p>Vault data and selected-page data are used only for the actions you request: managing the vault, finding accounts, filling login details, and viewing or copying codes. The extension communicates with the desktop app through local Native Messaging. This data is not sent to the developer’s servers.</p>
-        <p>Autofill puts the username and password into the selected website’s form. That website can read the filled values under its own policies. YourSafe does not submit the login form.</p>
-        <p>The Windows app and extension do not sell vault data, use it for advertising, send telemetry, or build browsing profiles. The developer cannot access your vault and does not keep a copy for recovery.</p>
-        <p>The extension’s use of data follows the <a
-            href="https://developer.chrome.com/docs/webstore/program-policies/user-data-faq#limited-uses-of-user-data">Chrome Web Store User Data Policy</a>, including its Limited Use requirements. Data is used only for the stated features, never for advertising. Vault data is not transferred to the developer or advertisers.</p>
+        <h2 id="privacy-data">What stays on your PC</h2>
+        <p>You can use YourSafe without an online account. The Windows app saves the information you add, including passwords, website addresses, notes, verification code settings and recovery codes, in an encrypted vault on your PC. YourSafe does not sync your vault to the cloud.</p>
       </section>
       <section aria-labelledby="privacy-permissions">
-        <h2 id="privacy-permissions">Browser extension permissions</h2>
-        <ul>
-          <li><strong>nativeMessaging:</strong> connects to YourSafe Desktop on the same PC to get data for the action you request.</li>
-          <li><strong>activeTab:</strong> temporarily accesses the selected tab when you open the extension.</li>
-          <li><strong>scripting:</strong> finds and fills login fields on the selected page when you request autofill.</li>
-          <li><strong>webNavigation:</strong> checks the destination and cancels the action if the page changes, to avoid filling the wrong page.</li>
-        </ul>
+        <h2 id="privacy-permissions">What the browser extension can access</h2>
+        <p>Browser integration is optional. When it is enabled and the vault is unlocked, opening the extension uses the current page address to find matching accounts. The extension can show account names, usernames and whether a password or verification code is available.</p>
+        <p>The extension can check the selected page and find its login fields. Filling a login, viewing a verification code and copying a verification code each require your approval in the Windows app. If you change pages, the extension cancels the request. It does not collect the full page or keep your browsing history.</p>
+      </section>
+      <section aria-labelledby="privacy-use">
+        <h2 id="privacy-use">Who can see your data</h2>
+        <p>YourSafe uses vault and page information on your PC to provide these features. The Windows app and extension do not send this information or usage reports to the developer. YourSafe does not sell the information, use it for advertising or keep a copy of your vault for recovery.</p>
+        <p>When you approve autofill, the selected website can read the username and password placed in its form. You decide when to submit the form.</p>
+        <p>The extension follows the <a href="https://developer.chrome.com/docs/webstore/program-policies/user-data-faq#limited-uses-of-user-data">Chrome Web Store User Data Policy</a>, including its Limited Use requirements.</p>
       </section>
       <section aria-labelledby="privacy-retention">
-        <h2 id="privacy-retention">Storage and your choices</h2>
-        <p>The extension does not store your passwords or vault, or sync the vault to the cloud. It holds data temporarily in memory for the requested action. Passwords are not saved in the extension’s session state. TOTP results may remain briefly until the code or session expires, or the action is cancelled.</p>
-        <p>You can edit or delete accounts in the desktop app, turn off browser integration, or uninstall the extension. Uninstalling the desktop app does not delete the vault. Exported backups stay where you save them. You control how long to keep the vault and backups, and when to delete them. Copied data passes through the Windows clipboard and may be affected by clipboard history or sync settings.</p>
+        <h2 id="privacy-retention">What you can manage or delete</h2>
+        <p>The extension uses information temporarily and does not keep a copy of your passwords or vault. A verification code can stay visible until it expires or you close its view. Windows clipboard history or sync can retain information you copy.</p>
+        <p>You can edit or delete saved accounts, turn off browser integration, or remove the extension. Removing the Windows app leaves the vault on your PC. You decide when to delete the vault and any backups you exported.</p>
       </section>
       <section aria-labelledby="privacy-website">
-        <h2 id="privacy-website">Website and feedback</h2>
-        <p>The website uses Google Analytics 4 to count visits and link clicks. It may use cookies and process browser and device information as described in <a
-            href="https://policies.google.com/technologies/partner-sites">how Google uses data</a>.</p>
-        <p>The Windows app, extension, and demo login page do not use Google Analytics. The demo processes the form in your browser without sending or saving what you enter. The website is hosted on GitHub Pages, which may process connection information under <a
-            href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub’s privacy policy</a>.</p>
-        <p>If you email the developer or open an issue, the information you provide is used to respond to your question or feedback. Public GitHub issues can be read by others. Do not send passwords, verification codes, recovery keys, or vault files. You can ask the developer to delete any support information they retain. Data on third-party services is covered by those services’ policies.</p>
+        <h2 id="privacy-website">Website visits and support</h2>
+        <p>This website uses Google Analytics to count visits and clicks on selected links. Google may use cookies and receive information about your browser and device. <a href="https://policies.google.com/technologies/partner-sites">Learn how Google uses this information</a>.</p>
+        <p>The Windows app, extension and demo login page do not use Google Analytics. The demo keeps what you type in your browser without saving or sending it. GitHub hosts this website and may process connection information under <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">its privacy policy</a>.</p>
+        <p>If you email us or post on GitHub, we use what you share to respond. Anyone can read public GitHub issues. Keep passwords, verification codes, recovery keys and vault files out of support messages. You can ask us to delete support information we still hold. Third-party services apply their own privacy policies.</p>
       </section>
       <section aria-labelledby="privacy-contact">
-        <h2 id="privacy-contact">Contact and policy changes</h2>
-        <p>For privacy questions, email <a
-            href="mailto:lmnhut0211@gmail.com">lmnhut0211@gmail.com</a>. If data handling changes, this page and its revision date will be updated.</p>
+        <h2 id="privacy-contact">Contact and updates</h2>
+        <p>For privacy questions, email <a href="mailto:lmnhut0211@gmail.com">lmnhut0211@gmail.com</a>. We update this page and its date when our data practices change.</p>
       </section>
     </main>
   </body>

@@ -79,6 +79,7 @@ public sealed partial class ShellViewModel : ObservableObject
     public bool IsTableLocked => FlowState == AppFlowState.TableLocked;
     public bool IsSignedIn => flow.IsSignedIn;
     public bool IsVaultSessionActive => flow.IsVaultSessionActive;
+    public TimeSpan? VaultLockRemaining => flow.VaultLockRemaining;
     public bool NeedsRecoveryKey => flow.NeedsRecoveryKey;
     public Task<bool> ValidateAuthenticatorSetupAsync(AuthenticatorSetup setup, string code) => flow.ValidateAuthenticatorSetupAsync(setup, code);
     public async Task SaveRecoveryKeyAsync(string password, string key, bool saved)
@@ -134,6 +135,11 @@ public sealed partial class ShellViewModel : ObservableObject
         var version = LifecycleVersion;
         IsStatusOpen = false;
         MasterPasswordError = string.Empty;
+        if (string.IsNullOrEmpty(masterPassword))
+        {
+            MasterPasswordError = "Enter your Master Password.";
+            return false;
+        }
         try
         {
             var valid = await flow.ValidateMasterPasswordAsync(masterPassword);
@@ -687,6 +693,7 @@ public sealed partial class ShellViewModel : ObservableObject
 
     partial void OnFlowStateChanged(AppFlowState value)
     {
+        Settings.RefreshBrowserIntegrationStatus();
         OnPropertyChanged(nameof(IsUnlocked));
         OnPropertyChanged(nameof(IsTableLocked));
         OnPropertyChanged(nameof(IsSignedIn));

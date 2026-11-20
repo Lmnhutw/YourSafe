@@ -21,7 +21,7 @@ internal sealed class TotpPanel : UserControl, IDisposable
     private readonly long version;
     private readonly bool compact;
     private readonly CancellationTokenSource lifetime = new();
-    private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(1) };
+    private readonly DispatcherTimer timer = new();
     private readonly Grid code = new() { ColumnSpacing = 4, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock firstHalf = new() { FontSize = 32, FontFamily = new FontFamily("Consolas") };
     private readonly TextBlock secondHalf = new() { FontSize = 32, FontFamily = new FontFamily("Consolas") };
@@ -32,17 +32,30 @@ internal sealed class TotpPanel : UserControl, IDisposable
               Width="24" Height="24" Fill="{ThemeResource AccentFillColorDefaultBrush}" />
         """);
     private readonly Grid timeIndicator = new() { Width = 24, Height = 24, VerticalAlignment = VerticalAlignment.Center };
-    private readonly Button copy = new() { Content = "Copy", IsEnabled = false };
+    private readonly EllipseGeometry fullCountdown = new() { Center = new Point(12, 12), RadiusX = 12, RadiusY = 12 };
+    private readonly PathGeometry countdownSector = new();
+    private readonly LineSegment countdownEdge = new();
+    private readonly ArcSegment countdownArc = new() { Point = new Point(12, 0), Size = new Size(12, 12), SweepDirection = SweepDirection.Clockwise };
+    private readonly SymbolIcon copyIcon = new(Symbol.Copy);
+    private readonly Button copy = new() { MinWidth = 36, MinHeight = 32, Padding = new Thickness(8, 4, 8, 4), IsEnabled = false };
     private TotpCodeResult? current;
     private bool busy;
+    private bool copying;
     private bool stopped;
-    private int remainingSlices = -1;
+    private int announcedSeconds = -1;
+    private long copyFeedbackUntil;
 
     public TotpPanel(Guid credentialId, string title, string username, bool compact = false, HyperlinkButton? manage = null)
     {
         this.credentialId = credentialId;
         this.compact = compact;
         version = shell.LifecycleVersion;
+        timer.Interval = new Windows.UI.ViewManagement.UISettings().AnimationsEnabled
+            ? TimeSpan.FromMilliseconds(33) : TimeSpan.FromSeconds(1);
+        var sector = new PathFigure { StartPoint = new Point(12, 12), IsClosed = true, IsFilled = true };
+        sector.Segments.Add(countdownEdge);
+        sector.Segments.Add(countdownArc);
+        countdownSector.Figures.Add(sector);
         var body = new StackPanel { Spacing = 8, MinWidth = compact ? 256 : 280, MaxWidth = compact ? 256 : 380 };
         if (!compact)
         {
@@ -68,6 +81,8 @@ internal sealed class TotpPanel : UserControl, IDisposable
         actions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         actions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         if (manage is not null) actions.Children.Add(manage);
+        copy.Content = copyIcon;
+        ResetCopyFeedback();
         Grid.SetColumn(copy, 1);
         actions.Children.Add(copy);
         body.Children.Add(actions);
@@ -103,6 +118,7 @@ internal sealed class TotpPanel : UserControl, IDisposable
     private async void Tick(object? sender, object e)
     {
         if (!IsCurrent) { Dispose(); return; }
+        if (copyFeedbackUntil != 0 && Environment.TickCount64 >= copyFeedbackUntil) ResetCopyFeedback();
         if (current is null) return;
         var now = DateTimeOffset.UtcNow;
         if (now >= current.ExpiresAtUtc || now < current.ExpiresAtUtc.AddSeconds(-current.PeriodSeconds))
@@ -125,13 +141,13 @@ internal sealed class TotpPanel : UserControl, IDisposable
             if (now >= value.ExpiresAtUtc || now < value.ExpiresAtUtc.AddSeconds(-value.PeriodSeconds))
                 throw new OperationCanceledException();
             current = value;
-            copy.Content = "Copy";
+            ResetCopyFeedback();
             var half = value.Code.Length / 2;
             firstHalf.Text = value.Code[..half];
             secondHalf.Text = value.Code[half..];
             AutomationProperties.SetName(code, firstHalf.Text + "\u2009" + secondHalf.Text);
             identity.Text = string.Join(" · ", new[] { value.Issuer, value.AccountName }.Where(text => !string.IsNullOrWhiteSpace(text)));
-            copy.IsEnabled = true;
+            copy.IsEnabled = !copying;
             UpdateCountdown(now);
         }
         catch (Exception)
@@ -145,38 +161,37 @@ internal sealed class TotpPanel : UserControl, IDisposable
     {
         if (current is null) return;
         var seconds = Math.Clamp((current.ExpiresAtUtc - now).TotalSeconds, 0, current.PeriodSeconds);
-        var slices = (int)Math.Ceiling(8 * seconds / current.PeriodSeconds);
-        timer.Interval = TimeSpan.FromSeconds(slices == 0 ? 0.05 : Math.Max(0.05, seconds - (slices - 1) * current.PeriodSeconds / 8d));
-        if (remainingSlices == slices) return;
-        remainingSlices = slices;
-        if (slices == 8)
-            progress.Data = new EllipseGeometry { Center = new Point(12, 12), RadiusX = 12, RadiusY = 12 };
-        else if (slices == 0) progress.Data = null;
+        var remaining = seconds / current.PeriodSeconds;
+        if (remaining >= 0.999) progress.Data = fullCountdown;
+        else if (remaining <= 0) progress.Data = null;
         else
         {
-            var angle = (8 - slices) * Math.PI / 4;
-            var figure = new PathFigure { StartPoint = new Point(12, 12), IsClosed = true, IsFilled = true };
-            figure.Segments.Add(new LineSegment { Point = new Point(12 + 12 * Math.Sin(angle), 12 - 12 * Math.Cos(angle)) });
-            figure.Segments.Add(new ArcSegment { Point = new Point(12, 0), Size = new Size(12, 12), IsLargeArc = slices > 4, SweepDirection = SweepDirection.Clockwise });
-            var geometry = new PathGeometry();
-            geometry.Figures.Add(figure);
-            progress.Data = geometry;
+            var angle = (1 - remaining) * 2 * Math.PI;
+            countdownEdge.Point = new Point(12 + 12 * Math.Sin(angle), 12 - 12 * Math.Cos(angle));
+            countdownArc.IsLargeArc = remaining > 0.5;
+            if (progress.Data != countdownSector) progress.Data = countdownSector;
         }
-        AutomationProperties.SetHelpText(timeIndicator, $"{slices}/8 remaining. Code expires in {Math.Ceiling(seconds):0} seconds.");
+        var rounded = (int)Math.Ceiling(seconds);
+        if (announcedSeconds == rounded) return;
+        announcedSeconds = rounded;
+        AutomationProperties.SetHelpText(timeIndicator, $"Code expires in {rounded} seconds.");
     }
 
     private async void Copy_Click(object sender, RoutedEventArgs e)
     {
-        if (!IsCurrent || !copy.IsEnabled) return;
+        if (!IsCurrent || copying || !copy.IsEnabled) return;
+        copying = true;
         copy.IsEnabled = false;
         try
         {
             await flow.CopyWebsiteTotpAsync(credentialId, lifetime.Token);
             if (IsCurrent)
             {
+                copyIcon.Symbol = Symbol.Accept;
+                ToolTipService.SetToolTip(copy, "Copied");
                 AutomationProperties.SetHelpText(copy, "Copied.");
-                if (compact) copy.Content = "Copied";
-                else
+                copyFeedbackUntil = Environment.TickCount64 + 1500;
+                if (!compact)
                 {
                     status.Text = "Copied.";
                     status.Visibility = Visibility.Visible;
@@ -184,7 +199,19 @@ internal sealed class TotpPanel : UserControl, IDisposable
             }
         }
         catch (Exception) { if (!stopped) Stop("Copy failed. Unlock the vault and reopen this panel."); }
-        finally { if (IsCurrent && current is not null) copy.IsEnabled = true; }
+        finally
+        {
+            copying = false;
+            if (IsCurrent && current is not null) copy.IsEnabled = true;
+        }
+    }
+
+    private void ResetCopyFeedback()
+    {
+        copyFeedbackUntil = 0;
+        copyIcon.Symbol = Symbol.Copy;
+        ToolTipService.SetToolTip(copy, "Copy verification code");
+        AutomationProperties.SetHelpText(copy, string.Empty);
     }
 
     private void ClearCode()
@@ -193,7 +220,7 @@ internal sealed class TotpPanel : UserControl, IDisposable
         firstHalf.Text = secondHalf.Text = string.Empty;
         AutomationProperties.SetName(code, string.Empty);
         progress.Data = null;
-        remainingSlices = -1;
+        announcedSeconds = -1;
         AutomationProperties.SetHelpText(timeIndicator, string.Empty);
         copy.IsEnabled = false;
     }

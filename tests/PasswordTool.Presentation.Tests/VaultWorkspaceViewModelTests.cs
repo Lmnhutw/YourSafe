@@ -144,10 +144,30 @@ public sealed class VaultWorkspaceViewModelTests : IDisposable
     }
 
     [Theory]
-    [InlineData("search")]
-    [InlineData("view")]
-    [InlineData("clear")]
-    public async Task Clearing_any_filter_resets_all_filters_and_sort_without_changing_flag(string trigger)
+    [InlineData("")]
+    [InlineData("  ")]
+    public async Task Clearing_search_preserves_group_filter_and_sort(string clearedSearch)
+    {
+        await workspace.RefreshAsync();
+        workspace.FilterByGroup = true;
+        workspace.SelectGroup(Tab(work.Id));
+        workspace.SelectedViewFilter = workspace.ViewFilters[1];
+        workspace.SelectedSortOrder = workspace.SortOrders[1];
+        workspace.SearchText = "no matching title";
+        Assert.Empty(workspace.Items);
+        Assert.Equal("No items match this view.", workspace.EmptyMessage);
+        workspace.SearchText = clearedSearch;
+        Assert.True(workspace.FilterByGroup);
+        Assert.Equal(work.Id, workspace.SelectedGroup.Id);
+        Assert.Equal(VaultViewFilter.Favorites, workspace.SelectedViewFilter.Value);
+        Assert.Equal(VaultSortOrder.TitleDescending, workspace.SelectedSortOrder.Value);
+        Assert.Equal("GitHub work", Assert.Single(workspace.Items).Title);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task View_reset_and_clear_filters_keep_their_explicit_reset_behavior(bool clearAll)
     {
         await workspace.RefreshAsync();
         workspace.FilterByGroup = true;
@@ -155,11 +175,10 @@ public sealed class VaultWorkspaceViewModelTests : IDisposable
         workspace.SearchText = "github";
         workspace.SelectedViewFilter = workspace.ViewFilters[1];
         workspace.SelectedSortOrder = workspace.SortOrders[1];
-        if (trigger == "search") workspace.SearchText = string.Empty;
-        else if (trigger == "view") workspace.SelectedViewFilter = workspace.ViewFilters[0];
-        else workspace.ResetToDefaultView();
+        if (clearAll) workspace.ResetToDefaultView();
+        else workspace.SelectedViewFilter = workspace.ViewFilters[0];
         AssertDefaultView();
-        Assert.Equal(trigger != "clear", workspace.FilterByGroup);
+        Assert.Equal(!clearAll, workspace.FilterByGroup);
     }
 
     [Fact]

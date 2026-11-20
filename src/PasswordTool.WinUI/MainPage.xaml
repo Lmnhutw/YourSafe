@@ -242,10 +242,12 @@
                 </Grid.RowDefinitions>
                 <StackPanel Margin="24,12,24,0" Spacing="8">
                     <InfoBar AutomationProperties.AutomationId="StatusWorkspace" IsClosable="True" IsOpen="{x:Bind ViewModel.IsStatusOpen, Mode=TwoWay}" Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" Severity="{x:Bind local:MainPage.StatusSeverity(ViewModel.IsStatusSuccess), Mode=OneWay}" Title="{x:Bind ViewModel.StatusTitle, Mode=OneWay}" />
-                    <InfoBar AutomationProperties.AutomationId="StatusBrowserIntegrationOff" IsClosable="True" IsOpen="{x:Bind ShowIntegrationReminder(ViewModel.CurrentRoute, ViewModel.Settings.BrowserIntegrationEnabled), Mode=OneWay}" Closing="IntegrationReminder_Closing" Background="{ThemeResource IntegrationReminderBackgroundBrush}" BorderBrush="{ThemeResource IntegrationReminderBorderBrush}" Title="Browser integration is off" Message="Enable browser integration in Settings to use YourSafe in your browser." Severity="Informational">
+                    <InfoBar AutomationProperties.AutomationId="StatusBrowserIntegrationOff" IsClosable="True" IsOpen="{x:Bind ShowIntegrationReminder(ViewModel.CurrentRoute, ViewModel.Settings.BrowserIntegrationEnabled), Mode=OneWay}" Closing="IntegrationReminder_Closing" Background="{ThemeResource IntegrationReminderBackgroundBrush}" BorderBrush="{ThemeResource IntegrationReminderBorderBrush}" Title="Browser integration is off" Message="{x:Bind ViewModel.Settings.BrowserIntegrationDescription, Mode=OneWay}" Severity="Informational">
                         <InfoBar.ActionButton><Button AutomationProperties.AutomationId="BtnIntegrationSettings" Content="Open Settings" Click="OpenIntegrationSettings_Click" /></InfoBar.ActionButton>
                     </InfoBar>
                     <InfoBar x:Name="AutofillPendingInfoBar" AutomationProperties.AutomationId="StatusAutofillPending" AutomationProperties.LiveSetting="Polite" IsClosable="False" IsOpen="False" Title="Browser approval pending" Message="A browser request is waiting for review. Finish any open dialog to continue, or cancel it from the extension." Severity="Informational" />
+                    <InfoBar x:Name="EditorLockWarning" AutomationProperties.AutomationId="StatusEditorLockWarning" AutomationProperties.LiveSetting="Polite"
+                        IsClosable="False" IsOpen="False" Severity="Warning" Title="Vault locks soon" Message="Save your changes before it locks." />
                 </StackPanel>
                 <Grid x:Name="VaultPage" Grid.Row="1" Padding="{StaticResource PasswordToolPagePadding}">
                     <Grid.RowDefinitions>
@@ -305,7 +307,7 @@
                         <Grid ColumnSpacing="12">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="2*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="3*" /></Grid.ColumnDefinitions>
                             <TextBox x:Name="VaultSearchInput" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="TxtVaultSearch" Header="Search" PlaceholderText="Title, username, or URL" Text="{x:Bind ViewModel.Vault.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                            <Button Grid.Column="1" VerticalAlignment="Bottom" Content="Clear" AutomationProperties.AutomationId="BtnClearVaultFilters" Click="ClearVaultFilters_Click" IsEnabled="{x:Bind ViewModel.Vault.CanClearFilters, Mode=OneWay}" />
+                            <Button Grid.Column="1" VerticalAlignment="Bottom" Content="Clear filters" AutomationProperties.AutomationId="BtnClearVaultFilters" Click="ClearVaultFilters_Click" IsEnabled="{x:Bind ViewModel.Vault.CanClearFilters, Mode=OneWay}" />
                         </Grid>
                         <VariableSizedWrapGrid Grid.Row="1" Orientation="Horizontal" MaximumRowsOrColumns="3">
                             <local:AppComboBox Width="150" Margin="0,0,12,8" AutomationProperties.Name="Item type filter" Header="View" DisplayMemberPath="Label" ItemsSource="{x:Bind ViewModel.Vault.ViewFilters}" SelectedItem="{x:Bind ViewModel.Vault.SelectedViewFilter, Mode=TwoWay}" />
@@ -325,7 +327,7 @@
                         <Border x:Name="GroupTableFrame" Style="{StaticResource VaultGroupTableStyle}" Grid.Row="1" Grid.ColumnSpan="2" Padding="10" CornerRadius="8">
                             <Border Background="{ThemeResource VaultTableBackgroundBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6">
                                 <ScrollViewer HorizontalContentAlignment="Stretch" HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Auto" VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled" AutomationProperties.Name="Credential table horizontal scroll">
-                                    <Grid x:Name="CredentialTable" MinWidth="1208" SizeChanged="CredentialTable_SizeChanged">
+                                    <Grid x:Name="CredentialTable" MinWidth="1232" SizeChanged="CredentialTable_SizeChanged">
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="*" />
@@ -396,19 +398,22 @@
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock VerticalAlignment="Center" Text="••••••••" Visibility="{x:Bind local:MainPage.BoolToVisibility(HasPassword), Mode=OneTime}" />
-                                        <TextBlock VerticalAlignment="Center" Text="—" Visibility="{x:Bind local:MainPage.InvertBoolToVisibility(HasPassword), Mode=OneTime}" />
+                                        <TextBlock VerticalAlignment="Center" Text="••••••••" AutomationProperties.Name="Password saved" Visibility="{x:Bind local:MainPage.BoolToVisibility(HasPassword), Mode=OneTime}" />
                                         <Button Grid.Column="1" AutomationProperties.AutomationId="{x:Bind local:MainPage.ItemAutomationId('ViewPassword', Id)}" AutomationProperties.Name="View password" Padding="0" Tag="{x:Bind Id}" Click="RevealPasswordRowButton_Click" Visibility="{x:Bind local:MainPage.BoolToVisibility(HasPassword), Mode=OneTime}"><FontIcon Glyph="&#xE890;" /></Button>
                                         <Button Grid.Column="2" AutomationProperties.AutomationId="{x:Bind local:MainPage.ItemAutomationId('CopyPassword', Id)}" AutomationProperties.Name="Copy password" Padding="0" Tag="{x:Bind Id}" Click="CopyPasswordRowButton_Click" Visibility="{x:Bind local:MainPage.BoolToVisibility(HasPassword), Mode=OneTime}"><FontIcon Glyph="&#xE8C8;" /></Button>
                                     </Grid>
                                     <Grid Grid.Column="4" VerticalAlignment="Center" ColumnSpacing="4">
-                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="32" /></Grid.ColumnDefinitions>
-                                        <TextBlock VerticalAlignment="Center" Text="—" Visibility="{x:Bind local:MainPage.BoolToVisibility(HasTotp), Mode=OneTime}" />
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock VerticalAlignment="Center" Text="••••••••" AutomationProperties.Name="2FA saved" Visibility="{x:Bind local:MainPage.BoolToVisibility(HasTotp), Mode=OneTime}" />
                                         <Button Grid.Column="1" Style="{StaticResource VaultRowIconButtonStyle}" HorizontalAlignment="Right" AutomationProperties.AutomationId="{x:Bind local:MainPage.ItemAutomationId('ViewTotp', Id)}" AutomationProperties.Name="View verification code" ToolTipService.ToolTip="View verification code" Tag="{x:Bind Id}" Click="ViewTotpRowButton_Click" Visibility="{x:Bind local:MainPage.BoolToVisibility(HasTotp), Mode=OneTime}">
-                                            <!-- Microsoft Fluent System Icons: Clock20Regular. See Assets/Icons/NOTICE.md. -->
-                                            <Viewbox Width="14" Height="14">
-                                                <PathIcon Width="20" Height="20" Data="M10 2C14.4183 2 18 5.58172 18 10C18 14.4183 14.4183 18 10 18C5.58172 18 2 14.4183 2 10C2 5.58172 5.58172 2 10 2ZM10 3C6.13401 3 3 6.13401 3 10C3 13.866 6.13401 17 10 17C13.866 17 17 13.866 17 10C17 6.13401 13.866 3 10 3ZM9.5 5C9.74546 5 9.94961 5.17688 9.99194 5.41012L10 5.5V10H12.5C12.7761 10 13 10.2239 13 10.5C13 10.7455 12.8231 10.9496 12.5899 10.9919L12.5 11H9.5C9.25454 11 9.05039 10.8231 9.00806 10.5899L9 10.5V5.5C9 5.22386 9.22386 5 9.5 5Z" />
-                                            </Viewbox>
+                                            <FontIcon Glyph="&#xE890;" />
+                                        </Button>
+                                        <Button Grid.Column="2" AutomationProperties.AutomationId="{x:Bind local:MainPage.ItemAutomationId('CopyTotp', Id)}" AutomationProperties.Name="Copy verification code" ToolTipService.ToolTip="Copy verification code" Tag="{x:Bind Id}" Click="CopyTotpRowButton_Click" Visibility="{x:Bind local:MainPage.BoolToVisibility(HasTotp), Mode=OneTime}">
+                                            <FontIcon Glyph="&#xE8C8;" />
                                         </Button>
                                     </Grid>
                                     <Grid Grid.Column="5" VerticalAlignment="Center" ColumnSpacing="4">
@@ -422,7 +427,7 @@
                                                     </DataTemplate>
                                             </ListView.ItemTemplate>
                                         </ListView>
-                                        <TextBlock Grid.Row="1" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" Text="No items to show" Visibility="{x:Bind local:MainPage.BoolToVisibility(ViewModel.Vault.IsEmpty), Mode=OneWay}" />
+                                        <TextBlock Grid.Row="1" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{x:Bind ViewModel.Vault.EmptyMessage, Mode=OneWay}" TextWrapping="Wrap" Visibility="{x:Bind local:MainPage.BoolToVisibility(ViewModel.Vault.IsEmpty), Mode=OneWay}" />
                                     </Grid>
                                 </ScrollViewer>
                             </Border>
@@ -646,11 +651,13 @@
                                                         <ToolTipService.ToolTip><ToolTip><TextBlock MaxWidth="300" TextWrapping="Wrap" Text="Add the website's sign-in URL so YourSafe can match this item for browser autofill. Choose No URL if you do not need autofill for this item." /></ToolTip></ToolTipService.ToolTip>
                                                     </Button>
                                                 </StackPanel>
-                                                <TextBox x:Name="EditorUrl" AutomationProperties.AutomationId="TxtEditorUrl" AutomationProperties.Name="URL (required unless No URL is checked)" TextChanged="EditorField_Changed" />
+                                                <TextBox x:Name="EditorUrl" AutomationProperties.AutomationId="TxtEditorUrl" AutomationProperties.Name="URL (required unless No URL is checked)" TextChanged="EditorAutofillUrl_Changed" />
                                             </StackPanel>
                                             <CheckBox x:Name="EditorNoUrl" Grid.Column="1" MinWidth="0" VerticalAlignment="Bottom" AutomationProperties.AutomationId="ChkEditorNoUrl" AutomationProperties.Name="No URL" Checked="EditorNoUrl_Changed" Unchecked="EditorNoUrl_Changed" Content="No URL" />
                                         </Grid>
                                         <TextBlock x:Name="EditorUrlError" AutomationProperties.AutomationId="TxtEditorUrlError" AutomationProperties.LiveSetting="Polite" Style="{StaticResource EditorFieldErrorStyle}" />
+                                        <TextBlock x:Name="EditorAutofillStatus" AutomationProperties.AutomationId="TxtEditorAutofillStatus"
+                                            Style="{StaticResource PasswordToolHintStyle}" TextWrapping="Wrap" />
                                     </StackPanel>
                                     <local:AppComboBox x:Name="EditorGroup" AutomationProperties.AutomationId="CmbEditorGroup" AutomationProperties.Name="Group (optional)" DisplayMemberPath="Label" ItemsSource="{x:Bind ViewModel.Vault.GroupOptions, Mode=OneWay}">
                                         <local:AppComboBox.Header><TextBlock><Run Text="Group" /><Run Text=" (Optional)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></TextBlock></local:AppComboBox.Header>
@@ -667,7 +674,8 @@
                                         <CheckBox x:Name="EditorFavorite" MinWidth="0" VerticalAlignment="Top" AutomationProperties.AutomationId="ChkEditorFavorite">
                                             <TextBlock Text="Favorite" TextWrapping="Wrap" />
                                         </CheckBox>
-                                        <CheckBox x:Name="EditorHideUrl" Grid.Column="1" MinWidth="0" VerticalAlignment="Top" AutomationProperties.AutomationId="ChkEditorHideUrl">
+                                        <CheckBox x:Name="EditorHideUrl" Grid.Column="1" MinWidth="0" VerticalAlignment="Top" AutomationProperties.AutomationId="ChkEditorHideUrl"
+                                            Checked="EditorAutofillUrl_Changed" Unchecked="EditorAutofillUrl_Changed">
                                             <TextBlock Text="Hide URL in list" TextWrapping="Wrap" />
                                         </CheckBox>
                                         <CheckBox x:Name="EditorHideNotes" Grid.Column="2" MinWidth="0" VerticalAlignment="Top" AutomationProperties.AutomationId="ChkEditorHideNotes">
@@ -964,8 +972,10 @@
                         <Border Style="{StaticResource PasswordToolCardStyle}">
                             <StackPanel Spacing="12">
                                 <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Browser integration" />
-                                <ToggleSwitch AutomationProperties.AutomationId="TglBrowserIntegration" AutomationProperties.Name="Allow browser integration for this app session" Header="Allow browser integration for this app session" IsOn="{x:Bind ViewModel.Settings.BrowserIntegrationEnabled, Mode=TwoWay}" />
+                                <ToggleSwitch AutomationProperties.AutomationId="TglBrowserIntegration" AutomationProperties.Name="Allow browser integration for this app session" Header="Allow browser integration for this app session" IsOn="{x:Bind ViewModel.Settings.BrowserIntegrationEnabled, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.Settings.CanChangeBrowserIntegration, Mode=OneWay}" />
                                 <TextBlock AutomationProperties.AutomationId="TxtBrowserIntegrationDescription" Style="{StaticResource PasswordToolDescriptionStyle}" Text="{x:Bind ViewModel.Settings.BrowserIntegrationDescription, Mode=OneWay}" TextWrapping="Wrap" />
+                                <Button AutomationProperties.AutomationId="BtnUnlockBrowserIntegration" Content="Unlock vault" Click="LockVaultButton_Click"
+                                        Visibility="{x:Bind local:MainPage.InvertBoolToVisibility(ViewModel.Settings.CanChangeBrowserIntegration), Mode=OneWay}" />
                             </StackPanel>
                         </Border>
 

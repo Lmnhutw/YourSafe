@@ -143,7 +143,7 @@
                   <div class="showcase-media"><img class="product-image"
                       src="./assets/homepage/desktop-vault.png"
                       alt="Giao diện kho mật khẩu YourSafe trên Windows với dữ liệu demo."
-                      width="1370" height="953"></div>
+                      width="1384" height="960"></div>
                   <div class="showcase-footer"><p>Quản lý tài khoản ngay trên
                       Windows. Ảnh dùng dữ liệu demo.</p><a
                       class="showcase-link" href="#features">Xem bên trong ứng
@@ -215,10 +215,8 @@
                 class="product-image"
                 src="./assets/homepage/desktop-vault.png"
                 alt="Danh sách tài khoản demo trong YourSafe, có ô tìm kiếm và nhóm Personal và Work."
-                width="1370" height="953" loading="lazy">
-              <figcaption>*Giao
-                diện vault nơi lưu trữ thông tin của bạn trong
-                YourSafe.</figcaption>
+                width="1384" height="960" loading="lazy">
+              <figcaption>*Kho mẫu với thời gian còn lại trước khi khóa và các nút xem, sao chép mã 2FA.</figcaption>
             </figure>
           </article>
           <article class="feature-panel feature-editor" data-reveal>
@@ -230,9 +228,8 @@
                 class="product-image"
                 src="./assets/homepage/desktop-editor.png"
                 alt="Màn hình sửa tài khoản demo của YourSafe, mật khẩu được che và các trường thông tin được chia nhóm."
-                width="1370" height="953" loading="lazy">
-              <figcaption>*Giao
-                diện trang chỉnh sửa thông tin</figcaption>
+                width="1384" height="960" loading="lazy">
+              <figcaption>*Màn hình chỉnh sửa tài khoản mẫu cho biết URL có dùng được cho autofill hay không.</figcaption>
             </figure>
           </article>
           <article class="feature-panel feature-tools" data-reveal>
@@ -264,8 +261,9 @@
                 (TOTP) trong YourSafe, bạn có thể xem và sao chép mã ngay
                 trong tiện ích. Mỗi lần xem hoặc sao chép mã đều cần xác
                 nhận riêng trong ứng dụng Windows.</p>
-              <p class="des-text">Để sử dụng, hãy mở khóa kho và bật kết nối
-                trình duyệt trong Cài đặt của YourSafe trên Windows.</p>
+              <p class="des-text">Bấm <strong>Open YourSafe</strong> trong tiện ích để mở ứng dụng
+                Windows hoặc đưa cửa sổ lên trước. Mở khóa kho, rồi bật kết nối
+                trình duyệt trong Cài đặt.</p>
               <p class="extension-note">Dùng trên Chrome, Edge và Brave.</p>
               <div class="extension-actions">
                 <a class="button button-primary"
@@ -291,7 +289,7 @@
                   class="product-image"
                   src="./assets/homepage/extension-code.png"
                   alt="Tiện ích hiển thị mã xác thực demo 123 456, bộ đếm thời gian và nút Copy."
-                  width="720" height="1098" loading="lazy"><figcaption>*Xem
+                  width="720" height="1136" loading="lazy"><figcaption>*Xem
                   và sao chép mã xác thực.</figcaption></figure>
             </div>
             <figure class="app-figure extension-context">
@@ -442,6 +440,11 @@
       <section class="section faq" id="faq" aria-labelledby="faq-title">
         <h2 id="faq-title">Bạn có thể đang thắc mắc</h2>
         <div class="faq-list">
+          <details id="download-help">
+            <summary>Không tải được hoặc không mở được bộ cài YourSafe thì làm sao?</summary>
+            <p><strong>Nếu tải không được:</strong> Thử tải lại từ nút tải chính thức. Nếu vẫn lỗi, <a href="https://github.com/Lmnhutw/YourSafe/releases/latest#assets">tải bản ZIP trong mục Assets trên GitHub</a>, giải nén toàn bộ rồi mở <strong>YourSafe.exe</strong>.</p>
+            <p><strong>Nếu tải xong nhưng Windows chặn khi mở:</strong> Nếu cảnh báo ghi <strong>Smart App Control</strong>, vào <strong>Windows Security → App &amp; browser control → Smart App Control settings</strong> để kiểm tra. Ưu tiên giữ tính năng này bật. Nếu đã xác minh tệp từ trang phát hành chính thức và vẫn quyết định tắt, chọn <strong>Off</strong> rồi thử mở lại bộ cài. Thao tác này giảm bảo vệ cho cả máy. Windows cũng có thể chặn tệp thực thi trong bản ZIP.</p>
+          </details>
           <details><summary>Có cần internet hoặc tài khoản trực tuyến
               không?</summary><p>Không cần tài khoản trực tuyến và không
               cần internet để lưu, tìm hoặc xem mật khẩu. Bạn chỉ cần kết nối
@@ -485,12 +488,11 @@
                 duyệt</a>.</p></details>
           <details><summary>Vì sao tiện ích không thấy tài khoản hoặc không
               điền
-              được?</summary><p>Kiểm tra ứng dụng YourSafe trên Windows đang
-              chạy, kho đã mở
-              khóa và kết nối trình duyệt đã bật. Tài khoản cần có địa chỉ
-              HTTPS
-              của đúng website đang mở; tài khoản không có địa chỉ website sẽ
-              không hiện trong tiện ích.</p><p>Sau đó mở lại hoặc làm mới tiện
+              được?</summary><p>Bấm <strong>Open YourSafe</strong> để mở ứng dụng Windows, rồi mở khóa
+              kho và kiểm tra kết nối trình duyệt trong Cài đặt. Địa chỉ đã lưu
+              phải khớp với website đang mở. Màn hình chỉnh sửa mục cho biết URL
+              có dùng được cho autofill hay không. Mục không có địa chỉ website
+              sẽ không hiện trong tiện ích.</p><p>Sau đó mở lại hoặc làm mới tiện
               ích, chọn tài khoản và xác nhận yêu cầu trong ứng dụng Windows.
               Tiện ích
               chỉ
@@ -511,7 +513,8 @@
               mặc định là một phút kể từ lúc mở khóa. Các thao tác trong ứng
               dụng không tự kéo dài thời gian này. Bạn có thể thay đổi thời
               gian
-              mở kho trong Cài đặt.</p><p>Trong phiên đăng nhập còn hiệu lực,
+              mở kho trong Cài đặt. Màn hình kho hiển thị thời gian còn lại trước
+              khi khóa.</p><p>Trong phiên đăng nhập còn hiệu lực,
               mở
               lại kho chỉ cần mật khẩu chính. Khi phiên kết thúc sau tối đa
               năm

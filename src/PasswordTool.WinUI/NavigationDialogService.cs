@@ -28,8 +28,11 @@ internal sealed class NavigationDialogService(ISensitiveClipboardService clipboa
         var dialog = new AppContentDialog { Title = title, Content = panel, PrimaryButtonText = confirmText, CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Primary };
         password.PasswordChanged += (_, _) => InlineValidation.ClearError(password, error);
         InlineValidation.AttachAsyncSubmit(dialog, password, error, async token =>
-            new OperationResult(await flow.ValidateMasterPasswordAsync(password.Password, token),
-                "The Master Password is incorrect. Please try again."), cancellationToken);
+        {
+            var value = password.Password;
+            if (string.IsNullOrEmpty(value)) return new OperationResult(false, "Enter your Master Password.");
+            return new OperationResult(await flow.ValidateMasterPasswordAsync(value, token), "The Master Password is incorrect. Please try again.");
+        }, cancellationToken);
         dialog.Opened += (_, _) => password.Focus(FocusState.Programmatic);
         try { return await lifetime.ShowAsync(dialog, cancellationToken, () => flow.IsCurrentUnlock(version)) == ContentDialogResult.Primary ? password.Password : null; }
         finally { password.Password = string.Empty; }

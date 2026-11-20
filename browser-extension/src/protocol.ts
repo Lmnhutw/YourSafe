@@ -72,7 +72,8 @@ export function isResponse(value: unknown, request: Request): value is Response 
   if (!record(value) || !only(value, ['version', 'requestId', 'ok', 'result', 'error'])
     || value.version !== 3 || value.requestId !== request.requestId || typeof value.ok !== 'boolean') return false;
   if (!value.ok) return value.result === undefined && typeof value.error === 'string'
-    && ['locked', 'integrationDisabled', 'protocolMismatch', 'unavailable', 'desktopUnavailable', 'invalidRequest'].includes(value.error);
+    && (['locked', 'integrationDisabled', 'protocolMismatch', 'unavailable', 'desktopUnavailable', 'invalidRequest'].includes(value.error)
+      || value.error === 'approvalDeclined' && ['getCredentialSecret', 'getCredentialTotp', 'copyCredentialTotp'].includes(request.action));
   if (value.error !== undefined) return false;
   switch (request.action) {
     case 'findCredentials': return isDiscovery(value.result);

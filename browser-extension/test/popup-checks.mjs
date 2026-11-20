@@ -24,7 +24,8 @@ const account = { id: '11111111-1111-1111-1111-111111111111', title: '<Account>'
 const discovery = accounts => ({ ok: true, result: { token: 'consent', origin: 'https://example.com', accounts, truncated: false } });
 async function scenario(result, resumed = { resumed: false }) {
   const elements = Object.fromEntries(['status', 'origin', 'accounts', 'show-app', 'refresh', 'totp-panel', 'totp-title', 'totp-username',
-    'totp-code', 'totp-countdown', 'totp-progress', 'totp-copy', 'totp-close', 'cancel', 'integration-off', 'integration-off-open', 'open-app-feedback'].map(id => [id, new Element()]));
+    'totp-code', 'totp-countdown', 'totp-progress', 'totp-copy', 'totp-close', 'cancel', 'integration-off', 'integration-off-guide',
+    'integration-off-open', 'open-app-feedback'].map(id => [id, new Element()]));
   const requests = [], callbacks = new Map(), timeouts = new Map(), windowEvents = {};
   let timerId = 0, now = 1900000010000, monotonic = 1000, replyHook, disconnected = false;
   const onMessage = event(), onDisconnect = event();
@@ -65,7 +66,15 @@ assert.deepEqual(ready.requests.map(request => request.action), ['resume', 'disc
 const buttons = ready.elements.accounts.querySelectorAll();
 assert.equal(buttons[0].textContent, 'Fill');
 assert.equal(buttons[1].textContent, 'View code');
+let finishFill;
+ready.setReply(message => message.action === 'select' ? new Promise(resolve => { finishFill = resolve; }) : undefined);
 buttons[0].click();
+assert.equal(ready.elements.status.textContent, 'Fill password for <Account> (synthetic). Approve in YourSafe on Windows.');
+assert.equal(buttons[0].disabled, true);
+assert.equal(ready.elements.refresh.disabled, true);
+buttons[0].click();
+assert.equal(ready.requests.filter(request => request.action === 'select').length, 1, 'pending Fill cannot be submitted twice');
+finishFill({ ok: true, result: { filled: true } });
 await settle();
 assert.equal(ready.elements.status.dataset.state, 'success');
 assert.equal(ready.elements.accounts.children.length, 0);
@@ -73,12 +82,32 @@ assert.equal(ready.requests[2].action, 'select');
 assert.equal(ready.elements.refresh.disabled, false);
 const locked = await scenario({ ok: false, error: 'locked' });
 assert.equal(locked.elements.status.dataset.state, 'locked');
-assert.equal(locked.elements.status.textContent, 'Your vault is locked. Open YourSafe, unlock your vault, then click Refresh here.');
+assert.match(locked.elements.status.textContent, /unlock it, then reopen this popup.*use Refresh/);
 locked.elements['show-app'].click();
 await settle();
 assert.equal(locked.elements.status.dataset.state, 'locked', 'Opening the app alone does not change vault status');
+assert.deepEqual(locked.requests.map(request => request.action), ['resume', 'discover', 'showApp']);
+const reopenedAfterUnlock = await scenario(discovery([account]));
+assert.deepEqual(reopenedAfterUnlock.requests.map(request => request.action), ['resume', 'discover'], 'reopening after unlock discovers without Refresh');
+assert.equal(reopenedAfterUnlock.elements.status.dataset.state, 'ready');
+locked.setReply(message => message.action === 'discover' ? discovery([account]) : undefined);
+locked.elements.refresh.click();
+await settle();
+assert.equal(locked.elements.status.dataset.state, 'ready', 'Refresh works when the popup stays open during unlock');
 const empty = await scenario(discovery([]));
 assert.equal(empty.elements.status.dataset.state, 'empty');
+assert.match(empty.elements.status.textContent, /edit the account and set its URL/);
+for (const [reason, guidance] of [
+  ['ambiguousFields', /Click the username or password field.*choose the account again/],
+  ['targetChanged', /Return to the sign-in page.*choose an account again/]
+]) {
+  const failure = await scenario(discovery([account]));
+  failure.setReply(message => message.action === 'select' ? { ok: false, error: reason } : undefined);
+  failure.elements.accounts.querySelectorAll()[0].click();
+  await settle();
+  assert.match(failure.elements.status.textContent, guidance);
+  assert.equal(failure.requests.filter(request => request.action === 'select').length, 1);
+}
 const unavailable = await scenario({ ok: false, error: 'desktopUnavailable' });
 assert.match(unavailable.elements.status.textContent, /Windows app is running.*update both YourSafe and this extension/);
 assert.equal(unavailable.elements.status.dataset.state, 'unavailable');
@@ -93,6 +122,24 @@ off.elements['integration-off-open'].click();
 await settle();
 assert.equal(off.elements.status.dataset.state, 'off');
 assert.match(off.elements['open-app-feedback'].textContent, /Settings.*Refresh/);
+const offAndLocked = await scenario({ ok: false, error: 'integrationLocked' });
+assert.equal(offAndLocked.elements.status.dataset.state, 'off-locked');
+assert.match(offAndLocked.elements['integration-off-guide'].textContent, /unlock your vault first.*Then enable Browser integration/);
+offAndLocked.elements['integration-off-open'].click();
+await settle();
+assert.match(offAndLocked.elements['open-app-feedback'].textContent, /Unlock your vault first, then enable/);
+for (const [reason, message] of [
+  ['approvalDeclined', /Request canceled in YourSafe on Windows/],
+  ['tabChanged', /Request canceled because you switched browser tabs or windows/]
+]) {
+  const reopened = await scenario(discovery([account]), { resumed: false, cancellation: reason });
+  assert.match(reopened.elements.status.textContent, message);
+  assert.deepEqual(reopened.requests.map(request => request.action), ['resume']);
+  assert.equal(reopened.elements.accounts.children.length, 0);
+  reopened.elements.refresh.click();
+  await settle();
+  assert.equal(reopened.elements.status.dataset.state, 'ready');
+}
 const incompatible = await scenario({ ok: false, error: 'protocolMismatch' });
 assert.equal(incompatible.elements.status.dataset.state, 'incompatible');
 assert.match(incompatible.elements.status.textContent, /Update both the Windows app and extension/);
@@ -175,6 +222,7 @@ assert.deepEqual(recovered.requests.map(request => request.action), ['resume'], 
 assert.equal(recovered.elements.cancel.hidden, false);
 assert.equal(recovered.elements.refresh.disabled, true);
 assert.equal(recovered.elements.status.dataset.state, 'pending');
+assert.equal(recovered.elements.status.textContent, 'View verification code for <Account> (synthetic). Approve in YourSafe on Windows.');
 assert.equal(recovered.elements['show-app'].disabled, false, 'Open YourSafe remains available during approval');
 recovered.setReply(message => message.action === 'showApp' ? { ok: false, error: 'desktopUnavailable' } : undefined);
 recovered.elements['show-app'].click();
@@ -184,6 +232,7 @@ assert.equal(recovered.elements.cancel.hidden, false);
 assert.equal(recovered.elements.cancel.disabled, false);
 assert.equal(recovered.elements['totp-panel'].hidden, false);
 assert.match(recovered.elements['open-app-feedback'].textContent, /Could not connect/);
+assert.match(recovered.elements['open-app-feedback'].textContent, /Windows Start menu/);
 assert.deepEqual(recovered.requests.map(request => request.action), ['resume', 'showApp'], 'Open does not rediscover, cancel or repeat the secret request');
 recovered.port.onMessage.emit({ event: 'updated', interaction: { ...state, busy: false,
   result: { code: '00001234', periodSeconds: 60, expiresAtUnixMs: 1900000070000 } } });
@@ -205,6 +254,7 @@ await recoverCopy.tick(1000);
 assert.equal(recoverCopy.elements.status.textContent, 'Copied the current code.');
 assert.deepEqual(recoverCopy.requests.map(request => request.action), ['resume'], 'Copy recovery never requests a code again');
 const cancelFill = await scenario(discovery([account]), { resumed: true, interaction: { ...state, action: 'select' } });
+assert.equal(cancelFill.elements.status.textContent, 'Fill password for <Account> (synthetic). Approve in YourSafe on Windows.');
 cancelFill.elements.cancel.click();
 await settle();
 assert.equal(cancelFill.requests[1].action, 'cancel', 'reopened password approval can be explicitly cancelled');

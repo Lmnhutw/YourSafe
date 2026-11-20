@@ -50,9 +50,9 @@ button:disabled { cursor: wait; opacity: .6; }
 ::selection { background: var(--accent); color: var(--surface); }
 footer { display: grid; gap: 8px; padding: 16px 20px 12px; background: var(--surface); border-top: 1px solid var(--border); }
 #cancel { width: 100%; }
-.actions { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 9px; }
+.actions { display: flex; gap: 9px; }
 #refresh { color: var(--muted); }
-#show-app { background: #204BDB; border-color: #204BDB; color: #fff; font-weight: 600; }
+#show-app { flex: 1; background: #204BDB; border-color: #204BDB; color: #fff; font-weight: 600; }
 #show-app:hover { background: #193CB0; border-color: #193CB0; color: #fff; }
 #show-app span { margin-left: 8px; }
 .footnote { margin: 2px 0 0; color: var(--muted); font-size: 10px; text-align: center; }

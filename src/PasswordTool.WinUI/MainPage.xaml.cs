@@ -51,6 +51,7 @@ public sealed partial class MainPage : Page
         InitializeAuthenticationValidation();
         signInTimer.Tick += async (_, _) =>
         {
+            UpdateVaultLockStatus();
             if (ViewModel.FlowState == AppFlowState.Unlocked && ViewModel.IsSignedIn && !ViewModel.IsVaultSessionActive)
             {
                 if (Interlocked.Exchange(ref lifecycleLockInProgress, 1) != 0) return;
@@ -485,11 +486,28 @@ public sealed partial class MainPage : Page
     {
         var locked = ViewModel.IsTableLocked;
         VaultLockLabel.Text = locked ? "Unlock vault" : "Lock vault";
-        VaultLockHint.Text = locked
-            ? "Your vault is locked. Enter your Master Password to view or edit saved items."
-            : "Lock your vault to protect saved passwords and verification codes. Your sign-in session stays active.";
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(VaultLockButton, VaultLockLabel.Text);
         VaultLockIcon.Glyph = locked != hover ? "\uE72E" : "\uE785";
+        UpdateVaultLockStatus();
+    }
+
+    private void UpdateVaultLockStatus()
+    {
+        var remaining = ViewModel.VaultLockRemaining;
+        if (remaining is { } time)
+        {
+            var seconds = (int)Math.Ceiling(time.TotalSeconds);
+            var countdown = seconds >= 3600 ? $"{seconds / 3600}:{seconds / 60 % 60:00}:{seconds % 60:00}"
+                : $"{seconds / 60}:{seconds % 60:00}";
+            VaultLockHint.Text = $"Vault locks in {countdown}";
+        }
+        else
+        {
+            VaultLockHint.Text = ViewModel.IsTableLocked
+                ? "Your vault is locked. Enter your Master Password to view or edit saved items."
+                : string.Empty;
+        }
+        EditorLockWarning.IsOpen = ViewModel.CurrentRoute == AppRoute.ItemEditor && remaining is { TotalSeconds: <= 15 };
     }
 
     private void VaultLockButton_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e) => UpdateVaultLockButton(true);
@@ -1061,6 +1079,7 @@ public sealed partial class MainPage : Page
         VaultPage.Visibility = route == AppRoute.Vault ? Visibility.Visible : Visibility.Collapsed;
         TrashPage.Visibility = route == AppRoute.Trash ? Visibility.Visible : Visibility.Collapsed;
         EditorPage.Visibility = route == AppRoute.ItemEditor ? Visibility.Visible : Visibility.Collapsed;
+        UpdateVaultLockStatus();
         HashToolPage.Visibility = route == AppRoute.HashTool ? Visibility.Visible : Visibility.Collapsed;
         BackupPage.Visibility = route == AppRoute.Backup ? Visibility.Visible : Visibility.Collapsed;
         SecurityCheckPage.Visibility = route == AppRoute.SecurityCheck ? Visibility.Visible : Visibility.Collapsed;
@@ -1249,6 +1268,7 @@ public sealed partial class MainPage : Page
         EditorFavorite.IsChecked = item.IsFavorite;
         EditorHideUrl.IsChecked = item.HideUrl;
         EditorHideNotes.IsChecked = item.HideNotes;
+        UpdateEditorAutofillStatus();
         editorBaseline = ReadEditorInput();
         ViewModel.Navigate(AppRoute.ItemEditor);
         ApplyRoute(AppRoute.ItemEditor);
@@ -1440,6 +1460,19 @@ public sealed partial class MainPage : Page
         if (editorValidationAttempted) ValidateEditor();
     }
 
+    private void EditorAutofillUrl_Changed(object sender, RoutedEventArgs e)
+    {
+        UpdateEditorAutofillStatus();
+        EditorField_Changed(sender, e);
+    }
+
+    private void UpdateEditorAutofillStatus()
+    {
+        if (EditorAutofillStatus is null) return;
+        EditorAutofillStatus.Text = VaultItemEditorInput.DescribeAutofillUrl(
+            EditorNoUrl.IsChecked == true ? string.Empty : EditorUrl.Text, EditorHideUrl?.IsChecked == true);
+    }
+
     private void EditorHelp_GotFocus(object sender, RoutedEventArgs e)
     {
         if (sender is Button { FocusState: FocusState.Keyboard } button && ToolTipService.GetToolTip(button) is ToolTip tooltip)
@@ -1498,6 +1531,7 @@ public sealed partial class MainPage : Page
         EditorFavorite.IsChecked = false;
         EditorHideUrl.IsChecked = false;
         EditorHideNotes.IsChecked = false;
+        UpdateEditorAutofillStatus();
     }
 
     private void EditorNoUrl_Changed(object sender, RoutedEventArgs e)
@@ -1505,6 +1539,7 @@ public sealed partial class MainPage : Page
         var noUrl = EditorNoUrl.IsChecked == true;
         EditorUrl.IsEnabled = !noUrl;
         if (noUrl) EditorUrl.Text = string.Empty;
+        UpdateEditorAutofillStatus();
         if (editorValidationAttempted) ValidateEditor();
     }
 

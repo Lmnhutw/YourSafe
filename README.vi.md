@@ -10,9 +10,9 @@ YourSafe là ứng dụng quản lý mật khẩu cục bộ trên Windows, hỗ
 
 Dữ liệu kho được lưu trên thiết bị của bạn. Ứng dụng desktop sử dụng WinUI 3, hoạt động không cần tài khoản trực tuyến, dịch vụ đám mây, thu thập dữ liệu sử dụng hoặc kết nối internet. Việc sao lưu mã hóa và cập nhật được thực hiện thủ công.
 
-![Kho YourSafe với chú thích về tìm kiếm, tab nhóm, thao tác được bảo vệ và nút khóa](docs/diagrams/vault-overview.svg)
+![Kho YourSafe mẫu với thời gian trước khi khóa, bộ lọc và thao tác 2FA](website/assets/homepage/desktop-vault.png)
 
-Ảnh chụp bản WinUI Debug với tài khoản demo giả lập. [Xem kích thước đầy đủ](docs/diagrams/vault-overview.svg) · [Bộ sơ đồ và mã nguồn có thể chỉnh sửa](docs/diagrams/README.md).
+Ảnh chụp bản WinUI Debug với tài khoản demo giả lập. [Xem kích thước đầy đủ](website/assets/homepage/desktop-vault.png) · [Bộ sơ đồ và mã nguồn có thể chỉnh sửa](docs/diagrams/README.md).
 
 ## Mục lục
 
@@ -119,7 +119,7 @@ Thay đổi mật khẩu và TOTP chỉ nằm trong bản nháp của trình ch�
 
 ![Lưu thông tin đăng nhập qua kiểm tra dữ liệu, mã hóa và ghi cặp tệp, kèm các nhánh lỗi](docs/diagrams/save-credential.svg)
 
-Chỉ bản nháp hợp lệ mới được mã hóa và lưu. Cặp tệp kho gồm `.storage` được mã hóa và siêu dữ liệu `.config` chứa các khóa đã được bọc. [Kích thước đầy đủ](docs/diagrams/save-credential.svg) · [Mã nguồn Mermaid](docs/diagrams/save-credential.mmd) · [Trình chỉnh sửa có chú thích](docs/diagrams/editor-overview.svg).
+Chỉ bản nháp hợp lệ mới được mã hóa và lưu. Cặp tệp kho gồm `.storage` được mã hóa và siêu dữ liệu `.config` chứa các khóa đã được bọc. [Kích thước đầy đủ](docs/diagrams/save-credential.svg) · [Mã nguồn Mermaid](docs/diagrams/save-credential.mmd) · [Ảnh trình chỉnh sửa desktop](website/assets/homepage/desktop-editor.png).
 
 </details>
 
@@ -128,6 +128,8 @@ Chỉ bản nháp hợp lệ mới được mã hóa và lưu. Cặp tệp kho g
 Tìm tài khoản và dùng thao tác hiện hoặc sao chép tương ứng. Ứng dụng kiểm tra phiên hiện tại trước khi trả về bí mật; các dòng trong danh sách không chứa giá trị mật khẩu hoặc bí mật TOTP.
 
 Khi kho đang mở khóa, thao tác thông thường không yêu cầu thêm mã Authenticator. Nếu bảng bị khóa trong một phiên đăng nhập còn hiệu lực, thao tác desktop có thể yêu cầu Master Password, mở kho cho thao tác đó rồi khóa lại ngay. **Unlock vault** mở kho trong khoảng thời gian đã cấu hình.
+
+Màn hình kho hiển thị thời gian còn lại trước khi khóa. Xóa từ khóa tìm kiếm giữ lại bộ lọc đang dùng. Cột Password và 2FA hiển thị dấu chấm khi có dữ liệu và để trống khi không có. Dùng biểu tượng con mắt hoặc sao chép ở cột 2FA để xem hoặc sao chép mã hiện tại. Màn hình chỉnh sửa mục cho biết URL có dùng được cho autofill hay không.
 
 Ứng dụng cố gắng xóa dữ liệu nhạy cảm khỏi clipboard sau 30 giây và khi khóa, nếu giá trị sao chép vẫn thuộc YourSafe. Nếu bạn đã thay clipboard bằng giá trị khác, giá trị mới được giữ lại. Việc dọn clipboard không thu hồi được dữ liệu đã dán hoặc đã bị ứng dụng khác đọc.
 
@@ -176,14 +178,14 @@ Với kho đã thiết lập: hạn đăng nhập và hạn mở kho là riêng 
 
 ## Tự động điền trên trình duyệt
 
-Tích hợp trình duyệt là tùy chọn và mặc định tắt trong mỗi phiên ứng dụng. YourSafe phải đang chạy. Giao thức v3 cho phép kiểm tra trạng thái và **Open YourSafe** khi tích hợp tắt; tìm tài khoản và truy cập bí mật yêu cầu bật tích hợp và chủ động mở khóa kho. Tiện ích không tự khởi chạy desktop, bật tích hợp hoặc mở khóa kho.
+Tích hợp trình duyệt là tùy chọn và mặc định tắt trong mỗi phiên ứng dụng. Giao thức v3 cho phép kiểm tra trạng thái và dùng **Open YourSafe** khi tích hợp tắt. Bấm **Open YourSafe** để đưa cửa sổ desktop lên trước hoặc khởi chạy YourSafe nếu ứng dụng đã đóng. Để tìm tài khoản và truy cập bí mật, người dùng cần bật tích hợp và mở khóa kho trên desktop.
 
 Lời nhắc tích hợp đang tắt chỉ xuất hiện ở Vault. Nút đóng ẩn lời nhắc trong phiên ứng dụng hiện tại; mở Settings hoặc trang khác chỉ tạm ẩn lời nhắc, không đánh dấu đã đóng.
 
 1. Lưu tài khoản với URL website đầy đủ trong ứng dụng desktop, sau đó bật tích hợp trình duyệt trong **Settings**.
 2. Mở website phù hợp và popup YourSafe trên trình duyệt. Bước tìm tài khoản trả về tiêu đề, tên đăng nhập và cờ cho biết có mật khẩu/TOTP, không yêu cầu thêm xác nhận trên desktop.
 3. Chọn tài khoản và **Fill**, **View code** hoặc **Copy code**. Mỗi thao tác yêu cầu một lần phê duyệt riêng trên desktop.
-4. Kiểm tra tài khoản, website đã lưu, website do trình duyệt báo và thao tác được yêu cầu. Sau khi được phê duyệt, Fill điền vào các trường phù hợp; không tự gửi biểu mẫu. Nếu kho bị khóa, dùng **Open YourSafe**, mở khóa trên desktop rồi làm mới popup. Khi đang chờ phê duyệt, **Open YourSafe** và **Cancel** vẫn khả dụng; mở ứng dụng không khởi động lại hoặc gia hạn yêu cầu.
+4. Kiểm tra tài khoản, website đã lưu, website do trình duyệt báo và thao tác được yêu cầu. Sau khi được phê duyệt, Fill điền vào các trường phù hợp; không tự gửi biểu mẫu. Nếu kho bị khóa, dùng **Open YourSafe**, mở khóa trên desktop rồi mở lại popup. Dùng **Refresh** nếu popup vẫn mở. Khi đang chờ phê duyệt, **Open YourSafe** và **Cancel** vẫn khả dụng; mở ứng dụng không khởi động lại hoặc gia hạn yêu cầu.
 
 Đối chiếu dùng origin của URL: giao thức, tên máy chủ đã chuẩn hóa và cổng hiệu lực. Đường dẫn không giới hạn việc đối chiếu; tên miền con hoặc cổng khác được xem là origin khác. Hỗ trợ HTTPS công khai và HTTP loopback được cho phép rõ ràng. URL bị thiếu, không hợp lệ hoặc không liên quan bị loại bỏ.
 
