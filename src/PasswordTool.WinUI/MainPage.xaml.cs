@@ -49,6 +49,7 @@ public sealed partial class MainPage : Page
         InitializeComponent();
         SubscribeFormValidation();
         InitializeAuthenticationValidation();
+        InitializeUpdateChecks();
         signInTimer.Tick += async (_, _) =>
         {
             UpdateVaultLockStatus();

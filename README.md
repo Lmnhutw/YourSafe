@@ -74,7 +74,9 @@ Get-FileHash .\YourSafe-<version>-win-x64.zip -Algorithm SHA256
 
 If a release is marked `SIGNED`, also verify the executable's signature through **Properties → Digital Signatures**, or use `signtool verify /pa /tw <file>` with the Windows SDK tools.
 
-Release builds are self-contained: you do not need to install .NET or the Windows App SDK runtime separately. New versions are installed manually; YourSafe has no auto-updater.
+Release builds are self-contained. You do not need to install .NET or the Windows App SDK runtime separately.
+
+Open **Settings → YourSafe updates** to check for a newer Windows release or enable daily checks while the app is open. Daily checks are off by default. When a new version is available, **View release** opens GitHub so you can download and install it manually.
 
 ### Upgrade, uninstall, and portable use
 

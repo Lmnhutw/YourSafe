@@ -76,7 +76,9 @@ Get-FileHash .\YourSafe-<version>-win-x64.zip -Algorithm SHA256
 
 Nếu bản phát hành được đánh dấu `SIGNED`, hãy kiểm tra thêm chữ ký của tệp thực thi tại **Properties → Digital Signatures**, hoặc dùng `signtool verify /pa /tw <file>` với công cụ Windows SDK.
 
-Các bản release đóng gói sẵn runtime: bạn không cần cài riêng .NET hoặc Windows App SDK runtime. Phiên bản mới được cài thủ công; YourSafe không có trình tự động cập nhật.
+Các bản release đóng gói sẵn runtime. Bạn không cần cài riêng .NET hoặc Windows App SDK runtime.
+
+Mở **Settings → YourSafe updates** để kiểm tra bản Windows mới hoặc bật kiểm tra hằng ngày khi ứng dụng đang mở. Tùy chọn hằng ngày mặc định tắt. Khi có bản mới, **View release** mở GitHub để bạn tự tải và cài đặt.
 
 ### Nâng cấp, gỡ cài đặt và dùng bản portable
 

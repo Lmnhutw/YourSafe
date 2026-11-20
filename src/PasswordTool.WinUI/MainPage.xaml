@@ -248,6 +248,12 @@
                     <InfoBar x:Name="AutofillPendingInfoBar" AutomationProperties.AutomationId="StatusAutofillPending" AutomationProperties.LiveSetting="Polite" IsClosable="False" IsOpen="False" Title="Browser approval pending" Message="A browser request is waiting for review. Finish any open dialog to continue, or cancel it from the extension." Severity="Informational" />
                     <InfoBar x:Name="EditorLockWarning" AutomationProperties.AutomationId="StatusEditorLockWarning" AutomationProperties.LiveSetting="Polite"
                         IsClosable="False" IsOpen="False" Severity="Warning" Title="Vault locks soon" Message="Save your changes before it locks." />
+                    <InfoBar x:Name="UpdateAvailableInfoBar" AutomationProperties.AutomationId="StatusUpdateAvailable" AutomationProperties.LiveSetting="Polite"
+                        IsClosable="True" IsOpen="False" Severity="Informational" Message="Review the release and download it when you’re ready.">
+                        <InfoBar.ActionButton>
+                            <HyperlinkButton x:Name="UpdateBannerLink" AutomationProperties.AutomationId="LnkUpdateBanner" Content="View release" />
+                        </InfoBar.ActionButton>
+                    </InfoBar>
                 </StackPanel>
                 <Grid x:Name="VaultPage" Grid.Row="1" Padding="{StaticResource PasswordToolPagePadding}">
                     <Grid.RowDefinitions>
@@ -976,6 +982,24 @@
                                 <TextBlock AutomationProperties.AutomationId="TxtBrowserIntegrationDescription" Style="{StaticResource PasswordToolDescriptionStyle}" Text="{x:Bind ViewModel.Settings.BrowserIntegrationDescription, Mode=OneWay}" TextWrapping="Wrap" />
                                 <Button AutomationProperties.AutomationId="BtnUnlockBrowserIntegration" Content="Unlock vault" Click="LockVaultButton_Click"
                                         Visibility="{x:Bind local:MainPage.InvertBoolToVisibility(ViewModel.Settings.CanChangeBrowserIntegration), Mode=OneWay}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource PasswordToolCardStyle}">
+                            <StackPanel Spacing="12">
+                                <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="YourSafe updates" />
+                                <TextBlock x:Name="InstalledVersionText" AutomationProperties.AutomationId="TxtInstalledVersion"
+                                    Style="{StaticResource PasswordToolDescriptionStyle}" />
+                                <Button x:Name="CheckUpdatesButton" AutomationProperties.AutomationId="BtnCheckForUpdates"
+                                    Content="Check for updates" Click="CheckForUpdates_Click" />
+                                <ToggleSwitch x:Name="DailyUpdateToggle" AutomationProperties.AutomationId="TglDailyUpdateCheck"
+                                    Header="Check for updates daily" Toggled="DailyUpdateCheck_Toggled" />
+                                <TextBlock Style="{StaticResource PasswordToolDescriptionStyle}" TextWrapping="Wrap"
+                                    Text="Checks GitHub while YourSafe is open. You choose when to download and install." />
+                                <TextBlock x:Name="UpdateCheckStatus" AutomationProperties.AutomationId="TxtUpdateCheckStatus" AutomationProperties.LiveSetting="Polite"
+                                    Style="{StaticResource PasswordToolDescriptionStyle}" TextWrapping="Wrap" Visibility="Collapsed" />
+                                <HyperlinkButton x:Name="SettingsUpdateLink" AutomationProperties.AutomationId="LnkSettingsUpdate"
+                                    Content="View release" Visibility="Collapsed" />
                             </StackPanel>
                         </Border>
 

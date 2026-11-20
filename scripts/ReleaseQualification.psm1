@@ -444,12 +444,18 @@ function Assert-ReleaseBuildAndOfflineContract {
         (Join-Path $RepositoryRoot 'src\PasswordTool.WinUI')
     )
     $networkOrLoggingPattern = '(?i)using\s+System\.Net|\bHttpClient\b|\bIHttpClientFactory\b|\bWebRequest\b|\bWebClient\b|\bClientWebSocket\b|\bTcpClient\b|\bUdpClient\b|\bGrpcChannel\b|\bApplicationInsights\b|\bSentry\b|\bAutoUpdater\b|\bUpdateManager\b|\bILogger(?:<|\b)|\bLogInformation\s*\(|\bLogDebug\s*\(|\bTrace\.Write|\bDebug\.Write|\bConsole\.Write'
+    $updateCheckSource = Join-Path $RepositoryRoot 'src\PasswordTool.WinUI\ReleaseUpdateCheck.cs'
     foreach ($sourceRoot in $sourceRoots) {
         foreach ($sourceFile in @(Get-ChildItem -LiteralPath $sourceRoot -Recurse -File -Filter '*.cs' | Where-Object {
                     $_.FullName -notmatch '[\\/](?:bin|obj)[\\/]'
                 })) {
-            if ((Get-Content -LiteralPath $sourceFile.FullName -Raw) -match $networkOrLoggingPattern) {
-                throw "Offline release source verification found a network, updater, telemetry, or logging surface in '$($sourceFile.FullName)'."
+            $source = Get-Content -LiteralPath $sourceFile.FullName -Raw
+            if ($sourceFile.FullName -eq $updateCheckSource) {
+                # Only this file may use HttpClient for the public release metadata check.
+                $source = $source -creplace '(?m)^using System\.Net\.Http;\r?$', '' -creplace '\bHttpClient\b', ''
+            }
+            if ($source -match $networkOrLoggingPattern) {
+                throw "Release source verification found an unexpected network, updater, telemetry, or logging surface in '$($sourceFile.FullName)'."
             }
         }
     }

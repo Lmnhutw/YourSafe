@@ -58,7 +58,7 @@ The command does not trust the publish script's success output and does not writ
 - recalculates every declared SHA-256 value and rejects missing, extra, duplicate, modified, or undeclared payload/distribution files;
 - accepts only the public manifest fields `version`, `artifacts` (`fileName` and `sha256`), and `releaseNotes`;
 - rejects API/test/source content, vault files and paths, logs, certificates, keys, likely secret material, links, and reparse points;
-- verifies that `PasswordTool.Api` remains excluded, the WinUI/Presentation/Core sources have no runtime networking, updater, telemetry, or logging surface, and the vault storage source contract remains `%LocalAppData%\PasswordTool`;
+- verifies that `PasswordTool.Api` remains excluded and that the only allowed HTTP client in the Windows app sources belongs to the GitHub release check. The guard still checks for updater, telemetry, and logging code and for the `%LocalAppData%\PasswordTool` vault path;
 - checks the Inno Setup template's per-user x64 identity, publisher field, upgrade identity, install location, payload source, Start Menu entry, and non-deletion contract.
 
 A successful command means the automated artifact and source-contract checks passed. Read every status field and limitation in the result:
@@ -142,7 +142,9 @@ It may contain only the release version, distribution artifact names and SHA-256
 
 ## Manual updates
 
-YourSafe has no auto-updater, polling service, runtime update check, silent download, or runtime network dependency. Users obtain a newer installer or portable ZIP from the repository's GitHub Releases page, review `release-status.txt`, verify the package, and run it manually. Current automated builds are unsigned developer/test releases; a signed release requires the controlled signing and verification steps above. Normal installer upgrades keep `%LocalAppData%\PasswordTool` intact.
+The Windows app reads its version from the assembly version stamped by the release build. **Settings → YourSafe updates** checks GitHub's latest published release on demand. Users can opt in to daily checks while the app is open. The check makes a request for public release metadata, compares versions locally, and offers only a newer version with a published Windows package. It never downloads or runs an installer in the app.
+
+Users can open the GitHub release page, review `release-status.txt`, verify the installer or portable ZIP, and install it manually. Current automated builds are unsigned developer/test releases. A signed release requires the controlled signing and verification steps above. Normal installer upgrades keep `%LocalAppData%\PasswordTool` intact.
 
 ## Controlled-machine manual smoke checklist
 
