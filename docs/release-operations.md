@@ -82,7 +82,9 @@ pwsh .\scripts\Test-ReleaseQualification.ps1
 
 When compiled, the installer is per-user and x64 scoped. It installs the validated release payload to `%LocalAppData%\Programs\YourSafe`, creates a `YourSafe` Start Menu entry, and keeps the same Inno Setup application identifier for in-place upgrades. It does not request administrator privileges.
 
-Vault data remains in `%LocalAppData%\PasswordTool`, outside the install directory. Upgrade and uninstall do not remove `.config`, `.storage`, `.trusted-unlock`, `.snapshots`, encrypted backups, logs, or any other vault data. The uninstaller removes application binaries only; users must consciously delete local vault material themselves if that is their intent.
+Vault data remains in `%LocalAppData%\PasswordTool`, outside the install directory. Upgrade and uninstall leave `.config`, `.storage`, `.trusted-unlock`, `.snapshots`, encrypted backups, and other vault data on disk.
+
+The installer records its executable path for **Settings → Startup**. The app writes the current user's startup entry when the user enables the option. When upgrading in place, also check that the startup choice is preserved. In a disposable Windows account, verify sign-in with the option on and off, including disabling YourSafe in Windows Startup Apps. Uninstall should remove an entry pointing to that installation and preserve the test vault.
 
 When `ISCC.exe` is available and an installer is produced, qualification verifies the static installer contract and that the installer is the only file in `installer\`, is declared in both the checksums and public manifest, and is signed/timestamp-verified when the release claims `SIGNED`. On the controlled release machine, also perform a clean per-user install, launch from the Start Menu, upgrade over the prior approved version, and uninstall. Confirm throughout that `%LocalAppData%\PasswordTool` is neither the installation directory nor created, bundled, migrated, exposed, or removed by the installer.
 

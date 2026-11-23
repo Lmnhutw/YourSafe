@@ -551,8 +551,9 @@ function Assert-InstallerTemplateContract {
         $manifestName = if ($_ -match 'yoursafe-native-edge\.json') { 'yoursafe-native-edge.json' } else { 'yoursafe-native-chrome.json' }
         "$_; Check: FileExists(ExpandConstant('{app}\$manifestName'))"
     })
-    if ($registryLines.Count -ne 3 -or @($registryLines | Where-Object { $expectedRegistry -cnotcontains $_ }).Count -gt 0) {
-        throw 'Installer must register only the production host in HKCU for Chrome, Edge and Brave.'
+    $expectedRegistry += 'Root: HKCU64; Subkey: "Software\Lmnhutw\YourSafe"; ValueType: string; ValueName: "InstalledExecutable"; ValueData: "{app}\YourSafe.exe"'
+    if ($registryLines.Count -ne $expectedRegistry.Count -or @($expectedRegistry | Where-Object { $registryLines -cnotcontains $_ }).Count -gt 0) {
+        throw 'Installer must register only the production hosts and the YourSafe installation marker in HKCU.'
     }
 }
 

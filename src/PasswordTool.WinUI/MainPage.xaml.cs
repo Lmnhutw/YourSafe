@@ -1086,7 +1086,10 @@ public sealed partial class MainPage : Page
         SecurityCheckPage.Visibility = route == AppRoute.SecurityCheck ? Visibility.Visible : Visibility.Collapsed;
         SettingsPage.Visibility = route == AppRoute.Settings ? Visibility.Visible : Visibility.Collapsed;
         if (route == AppRoute.Settings)
+        {
+            RefreshStartupSetting();
             VaultDurationInput.SelectedIndex = Array.IndexOf(new[] { 1, 2, 5, 10, 30, 60, 120, 300 }, (int)ViewModel.Settings.VaultDurationMinutes);
+        }
     }
 
     private async void AddItemButton_Click(object sender, RoutedEventArgs e) => await OpenNewEditorAsync();

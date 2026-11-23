@@ -64,6 +64,8 @@ Download a Windows x64 package from [GitHub Releases](https://github.com/Lmnhutw
 - **Installer (`YourSafe-setup.exe`):** installs for the current Windows user and adds a YourSafe Start Menu shortcut without requiring administrator access.
 - **Portable ZIP:** extract the complete archive to a folder you control, then run `YourSafe.exe`. Keep the executable and its adjacent files together.
 
+In the installer version, **Settings → Startup** lets you open YourSafe when you sign in to Windows. It is off by default. When enabled, YourSafe opens its sign-in window with the vault locked. You can also disable it in Windows **Settings → Apps → Startup**.
+
 The automated tag workflow currently produces `UNSIGNED` builds for developer/test evaluation. Windows may show an unknown-publisher warning. Signed distribution requires separately configured signing; do not assume a release is signed because it has a version tag.
 
 Compare the downloaded package's SHA-256 value with its entry in `checksums.sha256`:

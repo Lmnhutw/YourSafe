@@ -62,7 +62,8 @@ public partial class App : Application
         singleInstance = SingleInstanceGuard.TryAcquire(out var acquired);
         if (!acquired)
         {
-            NativeDialog.ShowInformation("YourSafe is already running.");
+            if (Environment.GetCommandLineArgs() is not [_, WindowsStartupRegistration.LaunchArgument])
+                NativeDialog.ShowInformation("YourSafe is already running.");
             singleInstance.Dispose();
             singleInstance = null;
             Exit();

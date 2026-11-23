@@ -41,6 +41,7 @@ Filename: "{app}\YourSafe.exe"; Description: "Launch YourSafe"; Flags: nowait po
 Root: HKCU32; Subkey: "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.yoursafe.autofill"; ValueType: string; ValueName: ""; ValueData: "{app}\yoursafe-native-chrome.json"; Check: FileExists(ExpandConstant('{app}\yoursafe-native-chrome.json'))
 Root: HKCU32; Subkey: "Software\Google\Chrome\NativeMessagingHosts\com.yoursafe.autofill"; ValueType: string; ValueName: ""; ValueData: "{app}\yoursafe-native-chrome.json"; Check: FileExists(ExpandConstant('{app}\yoursafe-native-chrome.json'))
 Root: HKCU32; Subkey: "Software\Microsoft\Edge\NativeMessagingHosts\com.yoursafe.autofill"; ValueType: string; ValueName: ""; ValueData: "{app}\yoursafe-native-edge.json"; Check: FileExists(ExpandConstant('{app}\yoursafe-native-edge.json'))
+Root: HKCU64; Subkey: "Software\Lmnhutw\YourSafe"; ValueType: string; ValueName: "InstalledExecutable"; ValueData: "{app}\YourSafe.exe"
 
 [Code]
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
@@ -49,6 +50,15 @@ var
 begin
   if CurUninstallStep = usUninstall then
   begin
+    if RegQueryStringValue(HKCU64, 'Software\Microsoft\Windows\CurrentVersion\Run', 'YourSafe', Value) and
+      (CompareText(Value, ExpandConstant('"{app}\YourSafe.exe" --windows-startup')) = 0) then
+      RegDeleteValue(HKCU64, 'Software\Microsoft\Windows\CurrentVersion\Run', 'YourSafe');
+    if RegQueryStringValue(HKCU64, 'Software\Lmnhutw\YourSafe', 'InstalledExecutable', Value) and
+      (CompareText(Value, ExpandConstant('{app}\YourSafe.exe')) = 0) then
+    begin
+      RegDeleteValue(HKCU64, 'Software\Lmnhutw\YourSafe', 'InstalledExecutable');
+      RegDeleteKeyIfEmpty(HKCU64, 'Software\Lmnhutw\YourSafe');
+    end;
     if RegQueryStringValue(HKCU32, 'Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.yoursafe.autofill', '', Value) and
       (CompareText(Value, ExpandConstant('{app}\yoursafe-native-chrome.json')) = 0) then
     begin

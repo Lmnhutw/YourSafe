@@ -66,6 +66,8 @@ Tải gói Windows x64 từ [GitHub Releases](https://github.com/Lmnhutw/Passwor
 - **Bộ cài (`YourSafe-setup.exe`):** cài cho người dùng Windows hiện tại và tạo lối tắt YourSafe trong Start Menu, không cần quyền quản trị viên.
 - **Bản ZIP portable:** giải nén toàn bộ vào thư mục bạn kiểm soát, sau đó chạy `YourSafe.exe`. Giữ tệp thực thi và các tệp đi kèm trong cùng thư mục.
 
+Với bản dùng bộ cài, vào **Settings → Startup** để chọn tự mở YourSafe khi đăng nhập Windows. Tùy chọn này mặc định tắt. Khi bật, YourSafe hiển thị cửa sổ đăng nhập và kho vẫn khóa. Bạn cũng có thể tắt trong **Cài đặt Windows → Ứng dụng → Khởi động**.
+
 Workflow tự động theo tag hiện tạo bản `UNSIGNED` để lập trình viên dùng thử và đánh giá. Windows có thể hiển thị cảnh báo nhà phát hành không xác định. Việc phân phối bản có chữ ký cần cấu hình ký riêng; tag phiên bản không đồng nghĩa với bản phát hành đã được ký.
 
 Đối chiếu giá trị SHA-256 của gói tải xuống với mục tương ứng trong `checksums.sha256`:

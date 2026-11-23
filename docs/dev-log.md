@@ -1,5 +1,18 @@
 # YourSafe dev log
 
+## v0.1.10 — 2026-11-23
+
+### Windows startup and Settings
+
+- Added **Open at startup** for installer-based copies of YourSafe. It defaults to Off. When enabled, YourSafe opens its sign-in screen at Windows sign-in with the vault locked.
+- Installer upgrades at the same location preserve the startup choice. Uninstall removes the startup entry for that installation and preserves vault data.
+- Moved **Startup** and **YourSafe updates** to the end of Settings, shortened their help text, and fixed the extra gap left by the closed Settings notification.
+
+### Verification
+
+- Tested opt-in, opt-out, in-place upgrade, and uninstall with an isolated WinUI and installer fixture. The startup command opened a single sign-in window. A full Windows sign-out and sign-in was outside the test.
+- 201 .NET tests passed. The final Settings layout built successfully and both sections were verified in the WinUI preview.
+
 ## v0.1.9 — 2026-11-20
 
 ### Windows update checks
